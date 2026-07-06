@@ -1,0 +1,59 @@
+---
+description: Core development principles (KISS, DRY, YAGNI, Declarative-over-Imperative, SRP) + a clean-code baseline for all keystash code, human or AI-generated. Always read spec.md and plan.md before implementing.
+alwaysApply: true
+---
+
+# Core Development Principles
+
+These principles are the foundation of every architectural and code-level decision in keystash.
+All code — human-written or AI-generated — must follow them. They are intentionally
+**language-agnostic**; the concrete tech stack, versions, and per-feature details live in `spec.md`.
+
+## 0. Stay on track — read `spec.md` and `plan.md` first
+
+`spec.md` (the *what & why*: features, architecture, data model, security) and `plan.md`
+(the *how & when*: phased build order, exit criteria) are the source of truth. Before writing or
+changing code:
+
+1. **Read the relevant part of `spec.md`** — confirm the feature, data shape, module boundaries, and security rules (e.g. secrets stay in the Rust core; one encrypted file; offline-only).
+2. **Read `plan.md`** — work the **current phase** and meet its exit criteria; do not build later phases ahead of time (see YAGNI).
+3. **Honor the architecture** — the feature-module registry, the two surfaces (command bar + Dashboard), and the offline-first constraint are non-negotiable unless the spec itself changes.
+4. **If a request conflicts with `spec.md`/`plan.md`** — do **not** silently deviate. Flag it, cite the section, explain the tradeoff, and proceed only after the user explicitly confirms.
+5. **If the docs are silent or ambiguous** — pick the simplest option consistent with these principles, state the assumption, and keep going.
+6. **Keep the docs honest** — if a change alters documented behavior, scope, or the plan, update `spec.md`/`plan.md` in the same change.
+
+## 1. KISS — Keep It Simple
+- The simplest solution that satisfies the requirement is the correct one.
+- If an implementation is hard to explain, it is wrong — refactor for clarity first, performance second (unless there is a real, *measured* bottleneck).
+- Keep entry points and glue/wiring thin; don't hide business logic in them.
+
+## 2. DRY — Don't Repeat Yourself
+- Every piece of knowledge has a single, authoritative representation. Use named constants for repeated values; extract shared logic into well-named functions/modules; reuse what exists before adding new code.
+- **Do not** DRY *coincidental* duplication. Only abstract when the *reason to change* is shared (Rule of Three — wait for the third occurrence before generalizing).
+
+## 3. YAGNI — You Aren't Gonna Need It
+- Implement things when they are actually needed, never because you foresee needing them.
+- No speculative parameters, options, or generic abstractions "just in case." No premature optimization, caching, or memoization without a measured problem.
+- Solve the current task (and the current `plan.md` phase), not a hypothetical future one.
+
+## 4. Declarative over Imperative
+- Express *what* the code should do, not the step-by-step *how*, wherever it improves clarity.
+- Prefer data, configuration, and schemas over sprawling conditional control flow. Derive state rather than manually mutating it.
+
+## 5. Single Responsibility (SRP)
+- A function, module, or component should have one — and only one — reason to change.
+- Separate "decide/compute" from "render/perform side effects." Keep pure logic apart from I/O and UI — this is also what makes the code testable (see `spec.md` §2.2).
+- If you need the word "AND" to describe what a unit does, split it.
+
+## Clean-code baseline
+- **Meaningful names** that reveal intent; avoid abbreviations that aren't universal.
+- **Constants over magic numbers/strings** — keep them named and grouped.
+- **Self-documenting code**; comments explain the *why* (trade-offs, constraints, non-obvious side effects), not the *what*. Remove stale comments in code you touch.
+- **Small, focused units** — split a function/file once it outgrows one clear responsibility.
+- **Encapsulation** — hide internals, expose a small clear interface (aligns with the module registry's public API in `spec.md` §3.4).
+- **Boy Scout Rule** — leave code you touch a little cleaner than you found it, but keep refactors scoped to the task.
+- **Tests follow logic** — cover pure logic and edge cases; test behavior, not implementation (frameworks in `spec.md` §2.2).
+- **Version control** — small, focused commits with clear messages.
+
+> When two principles are in tension (e.g. DRY vs KISS), prefer the one that keeps the code
+> **simplest to understand and change**. When genuinely unsure, re-read `spec.md`/`plan.md` and ask.
