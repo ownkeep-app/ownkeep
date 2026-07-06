@@ -6,16 +6,16 @@ function App() {
   const setQuery = useShellStore((state) => state.setQuery);
 
   return (
-    <main className="flex min-h-screen items-start justify-center bg-background px-4 py-16 text-foreground">
+    <main className="flex h-screen items-center justify-center overflow-hidden bg-background px-5 py-2 text-foreground">
       <section className="w-full max-w-2xl">
-        <h1 className="mb-4 text-2xl font-semibold">keystash</h1>
         <Command
-          className="border border-border shadow-sm"
+          className="rounded-lg border border-border shadow-sm"
           label="Search keystash"
         >
           <CommandInput
             aria-label="Search keystash"
             autoFocus
+            className="h-16 text-xl"
             onValueChange={setQuery}
             placeholder="Search keystash"
             value={query}

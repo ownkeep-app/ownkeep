@@ -8,8 +8,8 @@ describe("App", () => {
     render(<App />);
 
     expect(
-      screen.getByRole("heading", { name: "keystash" }),
-    ).toBeInTheDocument();
+      screen.queryByRole("heading", { name: "keystash" }),
+    ).not.toBeInTheDocument();
     expect(
       screen.getByRole("combobox", { name: /search keystash/i }),
     ).toBeInTheDocument();

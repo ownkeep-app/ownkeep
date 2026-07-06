@@ -4,18 +4,18 @@
   "version": "0.1.0",
   "identifier": "com.shaojiang.keystash",
   "build": {
-    "beforeDevCommand": "pnpm dev",
+    "beforeDevCommand": "pnpm dev:web",
     "devUrl": "http://localhost:1420",
-    "beforeBuildCommand": "pnpm build",
+    "beforeBuildCommand": "pnpm build:web",
     "frontendDist": "../dist"
   },
   "app": {
     "windows": [
       {
         "label": "main",
-        "title": "keystash",
+        "title": "",
         "width": 720,
-        "height": 220,
+        "height": 112,
         "resizable": false,
         "devtools": false
       }
