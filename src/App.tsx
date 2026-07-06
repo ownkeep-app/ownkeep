@@ -1,9 +1,22 @@
+import { useEffect } from "react";
+
 import { Command, CommandInput } from "@/components/ui/command";
+import { hideWindow } from "@/lib/window";
 import { useShellStore } from "@/stores/shell-store";
 
 function App() {
   const query = useShellStore((state) => state.query);
   const setQuery = useShellStore((state) => state.setQuery);
+
+  useEffect(() => {
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        void hideWindow();
+      }
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
 
   return (
     <main className="flex h-screen items-center justify-center overflow-hidden bg-background px-5 py-2 text-foreground">
