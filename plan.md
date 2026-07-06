@@ -21,7 +21,7 @@ layering optional modules on the stable core.
 
 | Phase | Focus | Exit criteria | Est. | Week (from) |
 |---|---|---|---|---|
-| **0** | Scaffolding, shell, UI kit + tests | Hotkey toggles an empty window; tray alive; shadcn + Lucide wired; `npm test` + `cargo test` green | 2 d | W1 · 2026-07-06 |
+| **0** | Scaffolding, shell, UI kit + tests | Hotkey toggles an empty window; tray alive; shadcn + Lucide wired; `pnpm test` + `cargo test` green | 2 d | W1 · 2026-07-06 |
 | **1** | 🔐 Crypto core (Rust) | Create-vault, unlock (password **and** recovery code), auto-lock, atomic writes — all unit-tested | 3–5 d | W1–W2 · 07-06 |
 | **2** | App shell + registry + **Dashboard shell** | `FeatureModule` contract, registry, Dashboard (sidebar + content pane), onboarding (+ Emergency Kit), settings shell | 3–4 d | W3 · 07-20 |
 | **3** | 🔑 Passwords module (F1) | Add/edit/delete; **concealed-clipboard copy** never touches the DOM | 2–3 d | W3–W4 · 07-20 |
@@ -55,13 +55,14 @@ with a **browsable Dashboard** (sidebar + content pane) you can actually use (~2
 > **Testing is per-phase, not a phase of its own:** every module ships Vitest tests for its pure logic (parsers, ranking, math, reminders) and the Rust core ships `cargo test` / `proptest`; each phase's Exit criteria include green tests. See spec §2.2.
 
 ### Phase 0 — Scaffolding, shell, UI kit + test setup · 2 d
-- [ ] `create-tauri-app` (React + TS template); Tailwind + Zustand; strict CSP; devtools off in prod.
-- [ ] **UI kit:** `shadcn init` (components.json, `@/` path alias, CSS-variable theme tokens, `tailwindcss-animate`); add `lucide-react`; scaffold first components — `button input command`.
-- [ ] **Test setup:** Vitest + React Testing Library + `@testing-library/user-event` + jsdom; wire `npm test` and `vitest --coverage`; confirm `cargo test` runs. One trivial passing test on each side.
+- [x] `create-tauri-app` (React + TS template); Tailwind + Zustand; strict CSP; devtools off in prod.
+- [x] **UI kit:** `shadcn init` (components.json, `@/` path alias, CSS-variable theme tokens, `tailwindcss-animate`); add `lucide-react`; scaffold first components — `button input command`.
+- [ ] **Test setup:** Vitest + React Testing Library + `@testing-library/user-event` + jsdom; wire `pnpm test`, coverage, ESLint, and Prettier format checks; confirm `cargo test` runs. One trivial passing test on each side.
 - [ ] Add plugins: `global-shortcut`, `notification`, `fs`, `dialog`, `single-instance`.
 - [ ] Tray icon + `ActivationPolicy::Accessory`; window hides on blur/Esc, shows on hotkey.
 - [ ] Global hotkey (`Cmd+Shift+Space`) toggles an empty search window; single-instance re-focuses.
-- **Exit:** hotkey summons an empty window from any app; app survives window close (tray); `npm test` **and** `cargo test` run green.
+- [ ] Write `README.md` with project setup, dev run, test, production build/run, and troubleshooting instructions.
+- **Exit:** hotkey summons an empty window from any app; app survives window close (tray); `pnpm test` **and** `cargo test` run green.
 - **Deps:** none.
 
 ### Phase 1 — 🔐 Crypto core (Rust) · 3–5 d · *the make-or-break phase*
