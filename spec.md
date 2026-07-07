@@ -170,8 +170,8 @@ interface FeatureModule<T = unknown> {
   buildIndex(items: T[], ctx): IndexEntry[];   // → { id, type, searchString, displayLine, actions }
 
   ListView:   React.FC<{ items: T[] }>;        // dashboard right-pane: all of this module's content (§7.5)
-  DetailView: React.FC<{ item: T }>;
-  EditView:   React.FC<{ item?: T; onSave; onCancel }>;
+  DetailView?: React.FC<{ item: T }>;          // optional — filled in each module's own phase
+  EditView?:  React.FC<{ item?: T; onSave; onCancel }>;
   SettingsPanel?: React.FC;        // module-specific settings tab
 
   collectReminders?(items: T[], now: Date, settings): ReminderEvent[]; // scheduler hook (§8)

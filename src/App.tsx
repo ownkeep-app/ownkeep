@@ -1,42 +1,56 @@
 import { useEffect } from "react";
 
-import { Command, CommandInput } from "@/components/ui/command";
-import { hideWindow } from "@/lib/window";
-import { useShellStore } from "@/stores/shell-store";
+import { CommandBar } from "@/features/CommandBar";
+import { EmergencyKitScreen } from "@/features/auth/EmergencyKitScreen";
+import { LockScreen } from "@/features/auth/LockScreen";
+import { OnboardingScreen } from "@/features/auth/OnboardingScreen";
+import { ResetMasterScreen } from "@/features/auth/ResetMasterScreen";
+import { Dashboard } from "@/features/dashboard/Dashboard";
+import { currentWindowLabel } from "@/lib/window";
+import { useVaultStore } from "@/stores/vault-store";
 
-function App() {
-  const query = useShellStore((state) => state.query);
-  const setQuery = useShellStore((state) => state.setQuery);
-
-  useEffect(() => {
-    function onKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") {
-        void hideWindow();
-      }
-    }
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, []);
-
+function Loading() {
   return (
-    <main className="flex h-screen items-center justify-center overflow-hidden bg-background px-5 py-2 text-foreground">
-      <section className="w-full max-w-2xl">
-        <Command
-          className="rounded-lg border border-border shadow-sm"
-          label="Search keystash"
-        >
-          <CommandInput
-            aria-label="Search keystash"
-            autoFocus
-            className="h-16 text-xl"
-            onValueChange={setQuery}
-            placeholder="Search keystash"
-            value={query}
-          />
-        </Command>
-      </section>
+    <main className="flex h-screen items-center justify-center bg-background text-sm text-muted-foreground">
+      <p>Loading…</p>
     </main>
   );
+}
+
+/**
+ * Routes the two surfaces (§7.6). The Dashboard window always shows the Dashboard (which handles its
+ * own locked state); the main launcher window routes on the vault lifecycle. Both share the Rust
+ * session as the source of truth and re-sync on window focus.
+ */
+function App() {
+  const status = useVaultStore((s) => s.status);
+  const pendingKit = useVaultStore((s) => s.pendingKit);
+  const init = useVaultStore((s) => s.init);
+  const label = currentWindowLabel();
+
+  useEffect(() => {
+    void init();
+    const onFocus = () => void init();
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
+  }, [init]);
+
+  if (label === "dashboard") {
+    return <Dashboard />;
+  }
+
+  switch (status) {
+    case "onboarding":
+      return <OnboardingScreen />;
+    case "locked":
+      return <LockScreen />;
+    case "reset":
+      return <ResetMasterScreen />;
+    case "unlocked":
+      return pendingKit ? <EmergencyKitScreen /> : <CommandBar />;
+    default:
+      return <Loading />;
+  }
 }
 
 export default App;

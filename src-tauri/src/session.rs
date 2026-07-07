@@ -28,9 +28,8 @@ pub const DEFAULT_AUTO_LOCK: Duration = Duration::from_secs(5 * 60);
 struct UnlockedVault {
     container: Container,
     dek: Key,
-    /// The decrypted vault model held in the Rust core (spec §3.2). It zeroizes on lock; the module
-    /// registry reads it to serve non-secret projections in Phase 2 (hence not yet read here).
-    #[allow(dead_code)]
+    /// The decrypted vault model held in the Rust core (spec §3.2). It zeroizes on lock and is
+    /// served to the frontend as a JSON projection via `vault_json` / `save_vault`.
     vault: Zeroizing<Vec<u8>>,
     last_activity: Instant,
 }
@@ -158,6 +157,28 @@ impl Session {
         storage::write_container(path, &unlocked.container)?;
         unlocked.last_activity = Instant::now();
         Ok(kit)
+    }
+
+    /// Return the decrypted vault model as JSON (the frontend projection). Requires unlocked.
+    ///
+    /// In Phase 2 the model has no secret fields, so this is the full projection. When the passwords
+    /// module lands (Phase 3) with `secretFields`, this becomes a *redacted* projection and secrets
+    /// are served only via the concealed-clipboard `copy_secret` path (spec §4.5).
+    pub fn vault_json(&mut self) -> Result<String> {
+        let unlocked = self.unlocked.as_mut().ok_or(Error::Locked)?;
+        unlocked.last_activity = Instant::now();
+        String::from_utf8(unlocked.vault.to_vec())
+            .map_err(|_| Error::Format("vault model is not valid UTF-8".to_string()))
+    }
+
+    /// Replace the vault model with `json`, re-seal it under the DEK, and persist. Requires unlocked.
+    pub fn save_vault(&mut self, path: &Path, json: &str) -> Result<()> {
+        let unlocked = self.unlocked.as_mut().ok_or(Error::Locked)?;
+        envelope::reseal_vault(&mut unlocked.container, &unlocked.dek, json.as_bytes())?;
+        storage::write_container(path, &unlocked.container)?;
+        unlocked.vault = Zeroizing::new(json.as_bytes().to_vec());
+        unlocked.last_activity = Instant::now();
+        Ok(())
     }
 }
 
@@ -288,6 +309,35 @@ mod tests {
         assert!(s.unlock_password(&path, "old pw").is_err());
         s.unlock_password(&path, "new pw").unwrap();
         assert!(s.is_unlocked());
+        fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
+    fn get_and_save_vault_round_trip_and_persist() {
+        let dir = unique_temp_dir();
+        let path = dir.join(VAULT_FILE);
+        let mut s = session();
+        s.create(&path, "pw", TEST_ARGON).unwrap();
+        assert_eq!(s.vault_json().unwrap(), "{}"); // INITIAL_VAULT
+
+        let model = r#"{"settings":{"theme":"dark"}}"#;
+        s.save_vault(&path, model).unwrap();
+        assert_eq!(s.vault_json().unwrap(), model);
+
+        // Persisted across a lock/unlock cycle.
+        s.lock();
+        s.unlock_password(&path, "pw").unwrap();
+        assert_eq!(s.vault_json().unwrap(), model);
+        fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
+    fn vault_access_requires_unlock() {
+        let dir = unique_temp_dir();
+        let path = dir.join(VAULT_FILE);
+        let mut s = session();
+        assert!(matches!(s.vault_json(), Err(Error::Locked)));
+        assert!(matches!(s.save_vault(&path, "{}"), Err(Error::Locked)));
         fs::remove_dir_all(&dir).ok();
     }
 }

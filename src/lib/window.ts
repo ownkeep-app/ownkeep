@@ -8,3 +8,15 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 export async function hideWindow(): Promise<void> {
   await getCurrentWindow().hide();
 }
+
+/**
+ * The label of the window this WebView runs in ("main" | "dashboard"), used to route the UI.
+ * Falls back to "main" outside Tauri (e.g. Vitest).
+ */
+export function currentWindowLabel(): string {
+  try {
+    return getCurrentWindow().label;
+  } catch {
+    return "main";
+  }
+}

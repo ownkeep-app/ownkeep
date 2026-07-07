@@ -40,7 +40,23 @@ fn toggle_main_window(app: &AppHandle) {
     }
 }
 
-/// Wire the desktop shell: no-Dock activation policy, tray icon, and the global toggle hotkey.
+/// Toggle the persistent Dashboard window (Cmd+Shift+D). Unlike the launcher it is not hidden on
+/// blur — it stays open until dismissed.
+#[cfg(desktop)]
+fn toggle_dashboard_window(app: &AppHandle) {
+    if let Some(window) = app.get_webview_window("dashboard") {
+        let is_frontmost =
+            window.is_visible().unwrap_or(false) && window.is_focused().unwrap_or(false);
+        if is_frontmost {
+            let _ = window.hide();
+        } else {
+            let _ = window.show();
+            let _ = window.set_focus();
+        }
+    }
+}
+
+/// Wire the desktop shell: no-Dock activation policy, tray icon, and the global toggle hotkeys.
 #[cfg(desktop)]
 fn setup_desktop(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut, ShortcutState};
@@ -51,8 +67,11 @@ fn setup_desktop(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>>
 
     // Tray icon keeps the process (and the future notification scheduler) alive while hidden.
     let show = MenuItemBuilder::with_id("show", "Show keystash").build(app)?;
+    let dashboard = MenuItemBuilder::with_id("dashboard", "Open Dashboard").build(app)?;
     let quit = MenuItemBuilder::with_id("quit", "Quit keystash").build(app)?;
-    let menu = MenuBuilder::new(app).items(&[&show, &quit]).build()?;
+    let menu = MenuBuilder::new(app)
+        .items(&[&show, &dashboard, &quit])
+        .build()?;
     TrayIconBuilder::with_id("main-tray")
         .tooltip("keystash")
         .icon(
@@ -63,17 +82,25 @@ fn setup_desktop(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>>
         .menu(&menu)
         .on_menu_event(|app, event| match event.id().as_ref() {
             "show" => show_and_focus_main(app),
+            "dashboard" => toggle_dashboard_window(app),
             "quit" => app.exit(0),
             _ => {}
         })
         .build(app)?;
 
-    // Global hotkey: Cmd+Shift+Space toggles the launcher from any app (needs Accessibility perm).
-    let toggle = Shortcut::new(Some(Modifiers::SUPER | Modifiers::SHIFT), Code::Space);
+    // Global hotkeys (need Accessibility perm): Cmd+Shift+Space = launcher, Cmd+Shift+D = Dashboard.
+    let toggle_launcher = Shortcut::new(Some(Modifiers::SUPER | Modifiers::SHIFT), Code::Space);
     app.global_shortcut()
-        .on_shortcut(toggle, move |app, _shortcut, event| {
+        .on_shortcut(toggle_launcher, move |app, _shortcut, event| {
             if event.state == ShortcutState::Pressed {
                 toggle_main_window(app);
+            }
+        })?;
+    let toggle_dash = Shortcut::new(Some(Modifiers::SUPER | Modifiers::SHIFT), Code::KeyD);
+    app.global_shortcut()
+        .on_shortcut(toggle_dash, move |app, _shortcut, event| {
+            if event.state == ShortcutState::Pressed {
+                toggle_dashboard_window(app);
             }
         })?;
 
@@ -111,6 +138,8 @@ pub fn run() {
             commands::lock,
             commands::change_master,
             commands::regenerate_recovery,
+            commands::get_vault,
+            commands::save_vault,
         ])
         .setup(|app| {
             spawn_auto_lock(app.handle().clone());

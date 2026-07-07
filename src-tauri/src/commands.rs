@@ -126,3 +126,24 @@ pub fn regenerate_recovery(
         .regenerate_recovery(&path)
         .map_err(|e| e.to_string())
 }
+
+/// Return the decrypted vault model (JSON) for the frontend projection. Requires unlocked.
+#[tauri::command]
+pub fn get_vault(state: State<'_, SharedSession>) -> Result<String, String> {
+    state.lock().unwrap().vault_json().map_err(|e| e.to_string())
+}
+
+/// Persist an updated vault model (JSON), re-sealed under the DEK. Requires unlocked.
+#[tauri::command]
+pub fn save_vault(
+    app: AppHandle,
+    state: State<'_, SharedSession>,
+    json: String,
+) -> Result<(), String> {
+    let path = vault_path(&app)?;
+    state
+        .lock()
+        .unwrap()
+        .save_vault(&path, &json)
+        .map_err(|e| e.to_string())
+}

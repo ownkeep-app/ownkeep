@@ -78,11 +78,11 @@ with a **browsable Dashboard** (sidebar + content pane) you can actually use (~2
 - **Deps:** P0. **Do not build features until this is solid and tested.**
 
 ### Phase 2 — App shell + module registry + Dashboard shell · 3–4 d
-- [ ] `FeatureModule` interface (incl. `ListView`) + `MODULES` registry (§3.4); Zustand store for the decrypted projection.
-- [ ] Unified-index plumbing (empty until modules land) with Fuse.js + a frecency booster stub.
-- [ ] **Dashboard shell (§7.5):** left sidebar (one row per enabled module, from the registry) + right content pane rendering the selected module's `ListView`; `Cmd+Shift+D` toggles the window; sidebar nav (`↑/↓`, `Cmd+1..9`).
-- [ ] Lock screen + **onboarding**: set master password → **show Emergency Kit** → set hotkey.
-- [ ] Settings shell with a **Modules** tab (enable toggles) rendered from the registry.
+- [x] `FeatureModule` interface (incl. `ListView`) + `MODULES` registry (§3.4); Zustand store for the decrypted projection.
+- [x] Unified-index plumbing (empty until modules land) with Fuse.js + a frecency booster stub.
+- [x] **Dashboard shell (§7.5):** left sidebar (one row per enabled module, from the registry) + right content pane rendering the selected module's `ListView`; `Cmd+Shift+D` toggles the window; sidebar nav (`↑/↓`, `Cmd+1..9`).
+- [x] Lock screen + **onboarding**: set master password → **show Emergency Kit** → confirm hotkeys (rebinding lands with the Settings polish).
+- [x] Settings shell with a **Modules** tab (enable toggles) rendered from the registry.
 - **Exit:** first-run onboarding completes; lock/unlock cycles; the Dashboard sidebar lists enabled modules and switches panes (empty `ListView`s OK until modules land).
 - **Deps:** P1.
 

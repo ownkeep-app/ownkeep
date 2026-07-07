@@ -86,6 +86,14 @@ pub fn decrypt_vault(container: &Container, dek: &Key) -> Result<Zeroizing<Vec<u
     crypto::open(dek, &container.vault.to_sealed()?)
 }
 
+/// Re-seal the vault body with the DEK after a mutation, replacing `container.vault`.
+/// The DEK and both DEK-wraps are unchanged, so unlock (either path) still works.
+pub fn reseal_vault(container: &mut Container, dek: &Key, vault_plaintext: &[u8]) -> Result<()> {
+    let sealed = crypto::seal(dek, vault_plaintext)?;
+    container.vault = SealedBlob::from_sealed(&sealed);
+    Ok(())
+}
+
 /// Re-wrap the DEK under a new master password (fresh salt). Used for password changes and after a
 /// recovery unlock (spec §4.1 path B). The DEK and the sealed vault body are unchanged.
 pub fn set_master_password(
