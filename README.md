@@ -8,8 +8,9 @@ configuration. No cloud, no database, no telemetry.
 - **Build order & status:** [`plan.md`](plan.md)
 - **Rules for humans & AI agents:** [`AGENTS.md`](AGENTS.md), [`.cursor/rules/`](.cursor/rules/)
 
-> Status: **Phase 0 (shell)** — the app boots to an empty command bar, lives in the menu bar, and is
-> summoned by a global hotkey. Crypto, the vault, and modules land in later phases (see `plan.md`).
+> Status: **Phase 2.2 (coverage gate)** — the encrypted vault core, app shell, Dashboard shell, and
+> migration framework are in place; the current work is locking unit-test coverage above 95% before
+> feature modules land (see `plan.md`).
 
 ## Stack
 
@@ -21,6 +22,7 @@ Vitest + React Testing Library (frontend) · `cargo test` (Rust). See `spec.md` 
 - **macOS 13+** (Apple Silicon or Intel)
 - **Node.js ≥ 20** and **pnpm 10** (`corepack enable` provides pnpm)
 - **Rust** (stable) via [rustup](https://rustup.rs)
+- **Rust coverage tool:** `cargo install cargo-llvm-cov` (needed for `pnpm coverage:rust`)
 - **Xcode Command Line Tools**: `xcode-select --install`
 
 ## Setup
@@ -45,7 +47,9 @@ focus.
 
 ```bash
 pnpm test                     # Vitest (front-end unit tests)
-pnpm coverage                 # Vitest with V8 coverage
+pnpm coverage                 # Vitest with V8 coverage; fails below 95%
+pnpm coverage:rust            # cargo llvm-cov; fails below 95% Rust-core line coverage
+pnpm coverage:all             # front-end + Rust coverage gates
 pnpm typecheck                # tsc --noEmit
 pnpm lint                     # ESLint
 pnpm format                   # Prettier (write)   ·   pnpm format:check to verify
@@ -53,6 +57,12 @@ pnpm check                    # typecheck + lint + format:check + test
 
 cd src-tauri && cargo test    # Rust core tests
 ```
+
+Frontend coverage measures first-party application code (`src/**/*.{ts,tsx}`) and intentionally
+excludes bootstrap glue, type-only files, test setup, and copied shadcn/ui primitives. The Rust
+coverage gate measures the testable core modules with `cargo llvm-cov --fail-under-lines 95` and
+excludes Tauri IPC/bootstrap glue (`commands.rs`, `lib.rs`, `main.rs`), which need later integration
+coverage rather than unit coverage.
 
 ## Production build
 

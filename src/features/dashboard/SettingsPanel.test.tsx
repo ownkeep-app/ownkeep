@@ -50,4 +50,33 @@ describe("SettingsPanel auto-lock", () => {
     expect(saved.settings.autoLockMinutes).toBe(0);
     expect(api.setAutoLock).toHaveBeenCalledWith(0);
   });
+
+  it("shows the disabled-auto-lock warning and persists module toggles", async () => {
+    useVaultStore.setState({
+      model: {
+        ...createDefaultModel("2026-07-07T00:00:00.000Z"),
+        settings: {
+          ...createDefaultModel("2026-07-07T00:00:00.000Z").settings,
+          autoLockMinutes: 0,
+        },
+      },
+    });
+
+    const user = userEvent.setup();
+    render(<SettingsPanel />);
+
+    expect(screen.getByText(/stays unlocked/i)).toBeVisible();
+    await user.click(screen.getByRole("switch", { name: /enable passwords/i }));
+
+    const saved = JSON.parse(api.saveVault.mock.calls[0][0] as string);
+    expect(saved.settings.modules.passwords.enabled).toBe(true);
+  });
+
+  it("renders nothing before a model is loaded", () => {
+    useVaultStore.setState({ model: null });
+
+    const { container } = render(<SettingsPanel />);
+
+    expect(container).toBeEmptyDOMElement();
+  });
 });

@@ -1,6 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
+  currentWindowLabel,
+  hideWindow,
   MAIN_WINDOW_EXPANDED,
   mainWindowMode,
   resetMainWindowModeForTests,
@@ -9,14 +11,23 @@ import {
 
 const mockSetSize = vi.fn(async () => {});
 const mockSetResizable = vi.fn(async () => {});
+const mockHide = vi.fn(async () => {});
 const mockInvoke = vi.fn(async (...args: unknown[]) => args);
+let mockWindowLabel = "main";
+let mockGetWindowThrows = false;
 
 vi.mock("@tauri-apps/api/window", () => ({
-  getCurrentWindow: () => ({
-    label: "main",
-    setSize: mockSetSize,
-    setResizable: mockSetResizable,
-  }),
+  getCurrentWindow: () => {
+    if (mockGetWindowThrows) {
+      throw new Error("outside tauri");
+    }
+    return {
+      label: mockWindowLabel,
+      hide: mockHide,
+      setSize: mockSetSize,
+      setResizable: mockSetResizable,
+    };
+  },
   LogicalSize: class LogicalSize {
     constructor(
       public width: number,
@@ -56,6 +67,8 @@ describe("setMainWindowMode", () => {
   beforeEach(() => {
     resetMainWindowModeForTests();
     vi.clearAllMocks();
+    mockWindowLabel = "main";
+    mockGetWindowThrows = false;
   });
 
   it("resizes once per mode and skips redundant calls", async () => {
@@ -92,5 +105,52 @@ describe("setMainWindowMode", () => {
     expect(mockInvoke).toHaveBeenCalledWith("set_main_window_blur_dismiss", {
       enabled: true,
     });
+  });
+
+  it("does not resize non-main windows", async () => {
+    mockWindowLabel = "dashboard";
+
+    await setMainWindowMode("expanded");
+
+    expect(mockSetSize).not.toHaveBeenCalled();
+    expect(mockSetResizable).not.toHaveBeenCalled();
+  });
+
+  it("keeps resizing safe when Tauri window APIs are unavailable", async () => {
+    mockGetWindowThrows = true;
+
+    await expect(setMainWindowMode("expanded")).resolves.toBeUndefined();
+
+    expect(mockSetSize).not.toHaveBeenCalled();
+  });
+
+  it("ignores blur-dismiss IPC failures", async () => {
+    mockInvoke.mockRejectedValueOnce(new Error("no ipc"));
+
+    await expect(setMainWindowMode("compact")).resolves.toBeUndefined();
+  });
+});
+
+describe("window helpers", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockWindowLabel = "main";
+    mockGetWindowThrows = false;
+  });
+
+  it("hides the current window", async () => {
+    await hideWindow();
+
+    expect(mockHide).toHaveBeenCalledTimes(1);
+  });
+
+  it("reads the current window label", () => {
+    expect(currentWindowLabel()).toBe("main");
+  });
+
+  it("falls back to main outside Tauri", () => {
+    mockGetWindowThrows = true;
+
+    expect(currentWindowLabel()).toBe("main");
   });
 });

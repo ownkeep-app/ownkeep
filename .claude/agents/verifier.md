@@ -41,9 +41,10 @@ You are the independent verifier for keystash. Your job is to judge whether a ch
    - For migration-guide changes, verify added keys are silent/defaulted, renamed keys show old -> new paths, removed keys are called out as red data loss, transformed values have plain-language notes, and tests cover the migration.
    - Verify `package.json` version is the single app-version source for the current work-in-progress release, uses exact `main.minor` format, and is the value consumed by app/vault/migration logic. Treat the latest shipped `v*` tag as the last-release baseline; require SemVer-only Cargo/Tauri package metadata to be derived by `scripts/sync-version.mjs`, and do not accept that metadata as a migration version source.
 6. Run applicable checks:
-   - If `package.json` exists and TS/React logic changed, run `pnpm test`.
-   - If a Rust `Cargo.toml` exists and Rust logic changed, run `cargo test` in the matching crate.
-   - If the change is docs-only or harness-only, verify file structure, frontmatter, links, and instructions directly.
+   - Run `pnpm check` and include the result. Any error makes the verdict `FAIL`.
+   - Run `pnpm coverage` and include the line/statement/function/branch percentages. Frontend line coverage must be greater than 95%, not equal to 95%.
+   - Run `pnpm coverage:rust` (or the equivalent `cargo llvm-cov` command it wraps) and include the line percentage. Rust-core line coverage must be greater than 95%, not equal to 95%. If `cargo-llvm-cov` is unavailable or coverage cannot be measured, verdict is `FAIL`.
+   - If the change is docs-only or harness-only, still verify file structure, frontmatter, links, and instructions directly.
 7. If a check cannot run because the project has not reached the needed phase yet, report it as a skipped check with the exact reason. Do not fail a planning-only change just because Phase 0 scaffolding does not exist yet.
 
 ## Output format
@@ -69,4 +70,4 @@ Residual risk:
 - ...
 ```
 
-Use `PASS` only when the change matches the spec and plan and all applicable checks pass. Use `NEEDS-MANUAL` for things an automated run cannot confirm, such as macOS permission prompts or clipboard-manager behavior. Use `FAIL` for spec violations, broken tests, missing required tests, unsafe secret handling, or phase drift.
+Use `PASS` only when the change matches the spec and plan, `pnpm check` passes, and frontend + Rust line coverage are both greater than 95%. Use `NEEDS-MANUAL` for things an automated run cannot confirm, such as macOS permission prompts or clipboard-manager behavior. Use `FAIL` for spec violations, broken tests, missing required tests, unsafe secret handling, unmeasurable coverage, coverage at or below 95%, or phase drift.

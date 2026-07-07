@@ -104,11 +104,11 @@ with a **browsable Dashboard** (sidebar + content pane) and a safe upgrade path 
 
 ### Phase 2.2 — 🧪 Unit-test coverage to >95% · 1–2 d
 *Lock in a high coverage bar **now**, on the small pre-feature codebase (Phases 0–2.1), so every later phase inherits the discipline instead of back-filling tests once the surface is large. Coverage is a standing `/verify` PASS gate (spec §2.2): line coverage must stay **>95% on both surfaces**.*
-- [ ] **Coverage tooling (TS):** configure Vitest v8 `coverage.thresholds` at **95%** (lines/statements/functions/branches) in the Vitest config; confirm `pnpm coverage` fails when under the bar. Decide global vs. per-file enforcement.
-- [ ] **Coverage tooling (Rust):** add `cargo llvm-cov` (install + a `coverage` script, e.g. `cargo llvm-cov --fail-under-lines 95`); document running both in the README.
-- [ ] **Measure the gap:** run both and list every file/area under 95% — likely the UI components (`Dashboard`, `CommandBar`, onboarding / lock / reset / emergency-kit / migration screens), store error branches, `lib/window`, and Rust command / error paths not hit by unit tests.
-- [ ] **Add the missing unit tests:** close the gaps — component render/interaction (React Testing Library), store error/edge branches, Rust command + error-path tests — testing **behavior, not implementation** (spec §2.2); keep pure logic separated so tests stay DOM-free where possible.
-- [ ] **Enforce:** thresholds fail the coverage run below the bar, and `/verify` runs coverage on both surfaces and treats ≤95% (or an unmeasurable surface) as a blocking FAIL.
+- [x] **Coverage tooling (TS):** configure Vitest v8 `coverage.thresholds` at **95%** (lines/statements/functions/branches) in the Vitest config; confirm `pnpm coverage` fails when under the bar. Decide global vs. per-file enforcement.
+- [x] **Coverage tooling (Rust):** add `cargo llvm-cov` (install + a `coverage` script, e.g. `cargo llvm-cov --fail-under-lines 95`); document running both in the README.
+- [x] **Measure the gap:** run both and list every file/area under 95% — likely the UI components (`Dashboard`, `CommandBar`, onboarding / lock / reset / emergency-kit / migration screens), store error branches, `lib/window`, and Rust command / error paths not hit by unit tests.
+- [x] **Add the missing unit tests:** close the gaps — component render/interaction (React Testing Library), store error/edge branches, Rust command + error-path tests — testing **behavior, not implementation** (spec §2.2); keep pure logic separated so tests stay DOM-free where possible.
+- [x] **Enforce:** thresholds fail the coverage run below the bar, and `/verify` runs coverage on both surfaces and treats ≤95% (or an unmeasurable surface) as a blocking FAIL.
 - **Exit:** `pnpm coverage` **and** Rust coverage both report **>95%** (lines), enforced by config; `/verify` runs both and fails under the bar.
 - **Deps:** P2.1. A cross-cutting quality gate — land it before Phase 3 so real feature code is built on top of an enforced bar.
 

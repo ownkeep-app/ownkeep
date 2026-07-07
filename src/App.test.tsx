@@ -1,9 +1,11 @@
-import { render, screen } from "@testing-library/react";
+import { act, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { currentWindowLabel, setMainWindowMode } from "@/lib/window";
 import { useVaultStore } from "@/stores/vault-store";
 import { vaultApi } from "@/vault/api";
+import { createDefaultModel } from "@/vault/model";
+import type { MigrationPlan } from "@/vault/migrations";
 import App from "./App";
 
 vi.mock("@/lib/window", async (importOriginal) => {
@@ -109,5 +111,59 @@ describe("App routing", () => {
     render(<App />);
     expect(await screen.findByText("Modules")).toBeInTheDocument();
     expect(await screen.findByText("keystash v0.1")).toBeInTheDocument();
+  });
+
+  it("routes main-window reset, migration, incompatible, and Emergency Kit states", async () => {
+    api.isUnlocked.mockResolvedValue(false);
+    api.vaultExists.mockResolvedValue(true);
+    render(<App />);
+    await screen.findByRole("button", { name: /unlock/i });
+
+    act(() => {
+      useVaultStore.setState({ status: "reset" });
+    });
+    expect(
+      screen.getByRole("heading", { name: /set a new master password/i }),
+    ).toBeInTheDocument();
+
+    act(() => {
+      useVaultStore.setState({
+        status: "migration",
+        migration: {
+          fromSchemaVersion: 1,
+          toSchemaVersion: 2,
+          fromAppVersion: "0.0",
+          toAppVersion: "0.1",
+          steps: [],
+          changes: [],
+          migratedModel: createDefaultModel("2026-07-07T00:00:00.000Z"),
+        } satisfies MigrationPlan,
+      });
+    });
+    expect(
+      screen.getByRole("heading", { name: /upgrade vault data/i }),
+    ).toBeInTheDocument();
+
+    act(() => {
+      useVaultStore.setState({
+        status: "incompatible",
+        incompatibleMessage: "Please upgrade keystash.",
+      });
+    });
+    expect(screen.getByText(/please upgrade keystash/i)).toBeInTheDocument();
+
+    act(() => {
+      useVaultStore.setState({
+        status: "unlocked",
+        pendingKit: {
+          app: "keystash",
+          recovery_code: "alpha beta",
+          instructions: "Save it.",
+        },
+      });
+    });
+    expect(
+      screen.getByRole("heading", { name: /your recovery code/i }),
+    ).toBeInTheDocument();
   });
 });

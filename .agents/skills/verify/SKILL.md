@@ -20,7 +20,7 @@ Use the user's prompt as optional target or acceptance criteria. If no target is
 3. Require it to run `pnpm check` and include the result. If `pnpm check` has any errors, the
    verdict must be `FAIL` (never `PASS`).
 4. Require it to measure **unit-test coverage on both surfaces** — the frontend via `pnpm coverage`
-   (Vitest v8) and the Rust core via `cargo llvm-cov` (per plan Phase 2.2) — and include the numbers.
+   (Vitest v8) and the Rust core via `pnpm coverage:rust` / `cargo llvm-cov` (per plan Phase 2.2) — and include the numbers.
    **Line coverage must be greater than 95% on each surface.** If either surface is at or below 95%,
    or its coverage cannot be measured (e.g. the Rust tool is not yet installed), the verdict must be
    `FAIL` (never `PASS`). Closing the current gap is tracked by plan Phase 2.2.

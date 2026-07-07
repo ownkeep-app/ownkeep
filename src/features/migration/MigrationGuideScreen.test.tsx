@@ -6,7 +6,10 @@ import { useVaultStore } from "@/stores/vault-store";
 import { createDefaultModel } from "@/vault/model";
 import type { MigrationPlan } from "@/vault/migrations";
 import { vaultApi } from "@/vault/api";
-import { MigrationGuideScreen } from "./MigrationGuideScreen";
+import {
+  IncompatibleVaultScreen,
+  MigrationGuideScreen,
+} from "./MigrationGuideScreen";
 
 vi.mock("@/vault/api", () => ({
   vaultApi: {
@@ -100,5 +103,39 @@ describe("MigrationGuideScreen", () => {
 
     await user.click(screen.getByRole("button", { name: /erase all data/i }));
     expect(api.eraseVault).toHaveBeenCalled();
+  });
+});
+
+describe("IncompatibleVaultScreen", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    useVaultStore.setState({
+      status: "incompatible",
+      model: null,
+      migration: null,
+      postMigrationStatus: "unlocked",
+      incompatibleMessage: "You are using an older version of keystash.",
+      pendingKit: null,
+      busy: false,
+      error: null,
+    });
+  });
+
+  it("shows the old-version message and quits on request", async () => {
+    const user = userEvent.setup();
+    render(<IncompatibleVaultScreen />);
+
+    expect(screen.getByText(/older version/i)).toBeVisible();
+    await user.click(screen.getByRole("button", { name: /quit/i }));
+
+    expect(api.quitApp).toHaveBeenCalled();
+  });
+
+  it("uses a generic newer-vault message when no specific message is stored", () => {
+    useVaultStore.setState({ incompatibleMessage: null });
+
+    render(<IncompatibleVaultScreen />);
+
+    expect(screen.getByText(/written by a newer version/i)).toBeVisible();
   });
 });

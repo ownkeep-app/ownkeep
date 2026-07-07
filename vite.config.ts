@@ -8,6 +8,7 @@ const appPackage = JSON.parse(
   readFileSync(new URL("./package.json", import.meta.url), "utf8"),
 ) as { version: string };
 const appVersion = appPackage.version;
+const coverageThreshold = 95;
 
 if (!/^\d+\.\d+$/.test(appVersion)) {
   throw new Error(
@@ -29,6 +30,24 @@ export default defineConfig(async () => ({
   test: {
     environment: "jsdom",
     setupFiles: "./src/test/setup.ts",
+    coverage: {
+      provider: "v8",
+      include: ["src/**/*.{ts,tsx}"],
+      exclude: [
+        "src/**/*.test.{ts,tsx}",
+        "src/test/**",
+        "src/vite-env.d.ts",
+        "src/main.tsx",
+        "src/modules/types.ts",
+        "src/components/ui/**",
+      ],
+      thresholds: {
+        lines: coverageThreshold,
+        statements: coverageThreshold,
+        functions: coverageThreshold,
+        branches: coverageThreshold,
+      },
+    },
   },
 
   // Vite options tailored for Tauri development and only applied in `tauri dev` or `tauri build`

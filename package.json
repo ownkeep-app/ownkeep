@@ -22,6 +22,8 @@
     "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,json,css,html}\"",
     "test": "vitest run",
     "coverage": "vitest run --coverage",
+    "coverage:rust": "cd src-tauri && cargo llvm-cov --fail-under-lines 95 --ignore-filename-regex '(commands|lib|main)\\.rs$'",
+    "coverage:all": "pnpm coverage && pnpm coverage:rust",
     "check": "pnpm typecheck && pnpm lint && pnpm format:check && pnpm test",
     "preview": "vite preview",
     "pretauri": "node scripts/sync-version.mjs",

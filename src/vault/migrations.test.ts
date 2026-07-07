@@ -67,6 +67,10 @@ describe("migration registry", () => {
     expect(pendingMigrations(1).map((m) => [m.from, m.to])).toEqual([[1, 2]]);
   });
 
+  it("fails clearly when no ordered migration path exists", () => {
+    expect(() => pendingMigrations(0)).toThrow(/no migration path/i);
+  });
+
   it("generates a guide and migrated model from the same registry step", () => {
     const plan = buildMigrationPlan(schemaOneModel(), modules);
     expect(plan?.fromSchemaVersion).toBe(1);

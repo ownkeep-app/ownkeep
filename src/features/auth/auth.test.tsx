@@ -5,8 +5,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { whenMainWindowReady } from "@/lib/window";
 import { useVaultStore } from "@/stores/vault-store";
 import { vaultApi } from "@/vault/api";
+import { EmergencyKitScreen } from "./EmergencyKitScreen";
 import { LockScreen } from "./LockScreen";
 import { OnboardingScreen } from "./OnboardingScreen";
+import { ResetMasterScreen } from "./ResetMasterScreen";
 
 vi.mock("@/lib/window", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/window")>();
@@ -183,5 +185,86 @@ describe("LockScreen", () => {
     render(<LockScreen />);
     await user.click(screen.getByRole("button", { name: /recovery code/i }));
     expect(screen.getByLabelText("Recovery code")).toBeInTheDocument();
+  });
+
+  it("shows a friendly error for a failed recovery unlock", async () => {
+    api.unlockRecovery.mockRejectedValueOnce(new Error("nope"));
+    const user = userEvent.setup();
+    render(<LockScreen />);
+
+    await user.click(screen.getByRole("button", { name: /recovery code/i }));
+    await user.type(screen.getByLabelText("Recovery code"), "wrong words");
+    await user.click(screen.getByRole("button", { name: /^unlock$/i }));
+
+    expect(await screen.findByText(/recovery code didn't work/i)).toBeVisible();
+  });
+});
+
+describe("EmergencyKitScreen", () => {
+  it("copies the recovery code and requires a saved confirmation before continuing", async () => {
+    useVaultStore.setState({
+      pendingKit: {
+        app: "keystash",
+        recovery_code: "alpha beta gamma",
+        instructions: "Save this somewhere safe.",
+      },
+    });
+
+    const user = userEvent.setup();
+    render(<EmergencyKitScreen />);
+
+    const continueButton = screen.getByRole("button", { name: /continue/i });
+    expect(continueButton).toBeDisabled();
+
+    await user.click(screen.getByRole("button", { name: /copy code/i }));
+    expect(screen.getByRole("button", { name: /copied/i })).toBeVisible();
+    await expect(navigator.clipboard.readText()).resolves.toBe(
+      "alpha beta gamma",
+    );
+
+    await user.click(screen.getByRole("checkbox"));
+    await user.click(continueButton);
+    expect(useVaultStore.getState().pendingKit).toBeNull();
+  });
+
+  it("renders nothing when there is no pending kit", () => {
+    const { container } = render(<EmergencyKitScreen />);
+
+    expect(container).toBeEmptyDOMElement();
+  });
+});
+
+describe("ResetMasterScreen", () => {
+  it("validates length and confirmation before changing the master password", async () => {
+    const user = userEvent.setup();
+    render(<ResetMasterScreen />);
+
+    await user.type(screen.getByLabelText("New master password"), "short");
+    await user.type(screen.getByLabelText("Confirm password"), "short");
+    await user.click(screen.getByRole("button", { name: /set password/i }));
+    expect(screen.getByText(/at least 8/i)).toBeVisible();
+    expect(api.changeMaster).not.toHaveBeenCalled();
+
+    await user.clear(screen.getByLabelText("New master password"));
+    await user.clear(screen.getByLabelText("Confirm password"));
+    await user.type(screen.getByLabelText("New master password"), "longenough");
+    await user.type(screen.getByLabelText("Confirm password"), "different");
+    await user.click(screen.getByRole("button", { name: /set password/i }));
+    expect(screen.getByText(/don't match/i)).toBeVisible();
+    expect(api.changeMaster).not.toHaveBeenCalled();
+  });
+
+  it("changes the master password and reports backend errors", async () => {
+    const user = userEvent.setup();
+    render(<ResetMasterScreen />);
+
+    await user.type(screen.getByLabelText("New master password"), "longenough");
+    await user.type(screen.getByLabelText("Confirm password"), "longenough");
+    await user.click(screen.getByRole("button", { name: /set password/i }));
+    expect(api.changeMaster).toHaveBeenCalledWith("longenough");
+
+    api.changeMaster.mockRejectedValueOnce(new Error("re-wrap failed"));
+    await user.click(screen.getByRole("button", { name: /set password/i }));
+    expect(await screen.findByText(/re-wrap failed/i)).toBeVisible();
   });
 });

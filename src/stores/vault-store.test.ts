@@ -85,6 +85,34 @@ describe("vault store", () => {
     expect(state.model?.settings.modules.passwords.enabled).toBe(true);
   });
 
+  it("init refuses an already-unlocked vault written by a newer app", async () => {
+    api.isUnlocked.mockResolvedValue(true);
+    api.getVault.mockResolvedValue(
+      JSON.stringify({
+        meta: {
+          schemaVersion: SCHEMA_VERSION,
+          appVersion: "99.0",
+          createdAt: "2026-07-01T00:00:00.000Z",
+          updatedAt: "2026-07-01T00:00:00.000Z",
+        },
+      }),
+    );
+
+    await useVaultStore.getState().init();
+
+    expect(useVaultStore.getState().status).toBe("incompatible");
+    expect(api.lock).toHaveBeenCalled();
+  });
+
+  it("init stores unexpected errors without changing lifecycle state", async () => {
+    api.isUnlocked.mockRejectedValueOnce(new Error("ipc down"));
+
+    await useVaultStore.getState().init();
+
+    expect(useVaultStore.getState().status).toBe("loading");
+    expect(useVaultStore.getState().error).toMatch(/ipc down/);
+  });
+
   it("unlock stops at the migration guide when an older schema needs migration", async () => {
     api.getVault.mockResolvedValue(
       JSON.stringify({
@@ -231,6 +259,17 @@ describe("vault store", () => {
     expect(api.lock).toHaveBeenCalled();
   });
 
+  it("surfaces unlock errors from the Rust core", async () => {
+    api.unlock.mockRejectedValueOnce(new Error("wrong password"));
+
+    await expect(useVaultStore.getState().unlock("bad")).rejects.toThrow(
+      /wrong password/,
+    );
+
+    expect(useVaultStore.getState().error).toMatch(/wrong password/);
+    expect(useVaultStore.getState().busy).toBe(false);
+  });
+
   it("create persists a default model and unlocks", async () => {
     const kit = await useVaultStore.getState().create("master pw");
     expect(kit.recovery_code).toBe("a b c");
@@ -245,6 +284,67 @@ describe("vault store", () => {
     expect(useVaultStore.getState().status).toBe("reset");
     await useVaultStore.getState().changeMaster("brand new master");
     expect(useVaultStore.getState().status).toBe("unlocked");
+  });
+
+  it("recovery unlock stops at the migration guide before forcing the master reset", async () => {
+    api.getVault.mockResolvedValue(
+      JSON.stringify({
+        meta: {
+          schemaVersion: 1,
+          appVersion: "0.0",
+          createdAt: "2026-07-01T00:00:00.000Z",
+          updatedAt: "2026-07-01T00:00:00.000Z",
+        },
+      }),
+    );
+
+    await useVaultStore.getState().unlockRecovery("word ".repeat(12).trim());
+
+    const state = useVaultStore.getState();
+    expect(state.status).toBe("migration");
+    expect(state.postMigrationStatus).toBe("reset");
+  });
+
+  it("recovery unlock refuses a vault written by a newer app", async () => {
+    api.getVault.mockResolvedValue(
+      JSON.stringify({
+        meta: {
+          schemaVersion: SCHEMA_VERSION,
+          appVersion: "99.0",
+          createdAt: "2026-07-01T00:00:00.000Z",
+          updatedAt: "2026-07-01T00:00:00.000Z",
+        },
+      }),
+    );
+
+    await useVaultStore.getState().unlockRecovery("word ".repeat(12).trim());
+
+    expect(useVaultStore.getState().status).toBe("incompatible");
+    expect(api.lock).toHaveBeenCalled();
+  });
+
+  it("lock clears sensitive UI state and returns to locked", async () => {
+    useVaultStore.setState({
+      status: "unlocked",
+      model: null,
+      pendingKit: {
+        app: "keystash",
+        recovery_code: "a b c",
+        instructions: "save it",
+      },
+      migration: {} as never,
+      incompatibleMessage: "old",
+      error: "previous",
+    });
+
+    await useVaultStore.getState().lock();
+
+    const state = useVaultStore.getState();
+    expect(api.lock).toHaveBeenCalled();
+    expect(state.status).toBe("locked");
+    expect(state.pendingKit).toBeNull();
+    expect(state.migration).toBeNull();
+    expect(state.error).toBeNull();
   });
 
   it("toggleModule persists the flipped flag", async () => {
@@ -292,5 +392,53 @@ describe("vault store", () => {
 
     expect(api.setAutoLock).toHaveBeenCalledWith(15);
     expect(useVaultStore.getState().status).toBe("unlocked");
+  });
+
+  it("no-ops migration and model actions when their required state is absent", async () => {
+    await useVaultStore.getState().acceptMigration();
+    await useVaultStore.getState().backupMigrationAndQuit();
+    await useVaultStore.getState().setAutoLock(5);
+    await useVaultStore.getState().toggleModule("passwords", false);
+
+    expect(api.backupVault).not.toHaveBeenCalled();
+    expect(api.backupVaultToChosenLocation).not.toHaveBeenCalled();
+    expect(api.saveVault).not.toHaveBeenCalled();
+  });
+
+  it("keeps the migration gate when backing up before quit fails", async () => {
+    api.backupVaultToChosenLocation.mockRejectedValueOnce(
+      new Error("permission denied"),
+    );
+    api.getVault.mockResolvedValue(
+      JSON.stringify({
+        meta: {
+          schemaVersion: 1,
+          appVersion: "0.0",
+          createdAt: "2026-07-01T00:00:00.000Z",
+          updatedAt: "2026-07-01T00:00:00.000Z",
+        },
+      }),
+    );
+    await useVaultStore.getState().unlock("master pw");
+
+    await expect(
+      useVaultStore.getState().backupMigrationAndQuit(),
+    ).rejects.toThrow(/permission denied/);
+
+    expect(api.quitApp).not.toHaveBeenCalled();
+    expect(useVaultStore.getState().status).toBe("migration");
+    expect(useVaultStore.getState().error).toMatch(/permission denied/);
+  });
+
+  it("surfaces erase failures without leaving the migration state", async () => {
+    api.eraseVault.mockRejectedValueOnce(new Error("cannot remove"));
+    useVaultStore.setState({ status: "migration" });
+
+    await expect(
+      useVaultStore.getState().eraseVaultAndStartFresh(),
+    ).rejects.toThrow(/cannot remove/);
+
+    expect(useVaultStore.getState().status).toBe("migration");
+    expect(useVaultStore.getState().error).toMatch(/cannot remove/);
   });
 });
