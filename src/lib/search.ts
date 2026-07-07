@@ -101,3 +101,27 @@ export function search(
     .sort((a, b) => b.score - a.score)
     .slice(0, limit);
 }
+
+/**
+ * End-to-end command-bar query (spec §7.2): parse a scope prefix, build the unified index across
+ * enabled modules, restrict to the scoped module when one is given, then rank by fuzzy × frecency
+ * and cap at `settings.resultLimit`. Pure, so the whole bar pipeline is unit-tested off-DOM.
+ */
+export function runQuery(
+  model: VaultModel,
+  modules: FeatureModule[],
+  query: string,
+  now: number = Date.now(),
+): RankedResult[] {
+  const scope = parseScope(query, modules);
+  const entries = buildUnifiedIndex(model, modules).filter(
+    (entry) => !scope.moduleId || entry.moduleId === scope.moduleId,
+  );
+  return search(
+    scope.term,
+    entries,
+    model.frecency,
+    model.settings.resultLimit,
+    now,
+  );
+}

@@ -5,6 +5,7 @@ import {
   ensureModuleDefaults,
   isModuleEnabled,
   parseVaultJson,
+  recordFrecency,
   setModuleEnabled,
   APP_VERSION,
   SCHEMA_VERSION,
@@ -121,5 +122,23 @@ describe("withUpdatedAt", () => {
     expect(stamped.meta.appVersion).toBe(APP_VERSION);
     expect(stamped.meta.createdAt).toBe(NOW);
     expect(stamped.meta.updatedAt).toBe("2026-07-08T00:00:00.000Z");
+  });
+});
+
+describe("recordFrecency", () => {
+  it("increments the count and refreshes lastUsedAt", () => {
+    const once = recordFrecency(createDefaultModel(NOW), "gh", NOW);
+    expect(once.frecency.gh).toEqual({ count: 1, lastUsedAt: NOW });
+
+    const later = "2026-07-08T00:00:00.000Z";
+    const twice = recordFrecency(once, "gh", later);
+    expect(twice.frecency.gh).toEqual({ count: 2, lastUsedAt: later });
+  });
+
+  it("preserves other items' frecency", () => {
+    const withGh = recordFrecency(createDefaultModel(NOW), "gh", NOW);
+    const withAws = recordFrecency(withGh, "aws", NOW);
+    expect(withAws.frecency.gh.count).toBe(1);
+    expect(withAws.frecency.aws.count).toBe(1);
   });
 });

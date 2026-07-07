@@ -25,6 +25,7 @@ import {
 import {
   ensureModuleDefaults,
   parseVaultJson,
+  recordFrecency,
   setModuleEnabled,
   withUpdatedAt,
   type VaultModel,
@@ -65,6 +66,7 @@ interface VaultState {
   quitApp: () => Promise<void>;
   save: (next: VaultModel) => Promise<void>;
   toggleModule: (id: string, enabled: boolean) => Promise<void>;
+  recordUse: (id: string) => Promise<void>;
   savePassword: (entry: PasswordEntry) => Promise<void>;
   deletePassword: (id: string) => Promise<void>;
   copySecret: (id: string, field: string) => Promise<void>;
@@ -367,6 +369,13 @@ export const useVaultStore = create<VaultState>((set, get) => ({
     const model = get().model;
     if (!model) return;
     await get().save(setModuleEnabled(model, id, enabled));
+  },
+
+  recordUse: async (id) => {
+    // Bump the item's frecency after a command-bar action so repeats rank higher (spec §7.2).
+    const model = get().model;
+    if (!model) return;
+    await get().save(recordFrecency(model, id, now()));
   },
 
   savePassword: async (entry) => {

@@ -184,7 +184,11 @@ describe("PasswordsListView", () => {
 
     await user.click(screen.getByRole("button", { name: "GitHub" }));
     await user.click(screen.getByRole("button", { name: item.loginUrl }));
-    expect(open).toHaveBeenCalledWith(item.loginUrl, "_blank", "noopener,noreferrer");
+    expect(open).toHaveBeenCalledWith(
+      item.loginUrl,
+      "_blank",
+      "noopener,noreferrer",
+    );
 
     await user.click(screen.getByRole("button", { name: "FTP" }));
     await user.click(screen.getByRole("button", { name: "ftp://x" }));
@@ -197,7 +201,9 @@ describe("PasswordsListView", () => {
     vi.stubGlobal("open", open);
 
     render(
-      <PasswordsListView items={[{ ...item, id: "bad", name: "Bad", loginUrl: "not a url" }]} />,
+      <PasswordsListView
+        items={[{ ...item, id: "bad", name: "Bad", loginUrl: "not a url" }]}
+      />,
     );
 
     await user.click(screen.getByRole("button", { name: "Bad" }));

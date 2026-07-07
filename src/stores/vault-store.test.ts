@@ -465,7 +465,8 @@ describe("vault store", () => {
       updatedAt: "2026-07-07T00:00:00.000Z",
     });
 
-    const saved = JSON.parse(api.saveVault.mock.calls.at(-1)?.[0] as string);
+    const calls = api.saveVault.mock.calls;
+    const saved = JSON.parse(calls[calls.length - 1][0] as string);
     expect(saved.modules.passwords).toHaveLength(1);
     expect(saved.modules.passwords[0].id).toBe("new");
   });
@@ -513,6 +514,23 @@ describe("vault store", () => {
     await useVaultStore.getState().revealSecret("github", "password");
 
     expect(api.revealSecret).toHaveBeenCalledWith("github", "password");
+  });
+
+  it("recordUse bumps the item's frecency and persists it", async () => {
+    api.isUnlocked.mockResolvedValue(true);
+    api.getVault.mockResolvedValue("{}");
+    await useVaultStore.getState().init();
+
+    await useVaultStore.getState().recordUse("gh");
+
+    const saved = JSON.parse(api.saveVault.mock.calls[0][0] as string);
+    expect(saved.frecency.gh.count).toBe(1);
+    expect(useVaultStore.getState().model?.frecency.gh.count).toBe(1);
+  });
+
+  it("recordUse is a no-op without a loaded model", async () => {
+    await useVaultStore.getState().recordUse("gh");
+    expect(api.saveVault).not.toHaveBeenCalled();
   });
 
   it("setAutoLock persists the minutes and pushes them to the Rust session", async () => {

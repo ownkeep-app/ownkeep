@@ -3,8 +3,8 @@ import { getCurrentWindow, LogicalSize } from "@tauri-apps/api/window";
 
 import type { VaultStatus } from "@/stores/vault-store";
 
-/** Compact launcher chrome for the command bar (matches `tauri.conf.json`). */
-export const MAIN_WINDOW_COMPACT = { width: 720, height: 112 } as const;
+/** Launcher chrome for the command bar: the search input plus its ranked results list (spec §7.1). */
+export const MAIN_WINDOW_COMPACT = { width: 720, height: 400 } as const;
 
 /** Tall enough for onboarding, lock/recovery, and the Emergency Kit on the main window. */
 export const MAIN_WINDOW_EXPANDED = { width: 720, height: 560 } as const;

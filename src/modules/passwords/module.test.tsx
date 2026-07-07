@@ -5,11 +5,13 @@ import { describe, expect, it } from "vitest";
 import { passwordsModule } from "./module";
 import type { PasswordEntry } from "./types";
 
+// The registry types these views as optional; the passwords module always provides them.
+const DetailView = passwordsModule.DetailView!;
+const EditView = passwordsModule.EditView!;
+
 describe("passwordsModule surface", () => {
   it("returns null for non-password items in the DetailView", () => {
-    const { container } = render(
-      <passwordsModule.DetailView item={{ not: "a password" }} />,
-    );
+    const { container } = render(<DetailView item={{ not: "a password" }} />);
     expect(container).toBeEmptyDOMElement();
   });
 
@@ -19,7 +21,7 @@ describe("passwordsModule surface", () => {
     const onCancel = () => {};
 
     render(
-      <passwordsModule.EditView
+      <EditView
         item={{ not: "a password" }}
         onSave={onSave}
         onCancel={onCancel}
@@ -47,7 +49,7 @@ describe("passwordsModule surface", () => {
       updatedAt: "2026-07-07T00:00:00.000Z",
     };
 
-    render(<passwordsModule.DetailView item={entry} />);
+    render(<DetailView item={entry} />);
     expect(screen.getByRole("heading", { name: "GitHub" })).toBeVisible();
   });
 
@@ -64,11 +66,10 @@ describe("passwordsModule surface", () => {
       updatedAt: "2026-07-07T00:00:00.000Z",
     };
 
-    render(
-      <passwordsModule.EditView item={entry} onSave={() => {}} onCancel={() => {}} />,
-    );
+    render(<EditView item={entry} onSave={() => {}} onCancel={() => {}} />);
 
-    expect(screen.getByRole("heading", { name: /edit password/i })).toBeVisible();
+    expect(
+      screen.getByRole("heading", { name: /edit password/i }),
+    ).toBeVisible();
   });
 });
-

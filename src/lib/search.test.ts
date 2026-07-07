@@ -6,7 +6,13 @@ import {
   ensureModuleDefaults,
   setModuleEnabled,
 } from "@/vault/model";
-import { buildUnifiedIndex, frecencyBoost, parseScope, search } from "./search";
+import {
+  buildUnifiedIndex,
+  frecencyBoost,
+  parseScope,
+  runQuery,
+  search,
+} from "./search";
 
 const NOW = Date.parse("2026-07-07T00:00:00.000Z");
 
@@ -149,5 +155,42 @@ describe("search", () => {
 
   it("is empty when no module contributed entries", () => {
     expect(search("anything", [], {}, 9, NOW)).toEqual([]);
+  });
+});
+
+describe("runQuery", () => {
+  function entryFor(moduleId: string, id: string, text: string): IndexEntry {
+    return { id, moduleId, type: "t", searchString: text, displayLine: text };
+  }
+  const mods = [
+    fakeModule("passwords", "p", [
+      entryFor("passwords", "p1", "github login"),
+      entryFor("passwords", "p2", "gitlab login"),
+    ]),
+    fakeModule("commands", "c", [entryFor("commands", "c1", "git status")]),
+  ];
+  const model = ensureModuleDefaults(
+    createDefaultModel("2026-07-07T00:00:00Z"),
+    mods,
+  );
+
+  it("ranks across every enabled module for a global query", () => {
+    const ids = runQuery(model, mods, "git", NOW).map((r) => r.entry.id);
+    expect(ids).toContain("p1");
+    expect(ids).toContain("c1");
+  });
+
+  it("restricts results to the scoped module", () => {
+    const ids = runQuery(model, mods, "p git", NOW).map((r) => r.entry.id);
+    expect(ids).toEqual(expect.arrayContaining(["p1", "p2"]));
+    expect(ids).not.toContain("c1");
+  });
+
+  it("respects the result limit from settings", () => {
+    const limited = {
+      ...model,
+      settings: { ...model.settings, resultLimit: 1 },
+    };
+    expect(runQuery(limited, mods, "", NOW)).toHaveLength(1);
   });
 });

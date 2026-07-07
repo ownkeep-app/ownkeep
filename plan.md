@@ -120,12 +120,13 @@ with a **browsable Dashboard** (sidebar + content pane) and a safe upgrade path 
 - **Deps:** P2.1. Front-loaded to validate §4.5 end-to-end early, after migrations are safe for real password data.
 
 ### Phase 4 — ⌨️ Command bar (F10 / §7) · 2–3 d
-- [ ] Bar shell = shadcn **`command`** (`cmdk`) with `shouldFilter={false}`; unified index across enabled modules; **fuzzy (Fuse.js) × frecency** ranking; update `frecency` on use.
-- [ ] Scope prefixes (`p `, `c `, …); result list capped at `resultLimit`, numbered 1–9.
-- [ ] Keyboard nav (`↑/↓`, `Enter` open, `Cmd+<n>` primary action); Esc/blur hides.
-- [ ] **Tests:** ranking (fuzzy×frecency ordering) + scope-prefix parsing (Vitest).
+- [x] Bar shell = shadcn **`command`** (`cmdk`) with `shouldFilter={false}`; unified index across enabled modules; **fuzzy (Fuse.js) × frecency** ranking; update `frecency` on use.
+- [x] Scope prefixes (`p `, `c `, …); result list capped at `resultLimit`, numbered 1–9.
+- [x] Keyboard nav (`↑/↓`, `Cmd+<n>` primary action, `Enter`/click runs it); Esc/blur hides.
+- [x] **Tests:** ranking (fuzzy×frecency ordering) + scope-prefix parsing (Vitest).
 - **Exit:** typing filters passwords instantly; `Cmd+1..9` runs the primary action; frecency reorders repeats.
 - **Deps:** P3.
+- **Deferred (follow-up):** the §7.2 bridge where **`Enter` opens the item in the Dashboard** (vs. running the primary action) needs cross-window item selection the Dashboard doesn't have yet (separate WebView contexts); until then `Enter`/click runs the result's primary action. Password copy is the only wired primary action so far — later modules add their own (§7.4) in their phases.
 
 ### Phase 5 — 📋 Commands module (F2) · 2–3 d
 - [ ] `commandsModule`: category/title/description/snippets; Shiki highlighting; `ListView` (grouped by category).

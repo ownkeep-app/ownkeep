@@ -153,6 +153,25 @@ export function setModuleEnabled(
   };
 }
 
+/**
+ * Record one use of a command-bar item, bumping its frecency (spec §7.2): increment the count and
+ * refresh `lastUsedAt` so habitual items rank higher next time. Pure; the store persists the result.
+ */
+export function recordFrecency(
+  model: VaultModel,
+  id: string,
+  now: string,
+): VaultModel {
+  const previous = model.frecency[id];
+  return {
+    ...model,
+    frecency: {
+      ...model.frecency,
+      [id]: { count: (previous?.count ?? 0) + 1, lastUsedAt: now },
+    },
+  };
+}
+
 /** Stamp current app/schema metadata before persisting a mutated model. */
 export function withUpdatedAt(model: VaultModel, now: string): VaultModel {
   return {

@@ -11,7 +11,9 @@ describe("MODULES registry", () => {
       const empty = module.createEmpty();
       expect(empty).toBeDefined();
       // Exercise the index builders for coverage; placeholder modules return [].
-      expect(module.buildIndex(Array.isArray(empty) ? empty : [])).toBeDefined();
+      expect(
+        module.buildIndex(Array.isArray(empty) ? empty : []),
+      ).toBeDefined();
 
       const expectedTitle =
         module.id === "commands" ? "Command library" : module.title;

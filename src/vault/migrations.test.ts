@@ -161,8 +161,9 @@ describe("migration registry", () => {
 
     const prepared = prepareVaultModel(model, modules);
 
-    expect(prepared.model.modules.passwords[0].id).toBe("legacy-password-1");
-    expect(prepared.model.modules.passwords[1].id).toBe("legacy-password-2");
+    const migrated = prepared.model.modules.passwords as { id: string }[];
+    expect(migrated[0].id).toBe("legacy-password-1");
+    expect(migrated[1].id).toBe("legacy-password-2");
   });
 
   it("returns no migration for current-schema vaults", () => {
