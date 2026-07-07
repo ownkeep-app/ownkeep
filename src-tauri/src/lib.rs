@@ -9,6 +9,9 @@ mod storage;
 
 use tauri::Manager;
 
+/// Whether the main launcher window should hide when it loses focus (command bar only).
+pub struct MainWindowBehavior(pub std::sync::Mutex<bool>);
+
 #[cfg(desktop)]
 use tauri::{
     menu::{MenuBuilder, MenuItemBuilder},
@@ -129,6 +132,7 @@ pub fn run() {
         .manage(std::sync::Mutex::new(session::Session::new(
             session::DEFAULT_AUTO_LOCK,
         )))
+        .manage(MainWindowBehavior(std::sync::Mutex::new(true)))
         .invoke_handler(tauri::generate_handler![
             commands::vault_exists,
             commands::is_unlocked,
@@ -140,6 +144,7 @@ pub fn run() {
             commands::regenerate_recovery,
             commands::get_vault,
             commands::save_vault,
+            set_main_window_blur_dismiss,
         ])
         .setup(|app| {
             spawn_auto_lock(app.handle().clone());
@@ -150,14 +155,28 @@ pub fn run() {
         .on_window_event(|window, event| {
             // Launcher behavior: hide the main window when it loses focus (Esc is handled in the UI).
             // Scoped to "main" so later windows (e.g. the Phase 2 Dashboard) aren't hidden on blur.
+            // Disabled while auth/onboarding screens are shown — resize and form entry need focus.
             if window.label() == "main" {
                 if let tauri::WindowEvent::Focused(false) = event {
-                    let _ = window.hide();
+                    let blur_dismiss = window.state::<MainWindowBehavior>();
+                    let dismiss = *blur_dismiss.0.lock().unwrap();
+                    if dismiss {
+                        let _ = window.hide();
+                    }
                 }
             }
         })
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
+}
+
+/// Enable or disable blur-to-hide on the main launcher window (compact command bar only).
+#[tauri::command]
+fn set_main_window_blur_dismiss(
+    state: tauri::State<'_, MainWindowBehavior>,
+    enabled: bool,
+) {
+    *state.0.lock().unwrap() = enabled;
 }
 
 /// Periodically wipe keys if the vault has been idle past its auto-lock timeout (spec §4.3).

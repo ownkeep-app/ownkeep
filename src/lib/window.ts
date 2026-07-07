@@ -1,4 +1,49 @@
-import { getCurrentWindow } from "@tauri-apps/api/window";
+import { invoke } from "@tauri-apps/api/core";
+import {
+  getCurrentWindow,
+  LogicalSize,
+} from "@tauri-apps/api/window";
+
+import type { VaultStatus } from "@/stores/vault-store";
+
+/** Compact launcher chrome for the command bar (matches `tauri.conf.json`). */
+export const MAIN_WINDOW_COMPACT = { width: 720, height: 112 } as const;
+
+/** Tall enough for onboarding, lock/recovery, and the Emergency Kit on the main window. */
+export const MAIN_WINDOW_EXPANDED = { width: 720, height: 560 } as const;
+
+export type MainWindowMode = "compact" | "expanded";
+
+export const MAIN_WINDOW_SIZES: Record<
+  MainWindowMode,
+  { width: number; height: number }
+> = {
+  compact: MAIN_WINDOW_COMPACT,
+  expanded: MAIN_WINDOW_EXPANDED,
+};
+
+let appliedMode: MainWindowMode | null = null;
+let resizeInFlight: Promise<void> | null = null;
+
+/** Reset cached resize state between Vitest cases. */
+export function resetMainWindowModeForTests(): void {
+  appliedMode = null;
+  resizeInFlight = null;
+}
+
+/**
+ * Pick the main-window size for the current vault lifecycle screen.
+ * Only the unlocked command bar stays compact; everything else needs the full form layout.
+ */
+export function mainWindowMode(
+  status: VaultStatus,
+  pendingKit: unknown,
+): MainWindowMode {
+  if (status === "unlocked" && !pendingKit) {
+    return "compact";
+  }
+  return "expanded";
+}
 
 /**
  * Hide the launcher window — the Esc / lose-focus behavior of the command bar.
@@ -7,6 +52,69 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
  */
 export async function hideWindow(): Promise<void> {
   await getCurrentWindow().hide();
+}
+
+async function setBlurDismiss(enabled: boolean): Promise<void> {
+  try {
+    await invoke("set_main_window_blur_dismiss", { enabled });
+  } catch {
+    // Vitest / Vite dev in a browser — no Tauri IPC.
+  }
+}
+
+/**
+ * Resolves once any in-flight main-window resize completes. Auth inputs should focus only
+ * after this so Tauri does not steal focus back from the field.
+ */
+export async function whenMainWindowReady(): Promise<void> {
+  if (resizeInFlight) {
+    await resizeInFlight;
+  }
+}
+
+/**
+ * Resize the main launcher window to match the active surface. No-op outside Tauri or on
+ * non-main windows (e.g. the Dashboard). Skips redundant calls so setSize does not steal focus.
+ *
+ * Requires `core:window:allow-set-size` and `core:window:allow-set-resizable` in capabilities.
+ * macOS ignores programmatic `setSize` while `resizable: false`, so we toggle resizable briefly.
+ */
+export async function setMainWindowMode(mode: MainWindowMode): Promise<void> {
+  if (mode === appliedMode) {
+    return;
+  }
+
+  if (resizeInFlight) {
+    await resizeInFlight;
+    if (mode === appliedMode) {
+      return;
+    }
+  }
+
+  resizeInFlight = (async () => {
+    try {
+      const win = getCurrentWindow();
+      if (win.label !== "main") {
+        return;
+      }
+      const { width, height } = MAIN_WINDOW_SIZES[mode];
+      await win.setResizable(true);
+      await win.setSize(new LogicalSize(width, height));
+      // Keep expanded auth windows resizable — locking resizable breaks keyboard input on macOS.
+      if (mode === "compact") {
+        await win.setResizable(false);
+      }
+      // Blur-to-hide is only for the compact launcher (spec §7); auth forms must stay interactive.
+      await setBlurDismiss(mode === "compact");
+      appliedMode = mode;
+    } catch {
+      // Vitest / Vite dev in a browser — no Tauri window API.
+    } finally {
+      resizeInFlight = null;
+    }
+  })();
+
+  await resizeInFlight;
 }
 
 /**

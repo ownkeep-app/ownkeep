@@ -56,40 +56,50 @@ pub fn create_vault(
 
 /// Unlock with the master password.
 #[tauri::command]
-pub fn unlock(
-    app: AppHandle,
-    state: State<'_, SharedSession>,
-    password: String,
-) -> Result<(), String> {
+pub async fn unlock(app: AppHandle, password: String) -> Result<(), String> {
     let path = vault_path(&app)?;
-    let delay = state.lock().unwrap().backoff_delay();
-    if !delay.is_zero() {
-        std::thread::sleep(delay);
-    }
-    state
-        .lock()
-        .unwrap()
-        .unlock_password(&path, &password)
-        .map_err(|e| e.to_string())
+    let delay = {
+        let session = app.state::<SharedSession>();
+        let delay = session.lock().unwrap().backoff_delay();
+        delay
+    };
+    let app = app.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        if !delay.is_zero() {
+            std::thread::sleep(delay);
+        }
+        app.state::<SharedSession>()
+            .lock()
+            .unwrap()
+            .unlock_password(&path, &password)
+            .map_err(|e| e.to_string())
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
 /// Unlock with the recovery code. The caller must then set a new master password (§4.1 path B).
 #[tauri::command]
-pub fn unlock_recovery(
-    app: AppHandle,
-    state: State<'_, SharedSession>,
-    code: String,
-) -> Result<(), String> {
+pub async fn unlock_recovery(app: AppHandle, code: String) -> Result<(), String> {
     let path = vault_path(&app)?;
-    let delay = state.lock().unwrap().backoff_delay();
-    if !delay.is_zero() {
-        std::thread::sleep(delay);
-    }
-    state
-        .lock()
-        .unwrap()
-        .unlock_recovery(&path, &code)
-        .map_err(|e| e.to_string())
+    let delay = {
+        let session = app.state::<SharedSession>();
+        let delay = session.lock().unwrap().backoff_delay();
+        delay
+    };
+    let app = app.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        if !delay.is_zero() {
+            std::thread::sleep(delay);
+        }
+        app.state::<SharedSession>()
+            .lock()
+            .unwrap()
+            .unlock_recovery(&path, &code)
+            .map_err(|e| e.to_string())
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
 /// Lock the vault, zeroizing all decrypted state.

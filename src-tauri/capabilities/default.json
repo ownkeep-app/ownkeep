@@ -3,5 +3,10 @@
   "identifier": "default",
   "description": "Capability for the main and dashboard windows",
   "windows": ["main", "dashboard"],
-  "permissions": ["core:default", "core:window:allow-hide"]
+  "permissions": [
+    "core:default",
+    "core:window:allow-hide",
+    "core:window:allow-set-size",
+    "core:window:allow-set-resizable"
+  ]
 }

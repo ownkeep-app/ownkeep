@@ -1,8 +1,9 @@
-import { type FormEvent, useState } from "react";
+import { type FormEvent, useEffect, useRef, useState } from "react";
 
 import { Screen } from "@/components/screen";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { whenMainWindowReady } from "@/lib/window";
 import { useVaultStore } from "@/stores/vault-store";
 
 /** Shown after a recovery-code unlock (§4.1 path B): the user must set a new master password. */
@@ -12,6 +13,11 @@ export function ResetMasterScreen() {
   const [confirm, setConfirm] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const passwordRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    void whenMainWindowReady().then(() => passwordRef.current?.focus());
+  }, []);
 
   async function onSubmit(event: FormEvent) {
     event.preventDefault();
@@ -43,8 +49,8 @@ export function ResetMasterScreen() {
       </p>
       <form onSubmit={onSubmit} className="flex w-full flex-col gap-3">
         <Input
+          ref={passwordRef}
           type="password"
-          autoFocus
           aria-label="New master password"
           placeholder="New master password"
           value={password}

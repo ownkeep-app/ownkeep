@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useLayoutEffect } from "react";
 
 import { CommandBar } from "@/features/CommandBar";
 import { EmergencyKitScreen } from "@/features/auth/EmergencyKitScreen";
@@ -6,7 +6,11 @@ import { LockScreen } from "@/features/auth/LockScreen";
 import { OnboardingScreen } from "@/features/auth/OnboardingScreen";
 import { ResetMasterScreen } from "@/features/auth/ResetMasterScreen";
 import { Dashboard } from "@/features/dashboard/Dashboard";
-import { currentWindowLabel } from "@/lib/window";
+import {
+  currentWindowLabel,
+  mainWindowMode,
+  setMainWindowMode,
+} from "@/lib/window";
 import { useVaultStore } from "@/stores/vault-store";
 
 function Loading() {
@@ -34,6 +38,15 @@ function App() {
     window.addEventListener("focus", onFocus);
     return () => window.removeEventListener("focus", onFocus);
   }, [init]);
+
+  // Resize before paint when the active surface changes. Do not re-run on window focus —
+  // redundant setSize steals keyboard focus from auth inputs on macOS.
+  useLayoutEffect(() => {
+    if (label !== "main") {
+      return;
+    }
+    void setMainWindowMode(mainWindowMode(status, pendingKit));
+  }, [label, status, pendingKit]);
 
   if (label === "dashboard") {
     return <Dashboard />;

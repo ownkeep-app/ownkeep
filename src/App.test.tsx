@@ -1,15 +1,24 @@
 import { render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { currentWindowLabel } from "@/lib/window";
+import { currentWindowLabel, setMainWindowMode } from "@/lib/window";
 import { useVaultStore } from "@/stores/vault-store";
 import { vaultApi } from "@/vault/api";
 import App from "./App";
 
-vi.mock("@/lib/window", () => ({
-  currentWindowLabel: vi.fn(() => "main"),
-  hideWindow: vi.fn(),
-}));
+vi.mock("@/lib/window", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/window")>();
+  return {
+    ...actual,
+    currentWindowLabel: vi.fn(() => "main"),
+    hideWindow: vi.fn(),
+    setMainWindowMode: vi.fn(async () => {}),
+    whenMainWindowReady: vi.fn(() => Promise.resolve()),
+    mainWindowMode: vi.fn((status: string, pendingKit: unknown) =>
+      status === "unlocked" && !pendingKit ? "compact" : "expanded",
+    ),
+  };
+});
 
 vi.mock("@/vault/api", () => ({
   vaultApi: {
@@ -28,6 +37,7 @@ vi.mock("@/vault/api", () => ({
 
 const api = vi.mocked(vaultApi);
 const mockLabel = vi.mocked(currentWindowLabel);
+const mockSetMainWindowMode = vi.mocked(setMainWindowMode);
 
 describe("App routing", () => {
   beforeEach(() => {
@@ -50,6 +60,7 @@ describe("App routing", () => {
     expect(
       await screen.findByRole("combobox", { name: /search keystash/i }),
     ).toBeInTheDocument();
+    expect(mockSetMainWindowMode).toHaveBeenCalledWith("compact");
   });
 
   it("shows onboarding on the main window when no vault exists", async () => {
@@ -59,6 +70,29 @@ describe("App routing", () => {
     expect(
       await screen.findByRole("button", { name: /create vault/i }),
     ).toBeInTheDocument();
+    expect(mockSetMainWindowMode).toHaveBeenCalledWith("expanded");
+  });
+
+  it("expands the main window on the lock screen", async () => {
+    api.isUnlocked.mockResolvedValue(false);
+    api.vaultExists.mockResolvedValue(true);
+    render(<App />);
+    expect(
+      await screen.findByRole("button", { name: /unlock/i }),
+    ).toBeInTheDocument();
+    expect(mockSetMainWindowMode).toHaveBeenCalledWith("expanded");
+  });
+
+  it("does not resize the main window again on browser focus", async () => {
+    api.isUnlocked.mockResolvedValue(false);
+    api.vaultExists.mockResolvedValue(false);
+    render(<App />);
+    await screen.findByRole("button", { name: /create vault/i });
+    mockSetMainWindowMode.mockClear();
+
+    window.dispatchEvent(new Event("focus"));
+
+    expect(mockSetMainWindowMode).not.toHaveBeenCalled();
   });
 
   it("shows the Dashboard (with its module sidebar) on the dashboard window", async () => {

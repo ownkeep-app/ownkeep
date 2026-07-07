@@ -1,8 +1,9 @@
-import { type FormEvent, useState } from "react";
+import { type FormEvent, useEffect, useRef, useState } from "react";
 
 import { Screen } from "@/components/screen";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { whenMainWindowReady } from "@/lib/window";
 import { useVaultStore } from "@/stores/vault-store";
 
 /** First-run: create the master password. The Emergency Kit is shown next (see App routing). */
@@ -12,6 +13,11 @@ export function OnboardingScreen() {
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const passwordRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    void whenMainWindowReady().then(() => passwordRef.current?.focus());
+  }, []);
 
   async function onSubmit(event: FormEvent) {
     event.preventDefault();
@@ -41,8 +47,8 @@ export function OnboardingScreen() {
       </p>
       <form onSubmit={onSubmit} className="flex w-full flex-col gap-3">
         <Input
+          ref={passwordRef}
           type="password"
-          autoFocus
           aria-label="Master password"
           placeholder="Master password"
           value={password}
