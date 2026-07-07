@@ -1,8 +1,19 @@
+mod commands;
+mod container;
+mod crypto;
+mod envelope;
+mod error;
+mod recovery;
+mod session;
+mod storage;
+
+use tauri::Manager;
+
 #[cfg(desktop)]
 use tauri::{
     menu::{MenuBuilder, MenuItemBuilder},
     tray::TrayIconBuilder,
-    AppHandle, Manager,
+    AppHandle,
 };
 
 /// Show the main launcher window and give it keyboard focus.
@@ -88,7 +99,21 @@ pub fn run() {
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_dialog::init())
+        .manage(std::sync::Mutex::new(session::Session::new(
+            session::DEFAULT_AUTO_LOCK,
+        )))
+        .invoke_handler(tauri::generate_handler![
+            commands::vault_exists,
+            commands::is_unlocked,
+            commands::create_vault,
+            commands::unlock,
+            commands::unlock_recovery,
+            commands::lock,
+            commands::change_master,
+            commands::regenerate_recovery,
+        ])
         .setup(|app| {
+            spawn_auto_lock(app.handle().clone());
             #[cfg(desktop)]
             setup_desktop(app)?;
             Ok(())
@@ -104,6 +129,19 @@ pub fn run() {
         })
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
+}
+
+/// Periodically wipe keys if the vault has been idle past its auto-lock timeout (spec §4.3).
+/// A dedicated background thread keeps this independent of window/UI activity.
+fn spawn_auto_lock(handle: tauri::AppHandle) {
+    std::thread::spawn(move || loop {
+        std::thread::sleep(std::time::Duration::from_secs(15));
+        let state = handle.state::<commands::SharedSession>();
+        let mut session = state.lock().unwrap();
+        if session.is_idle_expired(std::time::Instant::now()) {
+            session.lock();
+        }
+    });
 }
 
 #[cfg(test)]

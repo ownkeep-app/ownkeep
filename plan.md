@@ -66,14 +66,14 @@ with a **browsable Dashboard** (sidebar + content pane) you can actually use (~2
 - **Deps:** none.
 
 ### Phase 1 — 🔐 Crypto core (Rust) · 3–5 d · *the make-or-break phase*
-- [ ] Container format (§4.2): `magic/version/kdf/salts/wrapped_master/wrapped_recovery/vault`.
-- [ ] `Argon2id(master)` → `KEK_master`; `HKDF-SHA256(recovery_code)` → `KEK_recovery`.
-- [ ] Random `DEK`; XChaCha20-Poly1305 encrypt vault; AEAD-wrap DEK under both KEKs (envelope, §4.1).
-- [ ] Tauri commands: `create_vault`, `unlock(password)`, `unlock_recovery(code)`, `lock`, `change_master`, `regenerate_recovery`.
-- [ ] Recovery-code generation (12-word list) + **Emergency Kit** payload.
-- [ ] In-Rust decrypted model; **auto-lock timer** + `zeroize` on lock/quit; optional failed-attempt backoff.
-- [ ] **Atomic writes** (temp → `fsync` → rename).
-- [ ] **Unit tests (`cargo test` + `proptest`):** wrong-password rejects; both unlock paths recover the same DEK; tamper → AEAD fail; round-trip encrypt/decrypt; re-wrap after `change_master`; property-test random keys/inputs.
+- [x] Container format (§4.2): `magic/version/kdf/salts/wrapped_master/wrapped_recovery/vault`.
+- [x] `Argon2id(master)` → `KEK_master`; `HKDF-SHA256(recovery_code)` → `KEK_recovery`.
+- [x] Random `DEK`; XChaCha20-Poly1305 encrypt vault; AEAD-wrap DEK under both KEKs (envelope, §4.1).
+- [x] Tauri commands: `create_vault`, `unlock(password)`, `unlock_recovery(code)`, `lock`, `change_master`, `regenerate_recovery`.
+- [x] Recovery-code generation (12-word list) + **Emergency Kit** payload.
+- [x] In-Rust decrypted model; **auto-lock timer** + `zeroize` on lock/quit; optional failed-attempt backoff.
+- [x] **Atomic writes** (temp → `fsync` → rename).
+- [x] **Unit tests (`cargo test` + `proptest`):** wrong-password rejects; both unlock paths recover the same DEK; tamper → AEAD fail; round-trip encrypt/decrypt; re-wrap after `change_master`; property-test random keys/inputs.
 - **Exit:** create a vault, lock, reopen with password AND with recovery code; corrupting a byte fails cleanly.
 - **Deps:** P0. **Do not build features until this is solid and tested.**
 
