@@ -13,6 +13,7 @@ vi.mock("@/vault/api", () => ({
     backupVault: vi.fn(async () => "/tmp/backup.dat"),
     backupVaultToChosenLocation: vi.fn(async () => "/tmp/chosen-backup.dat"),
     saveVault: vi.fn(async () => {}),
+    setAutoLock: vi.fn(async () => {}),
     eraseVault: vi.fn(async () => {}),
     quitApp: vi.fn(async () => {}),
   },

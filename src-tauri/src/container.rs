@@ -11,8 +11,12 @@ use crate::error::{Error, Result};
 
 /// Magic marker identifying a keystash container.
 pub const MAGIC: &str = "KSTH";
-/// Current container schema version.
+/// Current container schema version (the newest format this build writes).
 pub const VERSION: u32 = 2;
+/// Oldest container version this build can still read (spec §11.2 step 1: retained readers).
+/// Versions `MIN_READABLE_VERSION..=VERSION` share the current on-disk shape; an older container is
+/// upgraded to `VERSION` on the next accepted write (see [`crate::envelope::reseal_vault`]).
+pub const MIN_READABLE_VERSION: u32 = 1;
 
 /// The full on-disk container. All binary fields are base64 in the JSON.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
@@ -127,9 +131,16 @@ impl Container {
         if container.magic != MAGIC {
             return Err(Error::Format(format!("bad magic: {:?}", container.magic)));
         }
-        if container.version != VERSION {
+        // Refuse a newer-than-known container before any unlock/key derivation (spec §11.2 step 1),
+        // so an old build never touches a vault it cannot safely round-trip.
+        if container.version > VERSION {
+            return Err(Error::VaultTooNew);
+        }
+        // Older-but-supported versions keep working; the build retains their readers. When the
+        // on-disk shape first diverges, add a version-specific reader before this point.
+        if container.version < MIN_READABLE_VERSION {
             return Err(Error::Format(format!(
-                "unsupported version: {}",
+                "unsupported container version: {}",
                 container.version
             )));
         }
@@ -200,9 +211,29 @@ mod tests {
     }
 
     #[test]
-    fn rejects_unsupported_version() {
+    fn refuses_a_newer_than_known_version_before_unlock() {
         let mut container = sample();
-        container.version = 999;
+        container.version = VERSION + 1;
+        let bytes = container.to_bytes().unwrap();
+        assert!(matches!(
+            Container::from_bytes(&bytes),
+            Err(Error::VaultTooNew)
+        ));
+    }
+
+    #[test]
+    fn reads_an_older_supported_version() {
+        let mut container = sample();
+        container.version = MIN_READABLE_VERSION;
+        let bytes = container.to_bytes().unwrap();
+        let parsed = Container::from_bytes(&bytes).unwrap();
+        assert_eq!(parsed.version, MIN_READABLE_VERSION);
+    }
+
+    #[test]
+    fn rejects_a_zero_version() {
+        let mut container = sample();
+        container.version = 0;
         let bytes = container.to_bytes().unwrap();
         assert!(matches!(
             Container::from_bytes(&bytes),

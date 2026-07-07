@@ -34,6 +34,7 @@ vi.mock("@/vault/api", () => ({
     eraseVault: vi.fn(async () => {}),
     quitApp: vi.fn(async () => {}),
     lock: vi.fn(async () => {}),
+    setAutoLock: vi.fn(async () => {}),
     changeMaster: vi.fn(async () => {}),
     regenerateRecovery: vi.fn(async () => ({
       app: "",

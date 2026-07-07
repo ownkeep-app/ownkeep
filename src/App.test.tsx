@@ -24,6 +24,7 @@ vi.mock("@/vault/api", () => ({
   vaultApi: {
     isUnlocked: vi.fn(async () => true),
     vaultExists: vi.fn(async () => true),
+    vaultIncompatibility: vi.fn(async () => null),
     getVault: vi.fn(async () => "{}"),
     createVault: vi.fn(),
     saveVault: vi.fn(async () => {}),
@@ -34,6 +35,7 @@ vi.mock("@/vault/api", () => ({
     unlock: vi.fn(async () => {}),
     unlockRecovery: vi.fn(async () => {}),
     lock: vi.fn(async () => {}),
+    setAutoLock: vi.fn(async () => {}),
     changeMaster: vi.fn(async () => {}),
     regenerateRecovery: vi.fn(),
   },

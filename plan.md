@@ -94,10 +94,10 @@ with a **browsable Dashboard** (sidebar + content pane) and a safe upgrade path 
 - [x] **Model migration registry (TS):** an ordered registry of pure `migrate(vN -> vN+1)` steps keyed on `meta.schemaVersion`; each step owns its transform plus `changes[]` (`added`, `renamed`, `removed`, `transformed`) so the migration guide is generated from the same source that migrates data.
 - [x] **Migration guide UI:** after unlock, when `vault.schemaVersion < APP_SCHEMA_VERSION`, show the union of pending change lists before any write; summarize additive fields, show rename paths (`old -> new`), and render removals in red as data loss.
 - [x] **Accept / reject flow:** Accept writes a versioned pre-migration backup, applies migrations, stamps `APP_VERSION` + `APP_SCHEMA_VERSION`, re-seals, and atomically writes; Reject offers **Back up & quit**, **Erase & start fresh** (red danger confirm), or **Quit** with no vault writes.
-- [ ] **Container/envelope versioning (Rust):** keep version-tagged readers so a newer build can still decrypt an older container; after deriving the DEK, if `container.version < CURRENT`, re-seal into the current format and persist only after the user accepts the migration path. Reject newer-than-known versions before unlock.
-- [ ] **Versioned backups:** backup names include the vault/app version (`keystash-v<appVersion>-<timestamp>.dat`; pre-migration `keystash-pre-migration-v<old>-to-v<new>-<timestamp>.dat`), and backups preserve `container.version`, `meta.appVersion`, and `meta.schemaVersion`.
-- [ ] **Tests:** version comparison; old-schema fixture migrates to current with data intact; added keys hydrate silently; renamed keys preserve values; removed keys appear in the guide as data loss; rejecting migration writes nothing; a failing step leaves the original file untouched; newer app/schema/container versions are refused safely.
-- [ ] **AI verification hook:** update `$verify` / `/verify` instructions so every data-shape change after the latest `v*` release tag is checked for a migration guide entry, a `package.json.version` current-release check, and tests.
+- [x] **Container/envelope versioning (Rust):** keep version-tagged readers so a newer build can still decrypt an older container; after deriving the DEK, if `container.version < CURRENT`, re-seal into the current format and persist only after the user accepts the migration path. Reject newer-than-known versions before unlock.
+- [x] **Versioned backups:** backup names include the vault/app version (`keystash-v<appVersion>-<timestamp>.dat`; pre-migration `keystash-pre-migration-v<old>-to-v<new>-<timestamp>.dat`), and backups preserve `container.version`, `meta.appVersion`, and `meta.schemaVersion`.
+- [x] **Tests:** version comparison; old-schema fixture migrates to current with data intact; added keys hydrate silently; renamed keys preserve values; removed keys appear in the guide as data loss; rejecting migration writes nothing; a failing step leaves the original file untouched; newer app/schema/container versions are refused safely.
+- [x] **AI verification hook:** update `$verify` / `/verify` instructions so every data-shape change after the latest `v*` release tag is checked for a migration guide entry, a `package.json.version` current-release check, and tests.
 - **Exit:** a v(N) vault opens in a v(N+1) build only through the migration-guide flow; accepting creates a versioned pre-migration backup and preserves data except user-confirmed removals; rejecting leaves the vault untouched or exits through an explicit backup/erase path; older app builds refuse newer vaults.
 - **Deps:** P2 (model shape settled); borrows the P1 atomic-write helper; anticipates P6 backup.
 
@@ -127,7 +127,7 @@ with a **browsable Dashboard** (sidebar + content pane) and a safe upgrade path 
 ### Phase 6 — 💾 Backup/restore (§11) + Settings UI (§9) · 2–3 d
 - [ ] Backup: file dialog → copy encrypted container with versioned filename (`keystash-v<appVersion>-<timestamp>.dat`).
 - [ ] Restore: pick file → decrypt-verify → warn → optional `pre-restore` snapshot → atomic replace → reload.
-- [ ] Settings UI: hotkeys, auto-lock, clipboard clear, theme/accent, result limit, per-module toggles; Emergency Kit regen.
+- [ ] Settings UI: hotkeys, clipboard clear, theme/accent, result limit, per-module toggles; Emergency Kit regen. *(Auto-lock timeout — configurable presets incl. never, wired to the Rust idle timer — was pulled forward and shipped in Phase 2.1.)*
 - **Exit:** backup→restore round-trips on a fresh machine; backup filename includes the vault/app version; restore refuses a wrong password; settings persist (encrypted).
 - **Deps:** P5. **← MVP / v0.9 ends here.**
 

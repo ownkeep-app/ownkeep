@@ -253,7 +253,7 @@ password hash to store or leak; the AEAD tag *is* the verification.
 > unlock feels slow. No security-questions array — the recovery path stores nothing but a salt.
 
 ### 4.3 Runtime protections
-- **Auto-lock:** wipe keys + in-memory plaintext after N minutes idle (default 5) and optionally on window blur. Re-entry requires the master password.
+- **Auto-lock:** wipe keys + in-memory plaintext after N minutes idle (default 1 hour; configurable in Settings — 5 / 15 / 30 minutes, 1 / 3 hours, or **never**) and optionally on window blur. Re-entry requires the master password. "Never" (`autoLockMinutes: 0`) keeps the vault unlocked until the user locks it manually or quits — a deliberate convenience/security trade-off surfaced in the UI.
 - **Zeroize:** all key material and decrypted secrets zeroized (`zeroize`) on lock/quit.
 - **Clipboard hygiene:** on copy of a secret, (a) auto-clear the pasteboard after N seconds (default 30), and (b) mark it **concealed/transient** (`org.nspasteboard.ConcealedType` + `TransientType`) so clipboard-history tools ignore it. *Requires ~20 lines of custom Rust (objc2/cocoa) — the Tauri clipboard plugin does not set these types.* *Caveat:* macOS Universal Clipboard/Handoff and some third-party managers may still capture — documented honestly in-app.
 - **Failed-attempt backoff:** Argon2 is already slow; add optional exponential backoff after repeated failures.
@@ -290,7 +290,7 @@ never migrates another module's slice.
     "globalHotkey": "Cmd+Shift+Space",       // activate/toggle the search window
     "dashboardHotkey": "Cmd+Shift+D",        // open/toggle the dashboard window
     "copyHotkey": { "modifiers": "Cmd", "keys": "1-9" },  // numbered copy
-    "autoLockMinutes": 5,
+    "autoLockMinutes": 60,                    // 0 = never auto-lock
     "lockOnBlur": false,
     "clipboardClearSeconds": 30,
     "theme": "system",                        // system | light | dark
@@ -496,7 +496,8 @@ Layout: **left sidebar + right content pane.**
 ## 9. Settings / Configuration
 
 All user-editable, stored inside the encrypted vault:
-global hotkey; dashboard hotkey; numbered-copy hotkey; auto-lock minutes + lock-on-blur; clipboard auto-clear
+global hotkey; dashboard hotkey; numbered-copy hotkey; auto-lock timeout (preset minutes/hours or
+never) + lock-on-blur; clipboard auto-clear
 seconds; theme + accent; result limit; **per-module enable toggles + scope prefixes + module
 settings** (command placeholder/copy mode; todo default lead; subscription default lead days;
 finance base currency + FX table); Emergency Kit regeneration.

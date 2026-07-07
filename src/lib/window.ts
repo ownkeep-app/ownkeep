@@ -1,8 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
-import {
-  getCurrentWindow,
-  LogicalSize,
-} from "@tauri-apps/api/window";
+import { getCurrentWindow, LogicalSize } from "@tauri-apps/api/window";
 
 import type { VaultStatus } from "@/stores/vault-store";
 

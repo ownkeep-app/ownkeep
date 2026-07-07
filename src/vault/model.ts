@@ -26,6 +26,7 @@ export interface ModuleSettings {
 export interface VaultSettings {
   globalHotkey: string;
   dashboardHotkey: string;
+  /** Idle minutes before auto-lock wipes keys/plaintext (spec §4.3); `0` = never. */
   autoLockMinutes: number;
   lockOnBlur: boolean;
   clipboardClearSeconds: number;
@@ -59,7 +60,7 @@ export function defaultSettings(): VaultSettings {
   return {
     globalHotkey: "Cmd+Shift+Space",
     dashboardHotkey: "Cmd+Shift+D",
-    autoLockMinutes: 5,
+    autoLockMinutes: 60,
     lockOnBlur: false,
     clipboardClearSeconds: 30,
     theme: "system",

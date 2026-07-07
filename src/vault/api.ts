@@ -17,6 +17,11 @@ export interface EmergencyKit {
 export const vaultApi = {
   /** Whether a vault file exists (onboarding vs. unlock on launch). */
   vaultExists: () => invoke<boolean>("vault_exists"),
+  /**
+   * Pre-unlock compatibility check (spec §11.2 step 1): the incompatibility message if this build is
+   * too old to read the on-disk container, else null. Checked at launch, before password entry.
+   */
+  vaultIncompatibility: () => invoke<string | null>("vault_incompatibility"),
   isUnlocked: () => invoke<boolean>("is_unlocked"),
   /** Create a new vault; returns the recovery code to show once. */
   createVault: (password: string) =>
@@ -24,6 +29,8 @@ export const vaultApi = {
   unlock: (password: string) => invoke<void>("unlock", { password }),
   unlockRecovery: (code: string) => invoke<void>("unlock_recovery", { code }),
   lock: () => invoke<void>("lock"),
+  /** Update the idle auto-lock timeout in the Rust session (minutes; `0` = never). Spec §4.3/§9. */
+  setAutoLock: (minutes: number) => invoke<void>("set_auto_lock", { minutes }),
   changeMaster: (newPassword: string) =>
     invoke<void>("change_master", { newPassword }),
   regenerateRecovery: () => invoke<EmergencyKit>("regenerate_recovery"),

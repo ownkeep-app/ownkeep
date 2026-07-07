@@ -17,6 +17,9 @@ pub enum Error {
     Rng,
     /// Container could not be parsed / decoded (magic, version, base64, JSON).
     Format(String),
+    /// The container was written by a newer keystash than this build can read (spec §11.2 step 1).
+    /// Surfaced to the frontend before unlock so an old build never touches a too-new vault.
+    VaultTooNew,
     /// The recovery phrase was not a valid mnemonic.
     Recovery(String),
     /// Filesystem I/O failed.
@@ -35,6 +38,10 @@ impl fmt::Display for Error {
             ),
             Error::Rng => write!(f, "secure random generation failed"),
             Error::Format(m) => write!(f, "invalid vault container: {m}"),
+            Error::VaultTooNew => write!(
+                f,
+                "This vault was written by a newer keystash. Please upgrade keystash."
+            ),
             Error::Recovery(m) => write!(f, "invalid recovery code: {m}"),
             Error::Io(e) => write!(f, "I/O error: {e}"),
             Error::Locked => write!(f, "vault is locked"),

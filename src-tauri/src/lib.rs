@@ -131,17 +131,19 @@ pub fn run() {
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_dialog::init())
-        .manage(std::sync::Mutex::new(session::Session::new(
+        .manage(std::sync::Mutex::new(session::Session::new(Some(
             session::DEFAULT_AUTO_LOCK,
-        )))
+        ))))
         .manage(MainWindowBehavior(std::sync::Mutex::new(true)))
         .invoke_handler(tauri::generate_handler![
             commands::vault_exists,
+            commands::vault_incompatibility,
             commands::is_unlocked,
             commands::create_vault,
             commands::unlock,
             commands::unlock_recovery,
             commands::lock,
+            commands::set_auto_lock,
             commands::change_master,
             commands::regenerate_recovery,
             commands::get_vault,

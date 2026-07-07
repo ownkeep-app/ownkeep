@@ -86,11 +86,14 @@ pub fn decrypt_vault(container: &Container, dek: &Key) -> Result<Zeroizing<Vec<u
     crypto::open(dek, &container.vault.to_sealed()?)
 }
 
-/// Re-seal the vault body with the DEK after a mutation, replacing `container.vault`.
-/// The DEK and both DEK-wraps are unchanged, so unlock (either path) still works.
+/// Re-seal the vault body with the DEK after a mutation, replacing `container.vault`, and stamp the
+/// current container format. The DEK and both DEK-wraps are unchanged, so unlock (either path) still
+/// works. A vault opened from an older container is upgraded to [`container::VERSION`] on this
+/// (accepted) write (spec §11.2 step 1); the stamp is idempotent when already current.
 pub fn reseal_vault(container: &mut Container, dek: &Key, vault_plaintext: &[u8]) -> Result<()> {
     let sealed = crypto::seal(dek, vault_plaintext)?;
     container.vault = SealedBlob::from_sealed(&sealed);
+    container.version = container::VERSION;
     Ok(())
 }
 

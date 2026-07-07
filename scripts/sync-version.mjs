@@ -2,6 +2,8 @@ import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
+/* global console */
+
 const rootDir = dirname(dirname(fileURLToPath(import.meta.url)));
 const packagePath = join(rootDir, "package.json");
 const tauriConfigPath = join(rootDir, "src-tauri", "tauri.conf.json");

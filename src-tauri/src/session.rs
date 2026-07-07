@@ -21,8 +21,10 @@ use crate::storage;
 /// treats the body as opaque bytes.
 const INITIAL_VAULT: &[u8] = b"{}";
 
-/// Default auto-lock idle timeout (spec §4.3 default: 5 minutes).
-pub const DEFAULT_AUTO_LOCK: Duration = Duration::from_secs(5 * 60);
+/// Default auto-lock idle timeout for a fresh session (spec §4.3 default: 1 hour). Once a vault is
+/// unlocked the effective timeout is overridden per-vault from `settings.autoLockMinutes` via
+/// [`Session::set_auto_lock`]; this constant only covers the window before that sync.
+pub const DEFAULT_AUTO_LOCK: Duration = Duration::from_secs(60 * 60);
 
 /// Decrypted state held while the vault is unlocked. Every secret field zeroizes on drop.
 struct UnlockedVault {
@@ -37,12 +39,14 @@ struct UnlockedVault {
 /// The vault session: at most one unlocked vault plus lock/backoff bookkeeping.
 pub struct Session {
     unlocked: Option<UnlockedVault>,
-    auto_lock: Duration,
+    /// Idle auto-lock timeout, or `None` for "never" (spec §4.3/§9). Set per-vault after unlock from
+    /// `settings.autoLockMinutes` via [`Session::set_auto_lock`].
+    auto_lock: Option<Duration>,
     failed_attempts: u32,
 }
 
 impl Session {
-    pub fn new(auto_lock: Duration) -> Self {
+    pub fn new(auto_lock: Option<Duration>) -> Self {
         Self {
             unlocked: None,
             auto_lock,
@@ -59,12 +63,18 @@ impl Session {
         self.unlocked = None;
     }
 
+    /// Update the idle auto-lock timeout at runtime (spec §4.3/§9). `None` disables it ("Never").
+    pub fn set_auto_lock(&mut self, auto_lock: Option<Duration>) {
+        self.auto_lock = auto_lock;
+    }
+
     /// Whether the idle timeout has elapsed (used by the auto-lock task). A locked vault is never
     /// "expired".
     pub fn is_idle_expired(&self, now: Instant) -> bool {
-        match &self.unlocked {
-            Some(u) => now.saturating_duration_since(u.last_activity) >= self.auto_lock,
-            None => false,
+        match (&self.unlocked, self.auto_lock) {
+            (Some(u), Some(timeout)) => now.saturating_duration_since(u.last_activity) >= timeout,
+            // Locked, or auto-lock set to "Never" — never idle-expires.
+            _ => false,
         }
     }
 
@@ -182,6 +192,16 @@ impl Session {
     }
 }
 
+/// Map a user-facing auto-lock setting (`settings.autoLockMinutes`; `0` = never) to the session
+/// timeout (spec §4.3/§9). Pure, so the frontend's option set is exercised without a live session.
+pub fn auto_lock_from_minutes(minutes: u64) -> Option<Duration> {
+    if minutes == 0 {
+        None
+    } else {
+        Some(Duration::from_secs(minutes * 60))
+    }
+}
+
 /// Pure backoff schedule: no delay for the first few failures, then exponential up to a 30s cap.
 pub fn backoff_delay(failed_attempts: u32) -> Duration {
     const FREE_ATTEMPTS: u32 = 3;
@@ -203,7 +223,7 @@ mod tests {
     use std::fs;
 
     fn session() -> Session {
-        Session::new(DEFAULT_AUTO_LOCK)
+        Session::new(Some(DEFAULT_AUTO_LOCK))
     }
 
     #[test]
@@ -273,15 +293,54 @@ mod tests {
         let dir = unique_temp_dir();
         let path = dir.join(VAULT_FILE);
 
-        let mut immediate = Session::new(Duration::ZERO);
+        let mut immediate = Session::new(Some(Duration::ZERO));
         immediate.create(&path, "pw", TEST_ARGON).unwrap();
         assert!(immediate.is_idle_expired(Instant::now()));
 
-        let mut patient = Session::new(Duration::from_secs(3600));
+        let mut patient = Session::new(Some(Duration::from_secs(3600)));
         patient.create(&path, "pw", TEST_ARGON).unwrap();
         assert!(!patient.is_idle_expired(Instant::now()));
         patient.lock();
         assert!(!patient.is_idle_expired(Instant::now())); // locked → never expired
+        fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
+    fn auto_lock_minutes_map_to_timeout_or_never() {
+        assert_eq!(auto_lock_from_minutes(5), Some(Duration::from_secs(300)));
+        assert_eq!(auto_lock_from_minutes(60), Some(Duration::from_secs(3600)));
+        assert_eq!(
+            auto_lock_from_minutes(180),
+            Some(Duration::from_secs(10800))
+        );
+        assert_eq!(auto_lock_from_minutes(0), None); // "Never"
+    }
+
+    #[test]
+    fn never_auto_lock_never_idle_expires() {
+        let dir = unique_temp_dir();
+        let path = dir.join(VAULT_FILE);
+        let mut s = Session::new(None); // "Never"
+        s.create(&path, "pw", TEST_ARGON).unwrap();
+        // Even far in the future, a "Never" session stays unlocked.
+        assert!(!s.is_idle_expired(Instant::now() + Duration::from_secs(10 * 3600)));
+        fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
+    fn set_auto_lock_changes_the_effective_timeout() {
+        let dir = unique_temp_dir();
+        let path = dir.join(VAULT_FILE);
+        let mut s = Session::new(Some(Duration::from_secs(3600))); // 1 hour
+        s.create(&path, "pw", TEST_ARGON).unwrap();
+        let ten_min_later = Instant::now() + Duration::from_secs(600);
+        assert!(!s.is_idle_expired(ten_min_later)); // 1h not reached
+
+        s.set_auto_lock(auto_lock_from_minutes(5)); // tighten to 5 min
+        assert!(s.is_idle_expired(ten_min_later)); // now expired
+
+        s.set_auto_lock(auto_lock_from_minutes(0)); // "Never"
+        assert!(!s.is_idle_expired(ten_min_later));
         fs::remove_dir_all(&dir).ok();
     }
 
@@ -338,6 +397,31 @@ mod tests {
         let mut s = session();
         assert!(matches!(s.vault_json(), Err(Error::Locked)));
         assert!(matches!(s.save_vault(&path, "{}"), Err(Error::Locked)));
+        fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
+    fn opening_an_older_container_upgrades_it_on_save() {
+        let dir = unique_temp_dir();
+        let path = dir.join(VAULT_FILE);
+        let mut s = session();
+        s.create(&path, "pw", TEST_ARGON).unwrap();
+        s.lock();
+
+        // Simulate a vault written by an older container format (same shape, lower version tag).
+        let mut container = crate::storage::read_container(&path).unwrap();
+        container.version = crate::container::MIN_READABLE_VERSION;
+        crate::storage::write_container(&path, &container).unwrap();
+
+        // The retained reader opens it; the first accepted save re-seals into the current format.
+        s.unlock_password(&path, "pw").unwrap();
+        s.save_vault(&path, r#"{"meta":{"schemaVersion":2}}"#)
+            .unwrap();
+
+        assert_eq!(
+            crate::storage::read_container(&path).unwrap().version,
+            crate::container::VERSION
+        );
         fs::remove_dir_all(&dir).ok();
     }
 }

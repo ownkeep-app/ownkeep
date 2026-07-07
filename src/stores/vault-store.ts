@@ -53,6 +53,7 @@ interface VaultState {
   unlockRecovery: (code: string) => Promise<void>;
   changeMaster: (newPassword: string) => Promise<void>;
   lock: () => Promise<void>;
+  setAutoLock: (minutes: number) => Promise<void>;
   acceptMigration: () => Promise<void>;
   backupMigrationAndQuit: () => Promise<void>;
   eraseVaultAndStartFresh: () => Promise<void>;
@@ -73,6 +74,15 @@ async function loadModel(): Promise<{
   return prepareVaultModel(parseVaultJson(json, now()), MODULES);
 }
 
+/**
+ * Push the vault's auto-lock preference to the Rust session so the idle timer matches the stored
+ * setting (spec §4.3) — the session otherwise starts on its default timeout each launch. Fire-and-
+ * forget: a failed sync only means the default timeout stays in effect, never a data problem.
+ */
+function syncAutoLock(model: VaultModel): void {
+  void vaultApi.setAutoLock(model.settings.autoLockMinutes);
+}
+
 export const useVaultStore = create<VaultState>((set, get) => ({
   status: "loading",
   model: null,
@@ -87,6 +97,7 @@ export const useVaultStore = create<VaultState>((set, get) => ({
     try {
       if (await vaultApi.isUnlocked()) {
         const loaded = await loadModel();
+        syncAutoLock(loaded.model);
         set({
           status: loaded.migration ? "migration" : "unlocked",
           model: loaded.model,
@@ -96,13 +107,25 @@ export const useVaultStore = create<VaultState>((set, get) => ({
           error: null,
         });
       } else if (await vaultApi.vaultExists()) {
-        set({
-          status: "locked",
-          model: null,
-          migration: null,
-          incompatibleMessage: null,
-          error: null,
-        });
+        // Pre-unlock check (spec §11.2 step 1): refuse a too-new container before the lock screen.
+        const incompatibility = await vaultApi.vaultIncompatibility();
+        set(
+          incompatibility
+            ? {
+                status: "incompatible",
+                model: null,
+                migration: null,
+                incompatibleMessage: incompatibility,
+                error: null,
+              }
+            : {
+                status: "locked",
+                model: null,
+                migration: null,
+                incompatibleMessage: null,
+                error: null,
+              },
+        );
       } else {
         set({
           status: "onboarding",
@@ -135,6 +158,7 @@ export const useVaultStore = create<VaultState>((set, get) => ({
       // Persist a default model immediately so settings exist right after onboarding.
       const model = ensureModuleDefaults(parseVaultJson("{}", now()), MODULES);
       await vaultApi.saveVault(JSON.stringify(model));
+      syncAutoLock(model);
       set({
         status: "unlocked",
         model,
@@ -153,6 +177,7 @@ export const useVaultStore = create<VaultState>((set, get) => ({
     try {
       await vaultApi.unlock(password);
       const loaded = await loadModel();
+      syncAutoLock(loaded.model);
       set({
         status: loaded.migration ? "migration" : "unlocked",
         model: loaded.model,
@@ -184,6 +209,7 @@ export const useVaultStore = create<VaultState>((set, get) => ({
     try {
       await vaultApi.unlockRecovery(code);
       const loaded = await loadModel();
+      syncAutoLock(loaded.model);
       // §4.1 path B: a recovery unlock forces the user to set a new master password next.
       set({
         status: loaded.migration ? "migration" : "reset",
@@ -228,6 +254,17 @@ export const useVaultStore = create<VaultState>((set, get) => ({
     });
   },
 
+  setAutoLock: async (minutes) => {
+    const model = get().model;
+    if (!model) return;
+    // Persist the preference in the vault, then push it to the live Rust idle timer (spec §4.3/§9).
+    await get().save({
+      ...model,
+      settings: { ...model.settings, autoLockMinutes: minutes },
+    });
+    await vaultApi.setAutoLock(minutes);
+  },
+
   acceptMigration: async () => {
     const { migration, postMigrationStatus } = get();
     if (!migration) return;
@@ -243,6 +280,7 @@ export const useVaultStore = create<VaultState>((set, get) => ({
       );
       const stamped = withUpdatedAt(migration.migratedModel, now());
       await vaultApi.saveVault(JSON.stringify(stamped));
+      syncAutoLock(stamped);
       set({
         status: postMigrationStatus,
         model: stamped,

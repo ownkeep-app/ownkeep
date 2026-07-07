@@ -38,6 +38,16 @@ pub fn read_container(path: &Path) -> Result<Container> {
     Container::from_bytes(&bytes)
 }
 
+/// Pre-unlock compatibility probe (spec §11.2 step 1): the incompatibility message if the on-disk
+/// container is newer than this build can read, else `None`. A missing vault or any other read error
+/// returns `None` — those are surfaced at unlock time, not here.
+pub fn incompatibility_message(path: &Path) -> Option<String> {
+    match read_container(path) {
+        Err(Error::VaultTooNew) => Some(Error::VaultTooNew.to_string()),
+        _ => None,
+    }
+}
+
 /// Atomically persist a container to `path`.
 pub fn write_container(path: &Path, container: &Container) -> Result<()> {
     let bytes = container.to_bytes()?;
@@ -55,7 +65,7 @@ pub fn backup_vault_file(path: &Path, file_name: &str) -> Result<PathBuf> {
 pub fn backup_vault_to_path(path: &Path, backup_path: &Path) -> Result<PathBuf> {
     let bytes = fs::read(path)?;
     write_atomic(backup_path, &bytes)?;
-    if let Ok(file) = File::open(&backup_path) {
+    if let Ok(file) = File::open(backup_path) {
         let _ = file.sync_all();
     }
     Ok(backup_path.to_path_buf())
@@ -245,6 +255,38 @@ mod tests {
         remove_vault_file(&path).unwrap();
         assert!(!path.exists());
         remove_vault_file(&path).unwrap();
+        fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
+    fn backup_preserves_the_container_version_and_body() {
+        let dir = unique_temp_dir();
+        let path = dir.join(VAULT_FILE);
+        write_container(&path, &sample()).unwrap();
+
+        let backup = backup_vault_file(&path, "keystash-v0.1-20260707-1530.dat").unwrap();
+
+        // A backup is a byte copy of the encrypted container, so it round-trips unchanged —
+        // `container.version` (and the sealed `meta.appVersion`/`meta.schemaVersion`) are preserved.
+        let restored = read_container(&backup).unwrap();
+        assert_eq!(restored.version, VERSION);
+        assert_eq!(restored, sample());
+        fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
+    fn incompatibility_message_flags_only_newer_containers() {
+        let dir = unique_temp_dir();
+        let path = dir.join(VAULT_FILE);
+        assert_eq!(incompatibility_message(&path), None); // absent → nothing to flag
+
+        write_container(&path, &sample()).unwrap();
+        assert_eq!(incompatibility_message(&path), None); // current version reads fine
+
+        let mut newer = sample();
+        newer.version = VERSION + 1;
+        write_container(&path, &newer).unwrap();
+        assert!(incompatibility_message(&path).is_some()); // newer → refused pre-unlock
         fs::remove_dir_all(&dir).ok();
     }
 

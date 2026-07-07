@@ -13,7 +13,7 @@ use tauri_plugin_dialog::DialogExt;
 
 use crate::crypto::Argon2Params;
 use crate::recovery::EmergencyKit;
-use crate::session::Session;
+use crate::session::{self, Session};
 use crate::storage;
 
 /// Managed session state.
@@ -29,6 +29,14 @@ fn vault_path(app: &AppHandle) -> Result<PathBuf, String> {
 #[tauri::command]
 pub fn vault_exists(app: AppHandle) -> Result<bool, String> {
     Ok(storage::vault_exists(&vault_path(&app)?))
+}
+
+/// Pre-unlock compatibility check (spec §11.2 step 1): returns the incompatibility message if this
+/// build is too old to read the on-disk container format, else `null`. Read at launch so a too-new
+/// vault is refused before any password entry or key derivation.
+#[tauri::command]
+pub fn vault_incompatibility(app: AppHandle) -> Result<Option<String>, String> {
+    Ok(storage::incompatibility_message(&vault_path(&app)?))
 }
 
 /// Whether the session is currently unlocked.
@@ -107,6 +115,15 @@ pub async fn unlock_recovery(app: AppHandle, code: String) -> Result<(), String>
 #[tauri::command]
 pub fn lock(state: State<'_, SharedSession>) {
     state.lock().unwrap().lock();
+}
+
+/// Update the idle auto-lock timeout (minutes; `0` = never). Spec §4.3/§9.
+#[tauri::command]
+pub fn set_auto_lock(state: State<'_, SharedSession>, minutes: u64) {
+    state
+        .lock()
+        .unwrap()
+        .set_auto_lock(session::auto_lock_from_minutes(minutes));
 }
 
 /// Change the master password (requires the vault to be unlocked).
