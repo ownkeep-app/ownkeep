@@ -7,8 +7,8 @@
 **Name:** keystash
 **Target platform:** macOS 13+ (Apple Silicon + Intel)
 **Author:** Shaojiang
-**Status:** Draft v2.2 (audited against KeePassXC, 1Password, Raycast, Alfred, Warp; adds the Dashboard surface, shadcn/ui + Lucide, and the test stack)
-**Last updated:** 2026-07-06
+**Status:** Draft v2.3 (adds manual-upgrade, release-version, migration-guide, and data-migration rules)
+**Last updated:** 2026-07-07
 
 ---
 
@@ -28,6 +28,7 @@ This spec was benchmarked against the leading offline/keyboard-first tools. Key 
 | **Browsing** *(v2.1)* | Command bar only | **+ a Dashboard** — left sidebar + full-content right pane, registry-driven | See and manage *all* of each module's content, not just quick-copy |
 | **UI kit** *(v2.2)* | Hand-rolled + Tailwind | **shadcn/ui** (à la carte, Radix + Tailwind) + **Lucide** icons; `command` powers the bar | Accessible, clean, source you own/audit — good for a secrets app |
 | **Testing** *(v2.2)* | "unit-tested" (unspecified) | **Vitest + React Testing Library** (frontend) · **`cargo test` + proptest** (Rust) | Concrete Vite-native stack; crypto invariants get property tests |
+| **Upgrades** *(v2.3)* | Unspecified | **Manual `.dmg` replacement + user-aware migration guide** | Replacing the app reuses the old vault, while schema changes stay explicit and recoverable |
 
 Confirmed unchanged: **Tauri 2 + React + TS + Rust**; Argon2id + XChaCha20-Poly1305; one
 encrypted file, no database; concealed-clipboard copy; auto-lock; native notifications.
@@ -131,14 +132,15 @@ Two test surfaces, matching the two-language architecture:
 - **Tray/menu-bar agent:** keeps running after the window hides so the scheduler can fire due-date/reminder notifications. Optionally an accessory (no Dock icon) app.
 
 ### 3.2 Storage model — one file, no database
-- A single file: `~/Library/Application Support/keystash/vault.dat`.
+- A single production file: `~/Library/Application Support/com.shaojiang.keystash/vault.dat`.
+- Development builds (`tauri dev` / debug builds) use `~/Library/Application Support/com.shaojiang.keystash/vault-dev.dat` instead, so local development cannot accidentally read or mutate the production vault.
 - Self-describing, versioned, **AEAD-encrypted** container (§4.2).
 - **In memory after unlock:** the full decrypted model lives in the **Rust core**. The frontend receives a **redacted projection** (secrets stripped) for its search index and views. Secret fields are handed out only at the moment of an explicit copy action (§4.5).
 - On every mutation: Rust re-encrypts and atomically writes (temp file → `fsync` → rename).
 
 ### 3.3 Data flow (unlock)
 ```
-launch → read vault.dat header → user enters master password
+launch → read vault file header (`vault-dev.dat` in dev, `vault.dat` in release) → user enters master password
       → Rust: Argon2id(master, salt_master) = KEK_master
       → Rust: AEAD-unwrap DEK with KEK_master
       → Rust: AEAD-decrypt vault body with DEK  → in-memory model (stays in Rust)
@@ -259,7 +261,8 @@ password hash to store or leak; the AEAD tag *is* the verification.
 
 ### 4.4 Backup encryption
 A backup **is** the encrypted container — already safe at rest. No special export crypto: a backup
-is a copy of `vault.dat`, openable only with the same master password (or recovery code). See §11.
+is a copy of the active vault file (`vault-dev.dat` in dev, `vault.dat` in release), openable only
+with the same master password (or recovery code). See §11.
 
 ### 4.5 Frontend exposure hardening
 - **Never load secret fields into the WebView by default.** The Rust core holds the decrypted model; it serves the frontend a projection with each module's `secretFields` redacted. A secret is returned **only** on an explicit copy action — Rust writes it straight to the concealed pasteboard and discards it; the value never enters JS.
@@ -281,7 +284,7 @@ never migrates another module's slice.
 
 ```jsonc
 {
-  "meta": { "schemaVersion": 2, "appVersion": "0.1.0", "createdAt": "ISO", "updatedAt": "ISO" },
+  "meta": { "schemaVersion": 2, "appVersion": "0.1", "createdAt": "ISO", "updatedAt": "ISO" },
 
   "settings": {
     "globalHotkey": "Cmd+Shift+Space",       // activate/toggle the search window
@@ -467,7 +470,7 @@ A persistent window for seeing and managing **all** content — not just quick-c
 `Cmd+Shift+D` (configurable), the tray menu, or by pressing **Enter** on a command-bar result.
 Layout: **left sidebar + right content pane.**
 
-- **Left sidebar (modules):** one row per *enabled* module — icon + title + item count — rendered straight from the registry, plus pinned **Settings** and **Lock** rows. Navigate with `↑/↓` or `Cmd+1..9`; the selection persists across opens.
+- **Left sidebar (modules):** one row per *enabled* module — icon + title + item count — rendered straight from the registry, plus pinned **Settings** and **Lock** rows. The bottom footer shows the current app version (`keystash v0.1`) so the user can confirm which build is running after a manual upgrade. Navigate with `↑/↓` or `Cmd+1..9`; the selection persists across opens.
 - **Right pane (all content):** renders the selected module's **`ListView`** — the full list/table of its items (all passwords; all commands grouped by category; the todo list; all subscriptions; the finance snapshot table + trend chart). Includes a per-module filter box, sort, and **New / Edit / Delete**. Selecting a row opens that module's `DetailView` / `EditView` inline (slide-over or split).
 - **Secrets stay protected:** the passwords `ListView` shows metadata only (name, username, tags) with masked passwords; reveal/copy still route through the Rust `copy_secret` path (§4.5) — the Dashboard never holds plaintext either.
 - **Registry-driven, so it scales:** a newly added module appears in the sidebar automatically via its `ListView`; a disabled module disappears but keeps its data (§3.4). No dashboard code changes per feature.
@@ -510,15 +513,96 @@ enable toggle, and each enabled module contributes its own `SettingsPanel`.
 - **Dashboard keys:** `Cmd+Shift+D` toggle Dashboard, `↑/↓` or `Cmd+1..9` switch modules in the sidebar, `Cmd+F` filter within a module, `Cmd+N` new item, `Enter` edit selected, `Esc` back.
 - **Aesthetic:** minimal, high-contrast, generous spacing, one accent color, system light/dark.
 - **Component system:** UI built from **shadcn/ui** primitives (Radix + Tailwind, copied into `components/ui/`, à la carte) with **Lucide** icons. Light/dark + accent map to shadcn's CSS-variable tokens, so theming is one token swap (§2.1).
+- **Version visibility:** the Dashboard left-sidebar footer shows the current app version from `APP_VERSION`, which is injected from `package.json.version`, for quick upgrade/debug confirmation.
 - **Onboarding (first run):** create master password → **show Emergency Kit (recovery code)** → set global hotkey → done. No security questions.
 
 ---
 
-## 11. Backup & Restore — detailed
+## 11. Backup, Restore & Upgrades
 
-- **Backup** (`Cmd+B` / menu): choose a destination via file dialog; write a copy of the encrypted container. Already AEAD-encrypted → safe anywhere. Suggest a timestamped name (`keystash-2026-07-06.dat`).
+- **Backup** (`Cmd+B` / menu): choose a destination via file dialog; write a copy of the encrypted container. Already AEAD-encrypted → safe anywhere. Suggested name: `keystash-v<appVersion>-<YYYY-MM-DD-HHmm>.dat` (example: `keystash-v0.1-2026-07-07-1530.dat`).
 - **Restore** (menu): choose a backup → enter master password (or recovery code) → the app **attempts full decryption**; only on success does it proceed. Prominent warning: _"Restoring will permanently erase all current data. This cannot be undone."_ Optionally auto-create a `pre-restore-<timestamp>.dat` of the current vault first, then atomically replace the live file and reload.
 - **Atomicity:** write to a temp file, `fsync`, then rename over the live vault so a crash mid-write can't corrupt data.
+- **Version in backups:** backups are normal vault containers. The clear container header stores `container.version`; the encrypted vault body stores `meta.appVersion` and `meta.schemaVersion`, so the backup itself knows which app/data format wrote it once unlocked.
+
+### 11.1 Manual app upgrades
+keystash upgrades by **manual replacement**: download a new `.dmg`, drag the new app into
+Applications, and replace the old app. This never touches your data: the production vault lives at
+`~/Library/Application Support/com.shaojiang.keystash/vault.dat`, **outside** the `.app` bundle. Opening the new
+app reuses the old vault by design.
+
+Auto-update (Tauri updater) stays off by default because it needs network (§12). The only upgrade
+risk is the app code expecting a newer data shape than the existing vault has, handled by §11.2.
+
+### 11.2 Data-format migrations (versioned, user-aware)
+
+**Version signals**
+- `package.json.version` — the single source of truth for the **current version under development**. It uses keystash's product format exactly: `main.minor` (for example `0.1`, `1.2`). The frontend build injects this as `APP_VERSION`; vault metadata, Dashboard display, backup filenames, migration comparisons, and release tags all use that value.
+- `container.version` (unencrypted header, §4.2) — the crypto envelope format; bumped rarely.
+- `meta.appVersion` (encrypted model, §5) — the app release that last wrote the vault.
+- `meta.schemaVersion` (encrypted model, §5) — the data-model shape; bumped whenever keys, values, or module slices need a migration.
+- The app binary carries the current `APP_VERSION`, `APP_SCHEMA_VERSION`, and an ordered **migration registry**. A newer build only ever rises through migrations; it never repurposes an existing key in place.
+- Packaging manifests that require SemVer (for example Cargo/Tauri bundle metadata) are derived from `package.json.version` by `scripts/sync-version.mjs` as `main.minor.0`. Dev/build hooks run it directly with Node; `pnpm version:sync` exposes the same script when pnpm's policy gate allows commands to run. These fields are build/package metadata only, not app-version authorities for vaults or migrations.
+
+**Version comparison**
+- App versions are exactly `main.minor` for product logic and Git tags (`v0.1`, `v1.2`).
+- Compare them by splitting into two integers: `1.10` is newer than `1.2`; `2.0` is newer than `1.99`.
+- Do not derive migration behavior from package-tool SemVer fields. The app-version value to compare is always `package.json.version` / `APP_VERSION`; `main.minor.0` fields exist only so SemVer-strict tooling can build.
+
+**The migration guide — one source of truth, maintained during development.**
+Every schema bump ships **in the same release** as one migration step `vN → v(N+1)` that co-locates the transform with a human-readable **change list**. The migration guide is generated from those change lists and shipped inside the `.dmg` with the app code. Each change is typed and rendered accordingly:
+
+| Change | User sees | Applied |
+|---|---|---|
+| **Added** key/value | Summarized ("N new fields"), no action needed | **Silently** (defaults fill in) |
+| **Renamed** key | The **old → new path** | Value moved, no loss |
+| **Transformed** value | A plain-language note | Value reshaped |
+| **Removed** key | **Red — "data will be lost"**, itemized | Dropped from the live vault |
+
+The guide shown at upgrade time is the union of the change lists from the vault's
+`meta.schemaVersion` up to `APP_SCHEMA_VERSION`, grouped by type (removals highlighted in red).
+
+**Upgrade flow — opening a newer app on an older vault**
+1. **Launch → pre-unlock check** of `container.version`: if it's **newer** than this build knows, refuse ("This vault was written by a newer keystash. Please upgrade keystash.") with no writes; otherwise continue (older container formats keep working because the build retains their readers).
+2. **Unlock** (master password or recovery code) → decryption yields the plaintext model.
+3. **Compare app releases:** if `meta.appVersion` is **newer** than `APP_VERSION`, stop the user from using this old build: _"You are using an older version of keystash. Please upgrade keystash to open this vault."_ No projection is sent to the WebView.
+4. **Compare data schema** (`meta.schemaVersion` vs `APP_SCHEMA_VERSION`):
+   - **equal** → open normally; if only `meta.appVersion` is older, stamp the new app version on the next save;
+   - **vault newer** → refuse with the old-app warning above;
+   - **vault older** → migration needed → show the **Migration guide** (step 5).
+5. **Migration guide screen** — shows exactly what will change (silent additions summarized, renames as old → new, **removals in red as data loss**) and states that a **pre-migration backup is made automatically**. The user chooses:
+   - **Accept & upgrade** → auto-write a pre-migration backup named `keystash-pre-migration-v<oldAppVersion>-to-v<APP_VERSION>-<ts>.dat`, apply the ordered migrations after decrypt, re-seal + atomically write, stamp `APP_VERSION` and `APP_SCHEMA_VERSION`, then continue. Removed data is gone from the live vault but preserved in that backup.
+   - **Reject** → nothing has been written yet; offer three safe choices:
+     1. **Back up & quit** — copy the current (un-migrated) vault to a chosen location, then quit.
+     2. **Erase & start fresh** — ⚠️ **red danger confirm** — wipe the vault and use the new build with an empty vault (offer to back up first; irreversible).
+     3. **Quit** — exit without touching the vault (e.g. to reinstall the previous app version and keep using it).
+6. **Reversibility** — migrations are **forward-only**; an older app refuses a migrated vault. To go back, restore the **pre-migration backup** with that older build.
+
+**Developer contract (maintained as the format evolves)**
+- Release tags are `v<main>.<minor>` (for example `v0.1`, `v1.2`). After shipping and tagging a release, immediately bump the working app version in `package.json` to the next release (for example `v1.0` shipped → working version `1.1`).
+- The latest `v*` tag is the last shipped release baseline. All vault-format-affecting changes after that tag are part of the current `package.json.version` release and must either add/update a migration guide entry or explicitly state why no migration is needed.
+- Never repurpose an existing key in place. To change shape, add a migration step (added / renamed / removed / transformed) and bump `APP_SCHEMA_VERSION` **in the same release**.
+- Each step owns **both** its transform *and* its change list — the guide is generated from these, so the docs and the behavior can't drift.
+- Migrations are pure, ordered, forward-only, and unit-tested against old-schema fixtures; a failed step leaves the original file untouched.
+
+**Conceptual shape**
+```ts
+type ChangeKind = "added" | "renamed" | "removed" | "transformed";
+interface SchemaChange {
+  kind: ChangeKind;
+  path: string;          // e.g. "settings.accent" | "modules.passwords[].url"
+  newPath?: string;      // for "renamed"
+  note: string;          // plain-language, shown in the guide
+  dataLoss?: boolean;    // true for "removed" → rendered red
+}
+interface Migration {
+  from: number;          // schemaVersion N
+  to: number;            //               → N+1
+  summary: string;
+  changes: SchemaChange[];                    // drives the guide UI
+  apply: (model: VaultModel) => VaultModel;   // pure, forward-only
+}
+```
 
 ---
 
@@ -557,6 +641,7 @@ modules round-trip their data to JS freely.
 - **FX rates for net worth** — manual table (v1) vs online fetch (breaks offline). Manual for v1.
 - **Single file + large data** — v1 is text-only; attachments/large finance history would bloat the single blob (revisit if needed).
 - **Todo recurrence scope creep** — keep to none/daily/weekly; resist growing a calendar inside todos (that's a separate future module).
+- **Migration-guide drift** — the guide is user-facing safety UI, so every data-shape change after the latest `v*` tag must update the migration registry/change list and tests; `$verify` must flag missing guide updates.
 - **shadcn CLI is dev-time only** — it fetches component source once when you run `add`; nothing networked at runtime. Commit the generated `components/ui/` so builds stay fully offline.
 - **E2E later, not now** — unit tests (Vitest + `cargo test`) cover the MVP; add `tauri-driver` + WebdriverIO smoke tests only if the app surface grows.
 

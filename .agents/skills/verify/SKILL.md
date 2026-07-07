@@ -17,7 +17,8 @@ Use the user's prompt as optional target or acceptance criteria. If no target is
    - `.cursor/rules/core-development-principles.mdc`
    - `spec.md`
    - `plan.md`
-3. Require it to stay read-only. If spawning the `verifier` subagent is unavailable, perform the same checks yourself in read-only mode and state that fallback clearly.
+3. Require it to check migration-guide maintenance for any vault-format, module data-shape, settings-key, schema-version, app-version, backup/restore, or migration-registry change since the latest `v*` release tag.
+4. Require it to stay read-only. If spawning the `verifier` subagent is unavailable, perform the same checks yourself in read-only mode and state that fallback clearly.
 
 ## Expected response
 

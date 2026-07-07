@@ -24,6 +24,7 @@ layering optional modules on the stable core.
 | **0** | Scaffolding, shell, UI kit + tests | Hotkey toggles an empty window; tray alive; shadcn + Lucide wired; `pnpm test` + `cargo test` green | 2 d | W1 · 2026-07-06 |
 | **1** | 🔐 Crypto core (Rust) | Create-vault, unlock (password **and** recovery code), auto-lock, atomic writes — all unit-tested | 3–5 d | W1–W2 · 07-06 |
 | **2** | App shell + registry + **Dashboard shell** | `FeatureModule` contract, registry, Dashboard (sidebar + content pane), onboarding (+ Emergency Kit), settings shell | 3–4 d | W3 · 07-20 |
+| **2.1** | 🔀 Versioning, migration guide & migrations | v(N) vault opens in a v(N+1) build through a user-aware migration guide; pre-migration backup; newer vault refused safely | 1–2 d | W3 · 07-20 |
 | **3** | 🔑 Passwords module (F1) | Add/edit/delete; **concealed-clipboard copy** never touches the DOM | 2–3 d | W3–W4 · 07-20 |
 | **4** | ⌨️ Command bar (F10) | Unified index, fuzzy **+ frecency**, scope prefixes, numbered copy | 2–3 d | W4 · 07-27 |
 | **5** | 📋 Commands module (F2) | Shiki highlighting, `{{ }}` placeholders, **interactive fill-in** + raw copy | 2–3 d | W5 · 08-03 |
@@ -44,8 +45,8 @@ Everything through Phase 6 delivers the two **key features you named** — passw
 lines — plus backup/restore and configuration. That's a complete, secure, daily-usable product.
 Phases 7–11 are additive modules on an already-stable core; each can slip without blocking use.
 
-**Fastest path to "running on my Mac":** **P0 → P1 → P2 → P3** gives an unlockable password vault
-with a **browsable Dashboard** (sidebar + content pane) you can actually use (~2 weeks part-time).
+**Fastest path to "running on my Mac":** **P0 → P1 → P2 → P2.1 → P3** gives an unlockable password vault
+with a **browsable Dashboard** (sidebar + content pane) and a safe upgrade path before real password data lands (~2 weeks part-time).
 **+P4 → P5** adds the command-bar launcher on top.
 
 ---
@@ -86,12 +87,26 @@ with a **browsable Dashboard** (sidebar + content pane) you can actually use (~2
 - **Exit:** first-run onboarding completes; lock/unlock cycles; the Dashboard sidebar lists enabled modules and switches panes (empty `ListView`s OK until modules land).
 - **Deps:** P1.
 
+### Phase 2.1 — 🔀 Versioning, migration guide & migrations · 1–2 d
+*Lock in the forward-migration framework **now** — before Phases 3–10 start adding real module data — so every future schema change has a tested path and old vaults never break. The `.app` can already be replaced freely (data lives outside the bundle); the real "don't lose data" risk is schema drift, so this phase makes app/schema/container versions actionable (§11).*
+- [ ] **Release-version source:** define the current working app version from `package.json.version` exactly (product format `main.minor`); inject it as `APP_VERSION`; stamp `meta.appVersion` on create/save/migration; show `keystash v<APP_VERSION>` at the bottom of the Dashboard sidebar. Treat the latest `v*` Git tag as the last shipped release baseline, not as the current working version.
+- [ ] **Version compare helper:** parse `main.minor` into integer pairs; refuse a vault whose `meta.appVersion` or `meta.schemaVersion` is newer than the running app with the old-version message from spec §11.2.
+- [ ] **Model migration registry (TS):** an ordered registry of pure `migrate(vN -> vN+1)` steps keyed on `meta.schemaVersion`; each step owns its transform plus `changes[]` (`added`, `renamed`, `removed`, `transformed`) so the migration guide is generated from the same source that migrates data.
+- [ ] **Migration guide UI:** after unlock, when `vault.schemaVersion < APP_SCHEMA_VERSION`, show the union of pending change lists before any write; summarize additive fields, show rename paths (`old -> new`), and render removals in red as data loss.
+- [ ] **Accept / reject flow:** Accept writes a versioned pre-migration backup, applies migrations, stamps `APP_VERSION` + `APP_SCHEMA_VERSION`, re-seals, and atomically writes; Reject offers **Back up & quit**, **Erase & start fresh** (red danger confirm), or **Quit** with no vault writes.
+- [ ] **Container/envelope versioning (Rust):** keep version-tagged readers so a newer build can still decrypt an older container; after deriving the DEK, if `container.version < CURRENT`, re-seal into the current format and persist only after the user accepts the migration path. Reject newer-than-known versions before unlock.
+- [ ] **Versioned backups:** backup names include the vault/app version (`keystash-v<appVersion>-<timestamp>.dat`; pre-migration `keystash-pre-migration-v<old>-to-v<new>-<timestamp>.dat`), and backups preserve `container.version`, `meta.appVersion`, and `meta.schemaVersion`.
+- [ ] **Tests:** version comparison; old-schema fixture migrates to current with data intact; added keys hydrate silently; renamed keys preserve values; removed keys appear in the guide as data loss; rejecting migration writes nothing; a failing step leaves the original file untouched; newer app/schema/container versions are refused safely.
+- [ ] **AI verification hook:** update `$verify` / `/verify` instructions so every data-shape change after the latest `v*` release tag is checked for a migration guide entry, a `package.json.version` current-release check, and tests.
+- **Exit:** a v(N) vault opens in a v(N+1) build only through the migration-guide flow; accepting creates a versioned pre-migration backup and preserves data except user-confirmed removals; rejecting leaves the vault untouched or exits through an explicit backup/erase path; older app builds refuse newer vaults.
+- **Deps:** P2 (model shape settled); borrows the P1 atomic-write helper; anticipates P6 backup.
+
 ### Phase 3 — 🔑 Passwords module (F1) · 2–3 d · *proves the security model*
 - [ ] `passwordsModule`: `secretFields: ["password"]`, `buildIndex`, `ListView` (masked dashboard list), `DetailView`, `EditView`.
 - [ ] Rust **`copy_secret(id, field)`** → **concealed pasteboard** (custom objc2/cocoa shim) + auto-clear timer; reveal-on-demand.
 - [ ] CRUD; masked display; click-to-open login/recovery URLs.
 - **Exit:** create/edit/delete entries; the passwords `ListView` renders in the Dashboard with masked values; copy a password with it **never appearing in the DOM** (verify in devtools); pasteboard clears after N s and is ignored by a clipboard-history tool.
-- **Deps:** P2. Front-loaded to validate §4.5 end-to-end early.
+- **Deps:** P2.1. Front-loaded to validate §4.5 end-to-end early, after migrations are safe for real password data.
 
 ### Phase 4 — ⌨️ Command bar (F10 / §7) · 2–3 d
 - [ ] Bar shell = shadcn **`command`** (`cmdk`) with `shouldFilter={false}`; unified index across enabled modules; **fuzzy (Fuse.js) × frecency** ranking; update `frecency` on use.
@@ -110,10 +125,10 @@ with a **browsable Dashboard** (sidebar + content pane) you can actually use (~2
 - **Deps:** P4.
 
 ### Phase 6 — 💾 Backup/restore (§11) + Settings UI (§9) · 2–3 d
-- [ ] Backup: file dialog → copy encrypted container (timestamped name).
+- [ ] Backup: file dialog → copy encrypted container with versioned filename (`keystash-v<appVersion>-<timestamp>.dat`).
 - [ ] Restore: pick file → decrypt-verify → warn → optional `pre-restore` snapshot → atomic replace → reload.
 - [ ] Settings UI: hotkeys, auto-lock, clipboard clear, theme/accent, result limit, per-module toggles; Emergency Kit regen.
-- **Exit:** backup→restore round-trips on a fresh machine; restore refuses a wrong password; settings persist (encrypted).
+- **Exit:** backup→restore round-trips on a fresh machine; backup filename includes the vault/app version; restore refuses a wrong password; settings persist (encrypted).
 - **Deps:** P5. **← MVP / v0.9 ends here.**
 
 ### Phase 7 — 🔔 Scheduler infra (§8) · 1–2 d
@@ -148,8 +163,9 @@ with a **browsable Dashboard** (sidebar + content pane) you can actually use (~2
 ### Phase 11 — ✨ Polish + ship · 2–4 d
 - [ ] Theming pass (light/dark/accent), empty states, error toasts, keyboard-map help.
 - [ ] Accessibility check; performance check (<300 ms to bar, <30 ms keystroke).
-- [ ] **Developer ID sign + notarize**; DMG/`.app` packaging; README + Emergency-Kit docs.
-- **Exit:** Gatekeeper opens it clean on a second Mac; permissions prompt correctly. **← v1.0.**
+- [ ] **Developer ID sign + notarize**; DMG/`.app` packaging; README + Emergency-Kit docs + migration-guide docs.
+- [ ] **Release bookkeeping:** tag shipped commits as `v<main>.<minor>`; immediately after a shipped tag, bump the working app version in `package.json` to the next release version (`main.minor`), run `node scripts/sync-version.mjs` to derive SemVer-only package metadata, and keep those derived fields from becoming a second app-version source.
+- **Exit:** Gatekeeper opens it clean on a second Mac; permissions prompt correctly; the shipped `.dmg` includes the migration guide for every schema step since the previous `v*` tag. **← v1.0.**
 - **Deps:** all prior.
 
 ---
@@ -160,8 +176,11 @@ with a **browsable Dashboard** (sidebar + content pane) you can actually use (~2
 - Secrets never enter the WebView; concealed clipboard confirmed against a history tool.
 - Command bar: fuzzy+frecency, scope prefixes, numbered copy, interactive fill-in.
 - Dashboard: sidebar lists enabled modules; each renders its full content (`ListView`) in the right pane; secrets stay masked.
+- Dashboard: left-sidebar footer shows the current app version.
 - Backup/restore is atomic and decryption-gated.
+- Manual upgrade path is safe: older vaults show a migration guide; accepting creates a versioned pre-migration backup; rejecting can back up+quit, erase+continue, or quit untouched; older app builds refuse newer vaults.
 - Every enabled module toggles cleanly from Settings with data preserved.
+- Migration guide is maintained for every data-shape change since the latest `v*` release tag, with removals flagged as red data loss and renames showing old→new paths.
 - Tests green: **Vitest** (frontend logic) + **`cargo test` / `proptest`** (crypto); each module's pure logic covered.
 - Signed + notarized; opens on a clean Mac without warnings.
 
@@ -169,7 +188,7 @@ with a **browsable Dashboard** (sidebar + content pane) you can actually use (~2
 
 ## Sequencing, parallelization & de-scoping levers
 
-- **Hard chain:** P0 → P1 → P2 → P3 → P4 → P5 → P6. Don't reorder — each builds on the last, and P1 must be rock-solid before any real data.
+- **Hard chain:** P0 → P1 → P2 → P2.1 → P3 → P4 → P5 → P6. Don't reorder — each builds on the last, P1 must be rock-solid before any real data, and P2.1 must land before user data begins accumulating.
 - **Free-floating after P7:** P8 / P9 order is interchangeable; **P10 (Finance)** depends only on P2 and can be built any time after the shell.
 - **If time is tight, ship v0.9 (through P6)** and use it daily; treat P7–P11 as a backlog.
 - **De-scope levers:** drop recurrence from Todos; single-currency-only Finance (skip FX table); defer notarization (ad-hoc sign) until the app is a daily driver.

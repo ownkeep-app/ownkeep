@@ -38,7 +38,7 @@ Read these files before editing:
 3. Make the smallest coherent implementation.
 4. Add or update focused tests when code changes.
 5. Run the relevant checks:
-   - Frontend: `npm test` when `package.json` exists and the change touches TS/React logic.
+   - Frontend: `pnpm test` when `package.json` exists and the change touches TS/React logic.
    - Rust: `cargo test` in the Rust crate when `Cargo.toml` exists and the change touches Rust or crypto/storage behavior.
    - Docs-only or harness-only changes: verify the files and links directly.
 6. Summarize what changed, which checks ran, and anything still risky.

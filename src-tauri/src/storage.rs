@@ -11,8 +11,21 @@ use std::path::{Path, PathBuf};
 use crate::container::Container;
 use crate::error::Result;
 
-/// Default vault file name inside the app data directory.
-pub const VAULT_FILE: &str = "vault.dat";
+/// Production vault file name inside the app data directory.
+pub const PROD_VAULT_FILE: &str = "vault.dat";
+/// Development vault file name inside the app data directory.
+pub const DEV_VAULT_FILE: &str = "vault-dev.dat";
+
+/// Current vault file name inside the app data directory.
+///
+/// Debug builds (`tauri dev`, tests, local development) use a separate file so dev work cannot
+/// accidentally read or mutate the production vault created by an installed release build. Release
+/// builds use the production vault file.
+pub const VAULT_FILE: &str = if cfg!(debug_assertions) {
+    DEV_VAULT_FILE
+} else {
+    PROD_VAULT_FILE
+};
 
 /// Whether a vault file exists at `path`.
 pub fn vault_exists(path: &Path) -> bool {
@@ -56,7 +69,7 @@ fn write_atomic(path: &Path, bytes: &[u8]) -> Result<()> {
     Ok(())
 }
 
-/// The sibling temp path for an atomic write (`vault.dat` → `vault.dat.tmp`).
+/// The sibling temp path for an atomic write (`vault.dat` -> `vault.dat.tmp`).
 fn temp_path(path: &Path) -> PathBuf {
     let mut name = path
         .file_name()
@@ -143,5 +156,19 @@ mod tests {
         fs::write(&path, b"not a container").unwrap();
         assert!(read_container(&path).is_err());
         fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
+    #[cfg(debug_assertions)]
+    fn debug_build_uses_development_vault_file() {
+        assert_eq!(VAULT_FILE, DEV_VAULT_FILE);
+        assert_eq!(VAULT_FILE, "vault-dev.dat");
+    }
+
+    #[test]
+    #[cfg(not(debug_assertions))]
+    fn release_build_uses_production_vault_file() {
+        assert_eq!(VAULT_FILE, PROD_VAULT_FILE);
+        assert_eq!(VAULT_FILE, "vault.dat");
     }
 }

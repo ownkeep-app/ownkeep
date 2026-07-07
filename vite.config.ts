@@ -1,12 +1,24 @@
 import { defineConfig } from "vitest/config";
 import react from "@vitejs/plugin-react";
+import { readFileSync } from "node:fs";
 import path from "node:path";
 
 const host = process.env.TAURI_DEV_HOST;
+const appPackage = JSON.parse(readFileSync(new URL("./package.json", import.meta.url), "utf8")) as {
+  version: string;
+};
+const appVersion = appPackage.version;
+
+if (!/^\d+\.\d+$/.test(appVersion)) {
+  throw new Error("package.json version must use Keystash's main.minor format, e.g. 0.1 or 1.2");
+}
 
 // https://vite.dev/config/
 export default defineConfig(async () => ({
   plugins: [react()],
+  define: {
+    __KEYSTASH_APP_VERSION__: JSON.stringify(appVersion),
+  },
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),

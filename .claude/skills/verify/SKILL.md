@@ -16,6 +16,8 @@ $ARGUMENTS
 
 Use the `verifier` subagent for this pass. Give it the target above, the current repository state, and the requirement that it evaluate the diff against `AGENTS.md`, `.cursor/rules/core-development-principles.mdc`, `spec.md`, and `plan.md`.
 
+Require the verifier to check migration-guide maintenance for any vault-format, module data-shape, settings-key, schema-version, app-version, backup/restore, or migration-registry change since the latest `v*` release tag.
+
 The verifier must be independent and read-only. Do not modify files during this skill. If the Agent tool or the `verifier` subagent is unavailable, perform the same checks yourself in read-only mode and state that fallback clearly.
 
 ## Expected response

@@ -9,7 +9,7 @@ import {
 
 const mockSetSize = vi.fn(async () => {});
 const mockSetResizable = vi.fn(async () => {});
-const mockInvoke = vi.fn(async () => {});
+const mockInvoke = vi.fn(async (..._args: unknown[]) => {});
 
 vi.mock("@tauri-apps/api/window", () => ({
   getCurrentWindow: () => ({

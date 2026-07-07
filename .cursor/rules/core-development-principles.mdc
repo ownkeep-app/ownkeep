@@ -21,6 +21,7 @@ changing code:
 4. **If a request conflicts with `spec.md`/`plan.md`** — do **not** silently deviate. Flag it, cite the section, explain the tradeoff, and proceed only after the user explicitly confirms.
 5. **If the docs are silent or ambiguous** — pick the simplest option consistent with these principles, state the assumption, and keep going.
 6. **Keep the docs honest** — if a change alters documented behavior, scope, or the plan, update `spec.md`/`plan.md` in the same change.
+7. **Keep migrations honest** — if a change alters the vault/data shape (settings keys, module slices, schema/container versions, stored JSON paths, backup/restore behavior), update the migration guide / migration registry in the same change and verify it against the latest `v*` release tag.
 
 ## 1. KISS — Keep It Simple
 - The simplest solution that satisfies the requirement is the correct one.

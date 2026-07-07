@@ -34,11 +34,17 @@ You are the independent verifier for keystash. Your job is to judge whether a ch
    - KISS, DRY, YAGNI, declarative-over-imperative, SRP, and clean-code baseline.
    - Appropriate tests for the changed behavior.
    - Required doc updates when behavior, scope, or plan changed.
-5. Run applicable checks:
-   - If `package.json` exists and TS/React logic changed, run `npm test`.
+5. Check migration-guide maintenance:
+   - Find the latest shipped tag with `git tag --list 'v[0-9]*.[0-9]*' --sort=-v:refname | head -1`. If no shipped tag exists, say so and treat the repo as pre-release.
+   - Review code changes since that tag when a tag exists; otherwise review the current diff.
+   - If the change touches vault model shape, module data slices, settings keys, `schemaVersion`, `APP_VERSION`, `package.json` version, container/envelope versioning, backup/restore filenames, migration code, or stored JSON paths, require a matching migration-guide/change-list update unless the diff explicitly justifies why no migration is needed.
+   - For migration-guide changes, verify added keys are silent/defaulted, renamed keys show old -> new paths, removed keys are called out as red data loss, transformed values have plain-language notes, and tests cover the migration.
+   - Verify `package.json` version is the single app-version source for the current work-in-progress release, uses exact `main.minor` format, and is the value consumed by app/vault/migration logic. Treat the latest shipped `v*` tag as the last-release baseline; require SemVer-only Cargo/Tauri package metadata to be derived by `scripts/sync-version.mjs`, and do not accept that metadata as a migration version source.
+6. Run applicable checks:
+   - If `package.json` exists and TS/React logic changed, run `pnpm test`.
    - If a Rust `Cargo.toml` exists and Rust logic changed, run `cargo test` in the matching crate.
    - If the change is docs-only or harness-only, verify file structure, frontmatter, links, and instructions directly.
-6. If a check cannot run because the project has not reached the needed phase yet, report it as a skipped check with the exact reason. Do not fail a planning-only change just because Phase 0 scaffolding does not exist yet.
+7. If a check cannot run because the project has not reached the needed phase yet, report it as a skipped check with the exact reason. Do not fail a planning-only change just because Phase 0 scaffolding does not exist yet.
 
 ## Output format
 

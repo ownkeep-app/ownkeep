@@ -1,14 +1,19 @@
 {
   "name": "keystash",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.1",
   "type": "module",
   "packageManager": "pnpm@10.6.3",
   "scripts": {
+    "version:sync": "node scripts/sync-version.mjs",
+    "predev": "node scripts/sync-version.mjs",
     "dev": "tauri dev",
+    "predev:app": "node scripts/sync-version.mjs",
     "dev:app": "tauri dev",
     "dev:web": "vite",
+    "prebuild": "node scripts/sync-version.mjs",
     "build": "tauri build",
+    "prebuild:app": "node scripts/sync-version.mjs",
     "build:app": "tauri build",
     "build:web": "tsc && vite build",
     "typecheck": "tsc --noEmit",
@@ -19,6 +24,7 @@
     "coverage": "vitest run --coverage",
     "check": "pnpm typecheck && pnpm lint && pnpm format:check && pnpm test",
     "preview": "vite preview",
+    "pretauri": "node scripts/sync-version.mjs",
     "tauri": "tauri"
   },
   "dependencies": {
