@@ -193,7 +193,10 @@ mod tests {
         let mut container = sample();
         container.magic = "XXXX".to_string();
         let bytes = container.to_bytes().unwrap();
-        assert!(matches!(Container::from_bytes(&bytes), Err(Error::Format(_))));
+        assert!(matches!(
+            Container::from_bytes(&bytes),
+            Err(Error::Format(_))
+        ));
     }
 
     #[test]
@@ -201,7 +204,10 @@ mod tests {
         let mut container = sample();
         container.version = 999;
         let bytes = container.to_bytes().unwrap();
-        assert!(matches!(Container::from_bytes(&bytes), Err(Error::Format(_))));
+        assert!(matches!(
+            Container::from_bytes(&bytes),
+            Err(Error::Format(_))
+        ));
     }
 
     #[test]

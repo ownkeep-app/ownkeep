@@ -27,6 +27,10 @@ vi.mock("@/vault/api", () => ({
     getVault: vi.fn(async () => "{}"),
     createVault: vi.fn(),
     saveVault: vi.fn(async () => {}),
+    backupVault: vi.fn(async () => "/tmp/backup.dat"),
+    backupVaultToChosenLocation: vi.fn(async () => "/tmp/chosen-backup.dat"),
+    eraseVault: vi.fn(async () => {}),
+    quitApp: vi.fn(async () => {}),
     unlock: vi.fn(async () => {}),
     unlockRecovery: vi.fn(async () => {}),
     lock: vi.fn(async () => {}),
@@ -49,6 +53,9 @@ describe("App routing", () => {
     useVaultStore.setState({
       status: "loading",
       model: null,
+      migration: null,
+      postMigrationStatus: "unlocked",
+      incompatibleMessage: null,
       pendingKit: null,
       busy: false,
       error: null,
@@ -99,5 +106,6 @@ describe("App routing", () => {
     mockLabel.mockReturnValue("dashboard");
     render(<App />);
     expect(await screen.findByText("Modules")).toBeInTheDocument();
+    expect(await screen.findByText("keystash v0.1")).toBeInTheDocument();
   });
 });

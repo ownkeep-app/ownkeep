@@ -6,9 +6,11 @@ import {
   isModuleEnabled,
   parseVaultJson,
   setModuleEnabled,
+  APP_VERSION,
   SCHEMA_VERSION,
   type ModuleDefaults,
   type VaultModel,
+  withUpdatedAt,
 } from "./model";
 
 const NOW = "2026-07-07T00:00:00.000Z";
@@ -99,5 +101,25 @@ describe("module enable toggle", () => {
 
   it("defaults to false for an unknown module", () => {
     expect(isModuleEnabled(createDefaultModel(NOW), "nope")).toBe(false);
+  });
+});
+
+describe("withUpdatedAt", () => {
+  it("stamps current app/schema metadata before save", () => {
+    const model = {
+      ...createDefaultModel(NOW),
+      meta: {
+        ...createDefaultModel(NOW).meta,
+        schemaVersion: 1,
+        appVersion: "0.0",
+      },
+    };
+
+    const stamped = withUpdatedAt(model, "2026-07-08T00:00:00.000Z");
+
+    expect(stamped.meta.schemaVersion).toBe(SCHEMA_VERSION);
+    expect(stamped.meta.appVersion).toBe(APP_VERSION);
+    expect(stamped.meta.createdAt).toBe(NOW);
+    expect(stamped.meta.updatedAt).toBe("2026-07-08T00:00:00.000Z");
   });
 });

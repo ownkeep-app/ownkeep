@@ -106,7 +106,10 @@ pub fn seal(key: &[u8; KEY_LEN], plaintext: &[u8]) -> Result<Sealed> {
 pub fn open(key: &[u8; KEY_LEN], sealed: &Sealed) -> Result<Zeroizing<Vec<u8>>> {
     let cipher = XChaCha20Poly1305::new_from_slice(key).map_err(|_| Error::Aead)?;
     let plaintext = cipher
-        .decrypt(XNonce::from_slice(&sealed.nonce), sealed.ciphertext.as_ref())
+        .decrypt(
+            XNonce::from_slice(&sealed.nonce),
+            sealed.ciphertext.as_ref(),
+        )
         .map_err(|_| Error::Aead)?;
     Ok(Zeroizing::new(plaintext))
 }

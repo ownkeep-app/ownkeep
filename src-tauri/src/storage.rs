@@ -9,7 +9,7 @@ use std::io::Write;
 use std::path::{Path, PathBuf};
 
 use crate::container::Container;
-use crate::error::Result;
+use crate::error::{Error, Result};
 
 /// Production vault file name inside the app data directory.
 pub const PROD_VAULT_FILE: &str = "vault.dat";
@@ -42,6 +42,46 @@ pub fn read_container(path: &Path) -> Result<Container> {
 pub fn write_container(path: &Path, container: &Container) -> Result<()> {
     let bytes = container.to_bytes()?;
     write_atomic(path, &bytes)
+}
+
+/// Copy the encrypted vault file to a sibling backup file and fsync the copy.
+pub fn backup_vault_file(path: &Path, file_name: &str) -> Result<PathBuf> {
+    validate_backup_file_name(file_name)?;
+    let dir = path.parent().unwrap_or_else(|| Path::new("."));
+    backup_vault_to_path(path, &dir.join(file_name))
+}
+
+/// Copy the encrypted vault file to an explicit backup destination and fsync the copy.
+pub fn backup_vault_to_path(path: &Path, backup_path: &Path) -> Result<PathBuf> {
+    let bytes = fs::read(path)?;
+    write_atomic(backup_path, &bytes)?;
+    if let Ok(file) = File::open(&backup_path) {
+        let _ = file.sync_all();
+    }
+    Ok(backup_path.to_path_buf())
+}
+
+/// Remove the active vault file. Missing files are already "fresh start" and are ignored.
+pub fn remove_vault_file(path: &Path) -> Result<()> {
+    match fs::remove_file(path) {
+        Ok(()) => Ok(()),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(()),
+        Err(e) => Err(e.into()),
+    }
+}
+
+pub fn validate_backup_file_name(file_name: &str) -> Result<()> {
+    if file_name.is_empty()
+        || file_name == "."
+        || file_name == ".."
+        || file_name.contains('/')
+        || file_name.contains('\\')
+    {
+        return Err(Error::Format(
+            "backup file name must be a plain file name".to_string(),
+        ));
+    }
+    Ok(())
 }
 
 /// Atomically write `bytes` to `path`: temp file → fsync → rename, then fsync the directory.
@@ -155,6 +195,56 @@ mod tests {
         let path = dir.join(VAULT_FILE);
         fs::write(&path, b"not a container").unwrap();
         assert!(read_container(&path).is_err());
+        fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
+    fn backup_copies_the_encrypted_vault_file() {
+        let dir = unique_temp_dir();
+        let path = dir.join(VAULT_FILE);
+        fs::write(&path, b"encrypted bytes").unwrap();
+
+        let backup = backup_vault_file(&path, "keystash-v0.1-20260707-1530.dat").unwrap();
+
+        assert_eq!(backup.parent(), Some(dir.as_path()));
+        assert_eq!(fs::read(backup).unwrap(), b"encrypted bytes");
+        fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
+    fn backup_can_copy_to_an_explicit_destination() {
+        let dir = unique_temp_dir();
+        let path = dir.join(VAULT_FILE);
+        let destination = dir.join("chosen").join("keystash-v0.1-20260707-1530.dat");
+        fs::write(&path, b"encrypted bytes").unwrap();
+
+        let backup = backup_vault_to_path(&path, &destination).unwrap();
+
+        assert_eq!(backup, destination);
+        assert_eq!(fs::read(backup).unwrap(), b"encrypted bytes");
+        fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
+    fn backup_rejects_path_like_names() {
+        let dir = unique_temp_dir();
+        let path = dir.join(VAULT_FILE);
+        fs::write(&path, b"encrypted bytes").unwrap();
+
+        assert!(backup_vault_file(&path, "../vault.dat").is_err());
+        assert!(backup_vault_file(&path, "nested/vault.dat").is_err());
+        fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
+    fn remove_vault_file_is_idempotent() {
+        let dir = unique_temp_dir();
+        let path = dir.join(VAULT_FILE);
+        fs::write(&path, b"encrypted bytes").unwrap();
+
+        remove_vault_file(&path).unwrap();
+        assert!(!path.exists());
+        remove_vault_file(&path).unwrap();
         fs::remove_dir_all(&dir).ok();
     }
 

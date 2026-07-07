@@ -9,6 +9,7 @@ use std::path::PathBuf;
 use std::sync::Mutex;
 
 use tauri::{AppHandle, Manager, State};
+use tauri_plugin_dialog::DialogExt;
 
 use crate::crypto::Argon2Params;
 use crate::recovery::EmergencyKit;
@@ -140,7 +141,11 @@ pub fn regenerate_recovery(
 /// Return the decrypted vault model (JSON) for the frontend projection. Requires unlocked.
 #[tauri::command]
 pub fn get_vault(state: State<'_, SharedSession>) -> Result<String, String> {
-    state.lock().unwrap().vault_json().map_err(|e| e.to_string())
+    state
+        .lock()
+        .unwrap()
+        .vault_json()
+        .map_err(|e| e.to_string())
 }
 
 /// Persist an updated vault model (JSON), re-sealed under the DEK. Requires unlocked.
@@ -156,4 +161,52 @@ pub fn save_vault(
         .unwrap()
         .save_vault(&path, &json)
         .map_err(|e| e.to_string())
+}
+
+/// Copy the encrypted active vault to a versioned sibling backup file.
+#[tauri::command]
+pub fn backup_vault(app: AppHandle, file_name: String) -> Result<String, String> {
+    let path = vault_path(&app)?;
+    let backup_path = storage::backup_vault_file(&path, &file_name).map_err(|e| e.to_string())?;
+    Ok(backup_path.display().to_string())
+}
+
+/// Ask the user where to back up the encrypted active vault, then copy it there.
+#[tauri::command]
+pub async fn backup_vault_to_chosen_location(
+    app: AppHandle,
+    file_name: String,
+) -> Result<Option<String>, String> {
+    storage::validate_backup_file_name(&file_name).map_err(|e| e.to_string())?;
+    let path = vault_path(&app)?;
+    let destination = app
+        .dialog()
+        .file()
+        .set_title("Back up keystash vault")
+        .set_file_name(file_name)
+        .add_filter("Keystash vault backup", &["dat"])
+        .blocking_save_file();
+
+    let Some(destination) = destination else {
+        return Ok(None);
+    };
+
+    let backup_path = destination.into_path().map_err(|e| e.to_string())?;
+    let backup_path =
+        storage::backup_vault_to_path(&path, &backup_path).map_err(|e| e.to_string())?;
+    Ok(Some(backup_path.display().to_string()))
+}
+
+/// Permanently erase the active vault file and lock any decrypted in-memory state.
+#[tauri::command]
+pub fn erase_vault(app: AppHandle, state: State<'_, SharedSession>) -> Result<(), String> {
+    let path = vault_path(&app)?;
+    state.lock().unwrap().lock();
+    storage::remove_vault_file(&path).map_err(|e| e.to_string())
+}
+
+/// Quit the app after a rejected migration choice.
+#[tauri::command]
+pub fn quit_app(app: AppHandle) {
+    app.exit(0);
 }

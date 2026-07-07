@@ -11,6 +11,13 @@ import { create } from "zustand";
 import { MODULES } from "@/modules/registry";
 import { type EmergencyKit, vaultApi } from "@/vault/api";
 import {
+  preMigrationBackupName,
+  prepareVaultModel,
+  vaultBackupName,
+  VaultCompatibilityError,
+  type MigrationPlan,
+} from "@/vault/migrations";
+import {
   ensureModuleDefaults,
   parseVaultJson,
   setModuleEnabled,
@@ -19,11 +26,22 @@ import {
 } from "@/vault/model";
 
 export type VaultStatus =
-  "loading" | "onboarding" | "locked" | "unlocked" | "reset";
+  | "loading"
+  | "onboarding"
+  | "locked"
+  | "unlocked"
+  | "reset"
+  | "migration"
+  | "incompatible";
+
+type PostMigrationStatus = "unlocked" | "reset";
 
 interface VaultState {
   status: VaultStatus;
   model: VaultModel | null;
+  migration: MigrationPlan | null;
+  postMigrationStatus: PostMigrationStatus;
+  incompatibleMessage: string | null;
   /** The one-time Emergency Kit to show after onboarding/regenerate (§4.6); null otherwise. */
   pendingKit: EmergencyKit | null;
   busy: boolean;
@@ -35,6 +53,10 @@ interface VaultState {
   unlockRecovery: (code: string) => Promise<void>;
   changeMaster: (newPassword: string) => Promise<void>;
   lock: () => Promise<void>;
+  acceptMigration: () => Promise<void>;
+  backupMigrationAndQuit: () => Promise<void>;
+  eraseVaultAndStartFresh: () => Promise<void>;
+  quitApp: () => Promise<void>;
   save: (next: VaultModel) => Promise<void>;
   toggleModule: (id: string, enabled: boolean) => Promise<void>;
   dismissKit: () => void;
@@ -42,15 +64,21 @@ interface VaultState {
 
 const now = () => new Date().toISOString();
 
-/** Load the model from Rust and hydrate it with any missing module defaults. */
-async function loadModel(): Promise<VaultModel> {
+/** Load the model from Rust, hydrate defaults, and compute any pending migration. */
+async function loadModel(): Promise<{
+  model: VaultModel;
+  migration: MigrationPlan | null;
+}> {
   const json = await vaultApi.getVault();
-  return ensureModuleDefaults(parseVaultJson(json, now()), MODULES);
+  return prepareVaultModel(parseVaultJson(json, now()), MODULES);
 }
 
 export const useVaultStore = create<VaultState>((set, get) => ({
   status: "loading",
   model: null,
+  migration: null,
+  postMigrationStatus: "unlocked",
+  incompatibleMessage: null,
   pendingKit: null,
   busy: false,
   error: null,
@@ -58,13 +86,44 @@ export const useVaultStore = create<VaultState>((set, get) => ({
   init: async () => {
     try {
       if (await vaultApi.isUnlocked()) {
-        set({ status: "unlocked", model: await loadModel(), error: null });
+        const loaded = await loadModel();
+        set({
+          status: loaded.migration ? "migration" : "unlocked",
+          model: loaded.model,
+          migration: loaded.migration,
+          postMigrationStatus: "unlocked",
+          incompatibleMessage: null,
+          error: null,
+        });
       } else if (await vaultApi.vaultExists()) {
-        set({ status: "locked", model: null, error: null });
+        set({
+          status: "locked",
+          model: null,
+          migration: null,
+          incompatibleMessage: null,
+          error: null,
+        });
       } else {
-        set({ status: "onboarding", model: null, error: null });
+        set({
+          status: "onboarding",
+          model: null,
+          migration: null,
+          incompatibleMessage: null,
+          error: null,
+        });
       }
     } catch (e) {
+      if (e instanceof VaultCompatibilityError) {
+        await vaultApi.lock();
+        set({
+          status: "incompatible",
+          model: null,
+          migration: null,
+          incompatibleMessage: e.message,
+          error: null,
+        });
+        return;
+      }
       set({ error: String(e) });
     }
   },
@@ -76,7 +135,13 @@ export const useVaultStore = create<VaultState>((set, get) => ({
       // Persist a default model immediately so settings exist right after onboarding.
       const model = ensureModuleDefaults(parseVaultJson("{}", now()), MODULES);
       await vaultApi.saveVault(JSON.stringify(model));
-      set({ status: "unlocked", model, pendingKit: kit });
+      set({
+        status: "unlocked",
+        model,
+        migration: null,
+        incompatibleMessage: null,
+        pendingKit: kit,
+      });
       return kit;
     } finally {
       set({ busy: false });
@@ -87,8 +152,26 @@ export const useVaultStore = create<VaultState>((set, get) => ({
     set({ busy: true, error: null });
     try {
       await vaultApi.unlock(password);
-      set({ status: "unlocked", model: await loadModel() });
+      const loaded = await loadModel();
+      set({
+        status: loaded.migration ? "migration" : "unlocked",
+        model: loaded.model,
+        migration: loaded.migration,
+        postMigrationStatus: "unlocked",
+        incompatibleMessage: null,
+      });
     } catch (e) {
+      if (e instanceof VaultCompatibilityError) {
+        await vaultApi.lock();
+        set({
+          status: "incompatible",
+          model: null,
+          migration: null,
+          incompatibleMessage: e.message,
+          error: null,
+        });
+        return;
+      }
       set({ error: String(e) });
       throw e;
     } finally {
@@ -100,9 +183,27 @@ export const useVaultStore = create<VaultState>((set, get) => ({
     set({ busy: true, error: null });
     try {
       await vaultApi.unlockRecovery(code);
+      const loaded = await loadModel();
       // §4.1 path B: a recovery unlock forces the user to set a new master password next.
-      set({ status: "reset", model: await loadModel() });
+      set({
+        status: loaded.migration ? "migration" : "reset",
+        model: loaded.model,
+        migration: loaded.migration,
+        postMigrationStatus: "reset",
+        incompatibleMessage: null,
+      });
     } catch (e) {
+      if (e instanceof VaultCompatibilityError) {
+        await vaultApi.lock();
+        set({
+          status: "incompatible",
+          model: null,
+          migration: null,
+          incompatibleMessage: e.message,
+          error: null,
+        });
+        return;
+      }
       set({ error: String(e) });
       throw e;
     } finally {
@@ -117,7 +218,86 @@ export const useVaultStore = create<VaultState>((set, get) => ({
 
   lock: async () => {
     await vaultApi.lock();
-    set({ status: "locked", model: null, pendingKit: null, error: null });
+    set({
+      status: "locked",
+      model: null,
+      migration: null,
+      incompatibleMessage: null,
+      pendingKit: null,
+      error: null,
+    });
+  },
+
+  acceptMigration: async () => {
+    const { migration, postMigrationStatus } = get();
+    if (!migration) return;
+
+    set({ busy: true, error: null });
+    try {
+      await vaultApi.backupVault(
+        preMigrationBackupName(
+          migration.fromAppVersion,
+          migration.toAppVersion,
+          new Date(),
+        ),
+      );
+      const stamped = withUpdatedAt(migration.migratedModel, now());
+      await vaultApi.saveVault(JSON.stringify(stamped));
+      set({
+        status: postMigrationStatus,
+        model: stamped,
+        migration: null,
+        incompatibleMessage: null,
+      });
+    } catch (e) {
+      set({ error: String(e) });
+      throw e;
+    } finally {
+      set({ busy: false });
+    }
+  },
+
+  backupMigrationAndQuit: async () => {
+    const migration = get().migration;
+    if (!migration) return;
+
+    set({ busy: true, error: null });
+    try {
+      const backupPath = await vaultApi.backupVaultToChosenLocation(
+        vaultBackupName(migration.fromAppVersion, new Date()),
+      );
+      if (backupPath) {
+        await vaultApi.quitApp();
+      }
+    } catch (e) {
+      set({ error: String(e) });
+      throw e;
+    } finally {
+      set({ busy: false });
+    }
+  },
+
+  eraseVaultAndStartFresh: async () => {
+    set({ busy: true, error: null });
+    try {
+      await vaultApi.eraseVault();
+      set({
+        status: "onboarding",
+        model: null,
+        migration: null,
+        incompatibleMessage: null,
+        pendingKit: null,
+      });
+    } catch (e) {
+      set({ error: String(e) });
+      throw e;
+    } finally {
+      set({ busy: false });
+    }
+  },
+
+  quitApp: async () => {
+    await vaultApi.quitApp();
   },
 
   save: async (next) => {

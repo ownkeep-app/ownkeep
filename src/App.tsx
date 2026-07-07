@@ -7,6 +7,10 @@ import { OnboardingScreen } from "@/features/auth/OnboardingScreen";
 import { ResetMasterScreen } from "@/features/auth/ResetMasterScreen";
 import { Dashboard } from "@/features/dashboard/Dashboard";
 import {
+  IncompatibleVaultScreen,
+  MigrationGuideScreen,
+} from "@/features/migration/MigrationGuideScreen";
+import {
   currentWindowLabel,
   mainWindowMode,
   setMainWindowMode,
@@ -59,6 +63,10 @@ function App() {
       return <LockScreen />;
     case "reset":
       return <ResetMasterScreen />;
+    case "migration":
+      return <MigrationGuideScreen />;
+    case "incompatible":
+      return <IncompatibleVaultScreen />;
     case "unlocked":
       return pendingKit ? <EmergencyKitScreen /> : <CommandBar />;
     default:

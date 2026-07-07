@@ -30,6 +30,12 @@ export const vaultApi = {
   /** The decrypted model as JSON (non-secret projection; redaction arrives with Phase 3). */
   getVault: () => invoke<string>("get_vault"),
   saveVault: (json: string) => invoke<void>("save_vault", { json }),
+  backupVault: (fileName: string) =>
+    invoke<string>("backup_vault", { fileName }),
+  backupVaultToChosenLocation: (fileName: string) =>
+    invoke<string | null>("backup_vault_to_chosen_location", { fileName }),
+  eraseVault: () => invoke<void>("erase_vault"),
+  quitApp: () => invoke<void>("quit_app"),
 };
 
 export type VaultApi = typeof vaultApi;

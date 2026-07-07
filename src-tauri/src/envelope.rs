@@ -149,7 +149,10 @@ mod tests {
     fn unlock_with_password_recovers_the_vault() {
         let created = create();
         let dek = unlock_with_password(&created.container, "correct horse battery").unwrap();
-        assert_eq!(&decrypt_vault(&created.container, &dek).unwrap()[..], PLAINTEXT);
+        assert_eq!(
+            &decrypt_vault(&created.container, &dek).unwrap()[..],
+            PLAINTEXT
+        );
     }
 
     #[test]
@@ -159,7 +162,10 @@ mod tests {
         let by_rec =
             unlock_with_recovery(&created.container, &created.emergency_kit.recovery_code).unwrap();
         assert_eq!(by_pw[..], by_rec[..]);
-        assert_eq!(&decrypt_vault(&created.container, &by_rec).unwrap()[..], PLAINTEXT);
+        assert_eq!(
+            &decrypt_vault(&created.container, &by_rec).unwrap()[..],
+            PLAINTEXT
+        );
     }
 
     #[test]
@@ -219,8 +225,13 @@ mod tests {
     fn change_master_password_rewraps_dek() {
         let mut created = create();
         let dek_before = unlock_with_password(&created.container, "correct horse battery").unwrap();
-        set_master_password(&mut created.container, &dek_before, "new passphrase", TEST_ARGON)
-            .unwrap();
+        set_master_password(
+            &mut created.container,
+            &dek_before,
+            "new passphrase",
+            TEST_ARGON,
+        )
+        .unwrap();
 
         assert!(matches!(
             unlock_with_password(&created.container, "correct horse battery"),

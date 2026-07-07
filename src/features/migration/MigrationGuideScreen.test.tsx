@@ -1,0 +1,103 @@
+import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+import { useVaultStore } from "@/stores/vault-store";
+import { createDefaultModel } from "@/vault/model";
+import type { MigrationPlan } from "@/vault/migrations";
+import { vaultApi } from "@/vault/api";
+import { MigrationGuideScreen } from "./MigrationGuideScreen";
+
+vi.mock("@/vault/api", () => ({
+  vaultApi: {
+    backupVault: vi.fn(async () => "/tmp/backup.dat"),
+    backupVaultToChosenLocation: vi.fn(async () => "/tmp/chosen-backup.dat"),
+    saveVault: vi.fn(async () => {}),
+    eraseVault: vi.fn(async () => {}),
+    quitApp: vi.fn(async () => {}),
+  },
+}));
+
+const api = vi.mocked(vaultApi);
+
+const plan: MigrationPlan = {
+  fromSchemaVersion: 1,
+  toSchemaVersion: 2,
+  fromAppVersion: "0.1",
+  toAppVersion: "0.2",
+  steps: [],
+  migratedModel: createDefaultModel("2026-07-07T00:00:00.000Z"),
+  changes: [
+    {
+      kind: "added",
+      path: "settings.dashboardHotkey",
+      note: "Adds the Dashboard hotkey.",
+    },
+    {
+      kind: "renamed",
+      path: "settings.oldName",
+      newPath: "settings.newName",
+      note: "Keeps the old value under a clearer name.",
+    },
+    {
+      kind: "removed",
+      path: "settings.legacy",
+      note: "This value is no longer used and will be removed.",
+      dataLoss: true,
+    },
+  ],
+};
+
+describe("MigrationGuideScreen", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    useVaultStore.setState({
+      status: "migration",
+      model: plan.migratedModel,
+      migration: plan,
+      postMigrationStatus: "unlocked",
+      incompatibleMessage: null,
+      pendingKit: null,
+      busy: false,
+      error: null,
+    });
+  });
+
+  it("renders grouped guide entries including rename paths and red data-loss removals", () => {
+    render(<MigrationGuideScreen />);
+
+    expect(
+      screen.getByRole("heading", { name: /upgrade vault data/i }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("settings.dashboardHotkey")).toBeInTheDocument();
+    expect(
+      screen.getByText("settings.oldName -> settings.newName"),
+    ).toBeInTheDocument();
+    expect(screen.getByText("settings.legacy")).toHaveClass("text-destructive");
+  });
+
+  it("accepts the migration by backing up and saving", async () => {
+    const user = userEvent.setup();
+    render(<MigrationGuideScreen />);
+
+    await user.click(screen.getByRole("button", { name: /accept & upgrade/i }));
+
+    expect(api.backupVault).toHaveBeenCalledWith(
+      expect.stringMatching(/^keystash-pre-migration-v0\.1-to-v0\.2-/),
+    );
+    expect(api.saveVault).toHaveBeenCalled();
+  });
+
+  it("requires a second click before erasing the vault", async () => {
+    const user = userEvent.setup();
+    render(<MigrationGuideScreen />);
+
+    await user.click(
+      screen.getByRole("button", { name: /erase & start fresh/i }),
+    );
+    expect(api.eraseVault).not.toHaveBeenCalled();
+
+    await user.click(screen.getByRole("button", { name: /erase all data/i }));
+    expect(api.eraseVault).toHaveBeenCalled();
+  });
+});

@@ -152,7 +152,15 @@ export function setModuleEnabled(
   };
 }
 
-/** Stamp `updatedAt` — call before persisting a mutated model. */
+/** Stamp current app/schema metadata before persisting a mutated model. */
 export function withUpdatedAt(model: VaultModel, now: string): VaultModel {
-  return { ...model, meta: { ...model.meta, updatedAt: now } };
+  return {
+    ...model,
+    meta: {
+      ...model.meta,
+      appVersion: APP_VERSION,
+      schemaVersion: SCHEMA_VERSION,
+      updatedAt: now,
+    },
+  };
 }

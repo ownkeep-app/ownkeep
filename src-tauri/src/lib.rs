@@ -62,7 +62,9 @@ fn toggle_dashboard_window(app: &AppHandle) {
 /// Wire the desktop shell: no-Dock activation policy, tray icon, and the global toggle hotkeys.
 #[cfg(desktop)]
 fn setup_desktop(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
-    use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut, ShortcutState};
+    use tauri_plugin_global_shortcut::{
+        Code, GlobalShortcutExt, Modifiers, Shortcut, ShortcutState,
+    };
 
     // Menu-bar app with no Dock icon — keystash is summoned by its hotkey, not clicked in the Dock.
     #[cfg(target_os = "macos")]
@@ -144,6 +146,10 @@ pub fn run() {
             commands::regenerate_recovery,
             commands::get_vault,
             commands::save_vault,
+            commands::backup_vault,
+            commands::backup_vault_to_chosen_location,
+            commands::erase_vault,
+            commands::quit_app,
             set_main_window_blur_dismiss,
         ])
         .setup(|app| {
@@ -172,10 +178,7 @@ pub fn run() {
 
 /// Enable or disable blur-to-hide on the main launcher window (compact command bar only).
 #[tauri::command]
-fn set_main_window_blur_dismiss(
-    state: tauri::State<'_, MainWindowBehavior>,
-    enabled: bool,
-) {
+fn set_main_window_blur_dismiss(state: tauri::State<'_, MainWindowBehavior>, enabled: bool) {
     *state.0.lock().unwrap() = enabled;
 }
 

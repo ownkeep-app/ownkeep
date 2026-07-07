@@ -29,6 +29,10 @@ vi.mock("@/vault/api", () => ({
     getVault: vi.fn(async () => "{}"),
     isUnlocked: vi.fn(async () => false),
     vaultExists: vi.fn(async () => false),
+    backupVault: vi.fn(async () => "/tmp/backup.dat"),
+    backupVaultToChosenLocation: vi.fn(async () => "/tmp/chosen-backup.dat"),
+    eraseVault: vi.fn(async () => {}),
+    quitApp: vi.fn(async () => {}),
     lock: vi.fn(async () => {}),
     changeMaster: vi.fn(async () => {}),
     regenerateRecovery: vi.fn(async () => ({
@@ -48,6 +52,9 @@ beforeEach(() => {
   useVaultStore.setState({
     status: "onboarding",
     model: null,
+    migration: null,
+    postMigrationStatus: "unlocked",
+    incompatibleMessage: null,
     pendingKit: null,
     busy: false,
     error: null,
@@ -63,9 +70,7 @@ describe("OnboardingScreen", () => {
     ).toBeVisible();
     expect(screen.getByLabelText("Master password")).toBeVisible();
     expect(screen.getByLabelText("Confirm password")).toBeVisible();
-    expect(
-      screen.getByRole("button", { name: /create vault/i }),
-    ).toBeVisible();
+    expect(screen.getByRole("button", { name: /create vault/i })).toBeVisible();
   });
 
   it("focuses the password field after the main window finishes resizing", async () => {
@@ -102,7 +107,9 @@ describe("OnboardingScreen", () => {
     await user.type(screen.getByLabelText("Master password"), "supersecret");
     await user.type(screen.getByLabelText("Confirm password"), "supersecret");
     expect(screen.getByLabelText("Master password")).toHaveValue("supersecret");
-    expect(screen.getByLabelText("Confirm password")).toHaveValue("supersecret");
+    expect(screen.getByLabelText("Confirm password")).toHaveValue(
+      "supersecret",
+    );
   });
 
   it("rejects a mismatch, then creates on a valid match", async () => {

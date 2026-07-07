@@ -5,6 +5,7 @@ import { Lock, Settings as SettingsIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { MODULES } from "@/modules/registry";
 import { useVaultStore } from "@/stores/vault-store";
+import { APP_VERSION } from "@/vault/model";
 import { SettingsPanel } from "./SettingsPanel";
 
 const SETTINGS_KEY = "settings";
@@ -101,6 +102,9 @@ export function Dashboard() {
             label="Lock"
             onClick={() => void lock()}
           />
+          <p className="px-2 pt-1 text-xs text-muted-foreground">
+            keystash v{APP_VERSION}
+          </p>
         </div>
       </nav>
       <section className="flex-1 overflow-auto">
