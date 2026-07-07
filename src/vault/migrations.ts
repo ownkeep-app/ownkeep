@@ -92,7 +92,71 @@ const schemaOneToTwo: Migration = {
   },
 };
 
-export const MIGRATIONS: Migration[] = [schemaOneToTwo];
+const passwordFields = [
+  "id",
+  "name",
+  "username",
+  "password",
+  "loginUrl",
+  "recoveryUrl",
+  "notes",
+  "tags",
+  "updatedAt",
+] as const;
+
+const schemaTwoToThree: Migration = {
+  from: 2,
+  to: 3,
+  summary: "Add the real password vault entry shape.",
+  changes: passwordFields.map((field): SchemaChange => ({
+    kind: "added",
+    path: `modules.passwords[].${field}`,
+    note: "Adds the password vault fields used by the Dashboard list, detail, edit, and copy flows.",
+  })),
+  apply: (model) => {
+    const passwords = Array.isArray(model.modules.passwords)
+      ? model.modules.passwords.map((item, index) =>
+          normalizePasswordMigrationItem(item, model.meta.updatedAt, index),
+        )
+      : [];
+    return {
+      ...model,
+      meta: { ...model.meta, schemaVersion: 3 },
+      modules: { ...model.modules, passwords },
+    };
+  },
+};
+
+export const MIGRATIONS: Migration[] = [schemaOneToTwo, schemaTwoToThree];
+
+function normalizePasswordMigrationItem(
+  item: unknown,
+  updatedAt: string,
+  index: number,
+): Record<string, unknown> {
+  const object =
+    item && typeof item === "object" && !Array.isArray(item)
+      ? (item as Record<string, unknown>)
+      : {};
+  return {
+    id:
+      typeof object.id === "string"
+        ? object.id
+        : `legacy-password-${index + 1}`,
+    name: typeof object.name === "string" ? object.name : "",
+    username: typeof object.username === "string" ? object.username : "",
+    password: typeof object.password === "string" ? object.password : "",
+    loginUrl: typeof object.loginUrl === "string" ? object.loginUrl : "",
+    recoveryUrl:
+      typeof object.recoveryUrl === "string" ? object.recoveryUrl : "",
+    notes: typeof object.notes === "string" ? object.notes : "",
+    tags: Array.isArray(object.tags)
+      ? object.tags.filter((tag): tag is string => typeof tag === "string")
+      : [],
+    updatedAt:
+      typeof object.updatedAt === "string" ? object.updatedAt : updatedAt,
+  };
+}
 
 export function parseAppVersion(version: string): AppVersion {
   const match = /^(\d+)\.(\d+)$/.exec(version);

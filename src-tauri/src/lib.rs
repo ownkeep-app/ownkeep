@@ -1,9 +1,11 @@
+mod clipboard;
 mod commands;
 mod container;
 mod crypto;
 mod envelope;
 mod error;
 mod recovery;
+mod secrets;
 mod session;
 mod storage;
 
@@ -148,6 +150,8 @@ pub fn run() {
             commands::regenerate_recovery,
             commands::get_vault,
             commands::save_vault,
+            commands::copy_secret,
+            commands::reveal_secret,
             commands::backup_vault,
             commands::backup_vault_to_chosen_location,
             commands::erase_vault,

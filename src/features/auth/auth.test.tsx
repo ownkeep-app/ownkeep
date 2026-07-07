@@ -140,6 +140,18 @@ describe("OnboardingScreen", () => {
     expect(api.createVault).not.toHaveBeenCalled();
     expect(screen.getByText(/at least 8/i)).toBeInTheDocument();
   });
+
+  it("shows backend errors when vault creation fails", async () => {
+    api.createVault.mockRejectedValueOnce(new Error("no disk"));
+    const user = userEvent.setup();
+    render(<OnboardingScreen />);
+
+    await user.type(screen.getByLabelText("Master password"), "supersecret");
+    await user.type(screen.getByLabelText("Confirm password"), "supersecret");
+    await user.click(screen.getByRole("button", { name: /create vault/i }));
+
+    expect(await screen.findByText(/no disk/i)).toBeVisible();
+  });
 });
 
 describe("LockScreen", () => {
@@ -231,6 +243,32 @@ describe("EmergencyKitScreen", () => {
     const { container } = render(<EmergencyKitScreen />);
 
     expect(container).toBeEmptyDOMElement();
+  });
+
+  it("does not crash if clipboard write fails", async () => {
+    const writeText = vi.fn(async () => {
+      throw new Error("no clipboard");
+    });
+    Object.defineProperty(navigator, "clipboard", {
+      value: {
+        writeText,
+      },
+      configurable: true,
+    });
+
+    useVaultStore.setState({
+      pendingKit: {
+        app: "keystash",
+        recovery_code: "alpha beta gamma",
+        instructions: "Save this somewhere safe.",
+      },
+    });
+
+    const user = userEvent.setup();
+    render(<EmergencyKitScreen />);
+
+    await user.click(screen.getByRole("button", { name: /copy code/i }));
+    expect(screen.getByText("alpha beta gamma")).toBeVisible();
   });
 });
 

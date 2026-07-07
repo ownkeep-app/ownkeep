@@ -11,6 +11,8 @@ vi.mock("@/vault/api", () => ({
     vaultIncompatibility: vi.fn(async () => null),
     getVault: vi.fn(),
     saveVault: vi.fn(async () => {}),
+    copySecret: vi.fn(async () => {}),
+    revealSecret: vi.fn(async () => {}),
     backupVault: vi.fn(async () => "/tmp/backup.dat"),
     backupVaultToChosenLocation: vi.fn(async () => "/tmp/chosen-backup.dat"),
     eraseVault: vi.fn(async () => {}),
@@ -360,6 +362,157 @@ describe("vault store", () => {
     expect(
       useVaultStore.getState().model?.settings.modules.finance.enabled,
     ).toBe(false);
+  });
+
+  it("savePassword persists plaintext once and reloads the redacted projection", async () => {
+    api.isUnlocked.mockResolvedValue(true);
+    api.getVault.mockResolvedValueOnce("{}").mockResolvedValueOnce(
+      JSON.stringify({
+        meta: {
+          schemaVersion: SCHEMA_VERSION,
+          appVersion: APP_VERSION,
+          createdAt: "2026-07-01T00:00:00.000Z",
+          updatedAt: "2026-07-01T00:00:00.000Z",
+        },
+        modules: {
+          passwords: [
+            {
+              id: "github",
+              name: "GitHub",
+              username: "sha",
+              password: "__KEYSTASH_REDACTED_SECRET__",
+              loginUrl: "",
+              recoveryUrl: "",
+              notes: "",
+              tags: [],
+              updatedAt: "2026-07-07T00:00:00.000Z",
+            },
+          ],
+        },
+      }),
+    );
+    await useVaultStore.getState().init();
+
+    await useVaultStore.getState().savePassword({
+      id: "github",
+      name: "GitHub",
+      username: "sha",
+      password: "secret",
+      loginUrl: "",
+      recoveryUrl: "",
+      notes: "",
+      tags: [],
+      updatedAt: "2026-07-07T00:00:00.000Z",
+    });
+
+    const saved = JSON.parse(api.saveVault.mock.calls[0][0] as string);
+    expect(saved.modules.passwords[0].password).toBe("secret");
+    const projected = useVaultStore.getState().model?.modules
+      .passwords as Array<{ password: string }>;
+    expect(projected[0].password).toBe("__KEYSTASH_REDACTED_SECRET__");
+  });
+
+  it("savePassword creates a new entry when the slice is missing or not an array", async () => {
+    api.isUnlocked.mockResolvedValue(true);
+    api.getVault
+      .mockResolvedValueOnce(
+        JSON.stringify({
+          meta: {
+            schemaVersion: SCHEMA_VERSION,
+            appVersion: APP_VERSION,
+            createdAt: "2026-07-01T00:00:00.000Z",
+            updatedAt: "2026-07-01T00:00:00.000Z",
+          },
+          modules: { passwords: { not: "an array" } },
+        }),
+      )
+      .mockResolvedValueOnce(
+        JSON.stringify({
+          meta: {
+            schemaVersion: SCHEMA_VERSION,
+            appVersion: APP_VERSION,
+            createdAt: "2026-07-01T00:00:00.000Z",
+            updatedAt: "2026-07-01T00:00:00.000Z",
+          },
+          modules: {
+            passwords: [
+              {
+                id: "new",
+                name: "New",
+                username: "",
+                password: "__KEYSTASH_REDACTED_SECRET__",
+                loginUrl: "",
+                recoveryUrl: "",
+                notes: "",
+                tags: [],
+                updatedAt: "2026-07-07T00:00:00.000Z",
+              },
+            ],
+          },
+        }),
+      );
+
+    await useVaultStore.getState().init();
+    await useVaultStore.getState().savePassword({
+      id: "new",
+      name: "New",
+      username: "",
+      password: "secret",
+      loginUrl: "",
+      recoveryUrl: "",
+      notes: "",
+      tags: [],
+      updatedAt: "2026-07-07T00:00:00.000Z",
+    });
+
+    const saved = JSON.parse(api.saveVault.mock.calls.at(-1)?.[0] as string);
+    expect(saved.modules.passwords).toHaveLength(1);
+    expect(saved.modules.passwords[0].id).toBe("new");
+  });
+
+  it("deletePassword removes the item and reloads the projection", async () => {
+    api.isUnlocked.mockResolvedValue(true);
+    api.getVault.mockResolvedValueOnce(
+      JSON.stringify({
+        modules: {
+          passwords: [
+            {
+              id: "github",
+              name: "GitHub",
+              username: "sha",
+              password: "__KEYSTASH_REDACTED_SECRET__",
+              loginUrl: "",
+              recoveryUrl: "",
+              notes: "",
+              tags: [],
+              updatedAt: "2026-07-07T00:00:00.000Z",
+            },
+          ],
+        },
+      }),
+    );
+    api.getVault.mockResolvedValueOnce(
+      JSON.stringify({ modules: { passwords: [] } }),
+    );
+    await useVaultStore.getState().init();
+
+    await useVaultStore.getState().deletePassword("github");
+
+    const saved = JSON.parse(api.saveVault.mock.calls[0][0] as string);
+    expect(saved.modules.passwords).toEqual([]);
+    expect(useVaultStore.getState().model?.modules.passwords).toEqual([]);
+  });
+
+  it("copySecret delegates to the Rust copy command", async () => {
+    await useVaultStore.getState().copySecret("github", "password");
+
+    expect(api.copySecret).toHaveBeenCalledWith("github", "password");
+  });
+
+  it("revealSecret delegates to the Rust reveal command", async () => {
+    await useVaultStore.getState().revealSecret("github", "password");
+
+    expect(api.revealSecret).toHaveBeenCalledWith("github", "password");
   });
 
   it("setAutoLock persists the minutes and pushes them to the Rust session", async () => {

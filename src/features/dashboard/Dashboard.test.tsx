@@ -46,7 +46,7 @@ describe("Dashboard", () => {
     const user = userEvent.setup();
     render(<Dashboard />);
 
-    expect(screen.getByText(/phase 3/i)).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Passwords" })).toBeVisible();
 
     await user.click(screen.getByRole("button", { name: /commands/i }));
 
@@ -55,6 +55,10 @@ describe("Dashboard", () => {
 
   it("supports numbered and arrow-key sidebar navigation outside text inputs", () => {
     render(<Dashboard />);
+
+    // Start with arrow navigation while nothing is selected (covers the default-row branch).
+    fireEvent.keyDown(window, { key: "ArrowDown" });
+    expect(screen.getByText("Command library")).toBeInTheDocument();
 
     fireEvent.keyDown(window, { key: "2", metaKey: true });
     expect(screen.getByText("Command library")).toBeInTheDocument();

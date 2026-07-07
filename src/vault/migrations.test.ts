@@ -64,7 +64,10 @@ describe("app version comparison", () => {
 
 describe("migration registry", () => {
   it("finds the v1 to current schema path", () => {
-    expect(pendingMigrations(1).map((m) => [m.from, m.to])).toEqual([[1, 2]]);
+    expect(pendingMigrations(1).map((m) => [m.from, m.to])).toEqual([
+      [1, 2],
+      [2, 3],
+    ]);
   });
 
   it("fails clearly when no ordered migration path exists", () => {
@@ -78,11 +81,88 @@ describe("migration registry", () => {
     expect(plan?.changes.map((c) => c.path)).toContain(
       "settings.dashboardHotkey",
     );
+    expect(plan?.changes.map((c) => c.path)).toContain(
+      "modules.passwords[].password",
+    );
     expect(plan?.migratedModel.meta.schemaVersion).toBe(SCHEMA_VERSION);
     expect(plan?.migratedModel.settings.dashboardHotkey).toBe("Cmd+Shift+D");
     expect(plan?.migratedModel.settings.modules.passwords.enabled).toBe(false);
-    expect(plan?.migratedModel.modules.passwords).toEqual([{ id: "keep" }]);
+    expect(plan?.migratedModel.modules.passwords).toEqual([
+      {
+        id: "keep",
+        name: "",
+        username: "",
+        password: "",
+        loginUrl: "",
+        recoveryUrl: "",
+        notes: "",
+        tags: [],
+        updatedAt: NOW,
+      },
+    ]);
     expect(plan?.migratedModel.modules.finance).toEqual({ snapshots: [] });
+  });
+
+  it("normalizes old password-like records during the v2 to v3 migration", () => {
+    const model = {
+      ...createDefaultModel(NOW),
+      meta: {
+        schemaVersion: 2,
+        appVersion: "0.0",
+        createdAt: NOW,
+        updatedAt: NOW,
+      },
+      modules: {
+        passwords: [
+          {
+            id: "github",
+            name: "GitHub",
+            username: "sha",
+            password: "secret",
+            tags: ["dev", 10],
+          },
+        ],
+      },
+    };
+
+    const prepared = prepareVaultModel(model, modules);
+
+    expect(prepared.migration?.changes.map((c) => c.path)).toContain(
+      "modules.passwords[].loginUrl",
+    );
+    expect(prepared.model.modules.passwords).toEqual([
+      {
+        id: "github",
+        name: "GitHub",
+        username: "sha",
+        password: "secret",
+        loginUrl: "",
+        recoveryUrl: "",
+        notes: "",
+        tags: ["dev"],
+        updatedAt: NOW,
+      },
+    ]);
+  });
+
+  it("assigns stable ids when legacy password records are missing ids", () => {
+    const model = {
+      ...createDefaultModel(NOW),
+      meta: {
+        schemaVersion: 2,
+        appVersion: "0.0",
+        createdAt: NOW,
+        updatedAt: NOW,
+      },
+      modules: {
+        passwords: [{ name: "Legacy" }, "not-an-object"],
+      },
+    };
+
+    const prepared = prepareVaultModel(model, modules);
+
+    expect(prepared.model.modules.passwords[0].id).toBe("legacy-password-1");
+    expect(prepared.model.modules.passwords[1].id).toBe("legacy-password-2");
   });
 
   it("returns no migration for current-schema vaults", () => {

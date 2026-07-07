@@ -9,7 +9,7 @@ use std::path::PathBuf;
 use std::sync::Mutex;
 
 use tauri::{AppHandle, Manager, State};
-use tauri_plugin_dialog::DialogExt;
+use tauri_plugin_dialog::{DialogExt, MessageDialogKind};
 
 use crate::crypto::Argon2Params;
 use crate::recovery::EmergencyKit;
@@ -178,6 +178,41 @@ pub fn save_vault(
         .unwrap()
         .save_vault(&path, &json)
         .map_err(|e| e.to_string())
+}
+
+/// Copy a registered secret by item id and field directly to the concealed pasteboard.
+#[tauri::command]
+pub fn copy_secret(
+    state: State<'_, SharedSession>,
+    id: String,
+    field: String,
+) -> Result<(), String> {
+    state
+        .lock()
+        .unwrap()
+        .copy_secret(&id, &field)
+        .map_err(|e| e.to_string())
+}
+
+/// Reveal a registered secret in a native dialog without returning plaintext to the WebView.
+#[tauri::command]
+pub fn reveal_secret(
+    app: AppHandle,
+    state: State<'_, SharedSession>,
+    id: String,
+    field: String,
+) -> Result<(), String> {
+    let secret = state
+        .lock()
+        .unwrap()
+        .secret_value(&id, &field)
+        .map_err(|e| e.to_string())?;
+    app.dialog()
+        .message(secret.as_str())
+        .title("keystash secret")
+        .kind(MessageDialogKind::Info)
+        .blocking_show();
+    Ok(())
 }
 
 /// Copy the encrypted active vault to a versioned sibling backup file.

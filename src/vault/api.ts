@@ -34,9 +34,15 @@ export const vaultApi = {
   changeMaster: (newPassword: string) =>
     invoke<void>("change_master", { newPassword }),
   regenerateRecovery: () => invoke<EmergencyKit>("regenerate_recovery"),
-  /** The decrypted model as JSON (non-secret projection; redaction arrives with Phase 3). */
+  /** The decrypted model projection as JSON; registered secret fields are redacted by Rust. */
   getVault: () => invoke<string>("get_vault"),
   saveVault: (json: string) => invoke<void>("save_vault", { json }),
+  /** Copy a secret directly inside Rust so plaintext never enters the frontend projection. */
+  copySecret: (id: string, field: string) =>
+    invoke<void>("copy_secret", { id, field }),
+  /** Reveal a secret in a native Rust-owned dialog, never returning plaintext to JS. */
+  revealSecret: (id: string, field: string) =>
+    invoke<void>("reveal_secret", { id, field }),
   backupVault: (fileName: string) =>
     invoke<string>("backup_vault", { fileName }),
   backupVaultToChosenLocation: (fileName: string) =>

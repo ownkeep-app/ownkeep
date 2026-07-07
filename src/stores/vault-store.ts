@@ -9,6 +9,11 @@
 import { create } from "zustand";
 
 import { MODULES } from "@/modules/registry";
+import { passwordEntries } from "@/modules/passwords/logic";
+import {
+  PASSWORDS_MODULE_ID,
+  type PasswordEntry,
+} from "@/modules/passwords/types";
 import { type EmergencyKit, vaultApi } from "@/vault/api";
 import {
   preMigrationBackupName,
@@ -60,6 +65,10 @@ interface VaultState {
   quitApp: () => Promise<void>;
   save: (next: VaultModel) => Promise<void>;
   toggleModule: (id: string, enabled: boolean) => Promise<void>;
+  savePassword: (entry: PasswordEntry) => Promise<void>;
+  deletePassword: (id: string) => Promise<void>;
+  copySecret: (id: string, field: string) => Promise<void>;
+  revealSecret: (id: string, field: string) => Promise<void>;
   dismissKit: () => void;
 }
 
@@ -81,6 +90,16 @@ async function loadModel(): Promise<{
  */
 function syncAutoLock(model: VaultModel): void {
   void vaultApi.setAutoLock(model.settings.autoLockMinutes);
+}
+
+async function saveThenReloadProjection(
+  next: VaultModel,
+  set: (state: Partial<VaultState>) => void,
+): Promise<void> {
+  const stamped = withUpdatedAt(next, now());
+  await vaultApi.saveVault(JSON.stringify(stamped));
+  const loaded = await loadModel();
+  set({ model: loaded.model, migration: loaded.migration });
 }
 
 export const useVaultStore = create<VaultState>((set, get) => ({
@@ -348,6 +367,55 @@ export const useVaultStore = create<VaultState>((set, get) => ({
     const model = get().model;
     if (!model) return;
     await get().save(setModuleEnabled(model, id, enabled));
+  },
+
+  savePassword: async (entry) => {
+    const model = get().model;
+    if (!model) return;
+    const current = passwordEntries(
+      Array.isArray(model.modules[PASSWORDS_MODULE_ID])
+        ? model.modules[PASSWORDS_MODULE_ID]
+        : [],
+    );
+    const exists = current.some((item) => item.id === entry.id);
+    const nextItems = exists
+      ? current.map((item) => (item.id === entry.id ? entry : item))
+      : [...current, entry];
+    await saveThenReloadProjection(
+      {
+        ...model,
+        modules: { ...model.modules, [PASSWORDS_MODULE_ID]: nextItems },
+      },
+      set,
+    );
+  },
+
+  deletePassword: async (id) => {
+    const model = get().model;
+    if (!model) return;
+    const current = passwordEntries(
+      Array.isArray(model.modules[PASSWORDS_MODULE_ID])
+        ? model.modules[PASSWORDS_MODULE_ID]
+        : [],
+    );
+    await saveThenReloadProjection(
+      {
+        ...model,
+        modules: {
+          ...model.modules,
+          [PASSWORDS_MODULE_ID]: current.filter((item) => item.id !== id),
+        },
+      },
+      set,
+    );
+  },
+
+  copySecret: async (id, field) => {
+    await vaultApi.copySecret(id, field);
+  },
+
+  revealSecret: async (id, field) => {
+    await vaultApi.revealSecret(id, field);
   },
 
   dismissKit: () => set({ pendingKit: null }),

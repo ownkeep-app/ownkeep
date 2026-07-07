@@ -129,6 +129,27 @@ describe("setMainWindowMode", () => {
 
     await expect(setMainWindowMode("compact")).resolves.toBeUndefined();
   });
+
+  it("waits for an in-flight resize before short-circuiting", async () => {
+    let resolveSize!: () => void;
+    mockSetSize.mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          resolveSize = resolve;
+        }),
+    );
+
+    const first = setMainWindowMode("expanded");
+    const second = setMainWindowMode("expanded"); // hits the resizeInFlight branch
+
+    // Allow the resize coroutine to reach the mocked `setSize` call.
+    await Promise.resolve();
+
+    resolveSize();
+    await expect(Promise.all([first, second])).resolves.toBeDefined();
+
+    expect(mockSetSize).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe("window helpers", () => {
@@ -136,6 +157,39 @@ describe("window helpers", () => {
     vi.clearAllMocks();
     mockWindowLabel = "main";
     mockGetWindowThrows = false;
+    resetMainWindowModeForTests();
+  });
+
+  it("waits for whenMainWindowReady while a resize is in flight", async () => {
+    const { whenMainWindowReady } = await import("./window");
+
+    let resolveSize!: () => void;
+    mockSetSize.mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          resolveSize = resolve;
+        }),
+    );
+
+    const resizing = setMainWindowMode("expanded");
+    const ready = whenMainWindowReady();
+
+    let readyResolved = false;
+    void ready.then(() => {
+      readyResolved = true;
+    });
+
+    // Should not resolve until the resize finishes.
+    await Promise.resolve();
+    expect(readyResolved).toBe(false);
+
+    // Allow the resize coroutine to reach the mocked `setSize` call.
+    await Promise.resolve();
+
+    resolveSize();
+    await resizing;
+    await ready;
+    expect(readyResolved).toBe(true);
   });
 
   it("hides the current window", async () => {

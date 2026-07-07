@@ -92,6 +92,17 @@ describe("MigrationGuideScreen", () => {
     expect(api.saveVault).toHaveBeenCalled();
   });
 
+  it("backs up and quits via the secondary action buttons", async () => {
+    const user = userEvent.setup();
+    render(<MigrationGuideScreen />);
+
+    await user.click(screen.getByRole("button", { name: /back up & quit/i }));
+    expect(api.backupVaultToChosenLocation).toHaveBeenCalled();
+
+    await user.click(screen.getByRole("button", { name: /^quit$/i }));
+    expect(api.quitApp).toHaveBeenCalled();
+  });
+
   it("requires a second click before erasing the vault", async () => {
     const user = userEvent.setup();
     render(<MigrationGuideScreen />);
@@ -103,6 +114,12 @@ describe("MigrationGuideScreen", () => {
 
     await user.click(screen.getByRole("button", { name: /erase all data/i }));
     expect(api.eraseVault).toHaveBeenCalled();
+  });
+
+  it("renders errors from the store", () => {
+    useVaultStore.setState({ error: "boom" });
+    render(<MigrationGuideScreen />);
+    expect(screen.getByText("boom")).toBeVisible();
   });
 });
 

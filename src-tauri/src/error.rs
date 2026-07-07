@@ -56,3 +56,25 @@ impl From<std::io::Error> for Error {
         Error::Io(e)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn display_messages_are_stable() {
+        assert_eq!(Error::Kdf.to_string(), "key derivation failed");
+        assert!(Error::Aead.to_string().contains("authentication failed"));
+        assert_eq!(Error::Rng.to_string(), "secure random generation failed");
+        assert!(Error::Format("bad".to_string()).to_string().contains("bad"));
+        assert!(Error::VaultTooNew.to_string().contains("newer keystash"));
+        assert!(Error::Recovery("oops".to_string()).to_string().contains("oops"));
+        assert_eq!(Error::Locked.to_string(), "vault is locked");
+    }
+
+    #[test]
+    fn converts_io_errors() {
+        let err: Error = std::io::Error::new(std::io::ErrorKind::Other, "io").into();
+        assert!(err.to_string().contains("I/O error"));
+    }
+}

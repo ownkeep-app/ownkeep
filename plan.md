@@ -113,9 +113,9 @@ with a **browsable Dashboard** (sidebar + content pane) and a safe upgrade path 
 - **Deps:** P2.1. A cross-cutting quality gate — land it before Phase 3 so real feature code is built on top of an enforced bar.
 
 ### Phase 3 — 🔑 Passwords module (F1) · 2–3 d · *proves the security model*
-- [ ] `passwordsModule`: `secretFields: ["password"]`, `buildIndex`, `ListView` (masked dashboard list), `DetailView`, `EditView`.
-- [ ] Rust **`copy_secret(id, field)`** → **concealed pasteboard** (custom objc2/cocoa shim) + auto-clear timer; reveal-on-demand.
-- [ ] CRUD; masked display; click-to-open login/recovery URLs.
+- [x] `passwordsModule`: `secretFields: ["password"]`, `buildIndex`, `ListView` (masked dashboard list), `DetailView`, `EditView`.
+- [x] Rust **`copy_secret(id, field)`** → **concealed pasteboard** (custom objc2/cocoa shim) + auto-clear timer; reveal-on-demand.
+- [x] CRUD; masked display; click-to-open login/recovery URLs.
 - **Exit:** create/edit/delete entries; the passwords `ListView` renders in the Dashboard with masked values; copy a password with it **never appearing in the DOM** (verify in devtools); pasteboard clears after N s and is ignored by a clipboard-history tool.
 - **Deps:** P2.1. Front-loaded to validate §4.5 end-to-end early, after migrations are safe for real password data.
 

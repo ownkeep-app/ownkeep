@@ -51,6 +51,19 @@ describe("buildUnifiedIndex", () => {
     const index = buildUnifiedIndex(model, mods);
     expect(index.map((e) => e.id)).toEqual(["a1"]);
   });
+
+  it("treats non-array module slices as empty lists", () => {
+    const mods = [fakeModule("a", "a", [entry("a1", "alpha")])];
+    const model = ensureModuleDefaults(
+      createDefaultModel("2026-07-07T00:00:00Z"),
+      mods,
+    );
+    const weird = {
+      ...model,
+      modules: { ...model.modules, a: { not: "an array" } },
+    };
+    expect(buildUnifiedIndex(weird, mods).map((e) => e.id)).toEqual(["a1"]);
+  });
 });
 
 describe("parseScope", () => {

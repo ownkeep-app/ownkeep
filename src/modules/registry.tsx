@@ -1,27 +1,15 @@
 /**
  * The module registry (spec §3.4) — the one file you edit to add/remove a feature.
  *
- * Phase 2 ships lightweight *stubs*: enough (id, title, icon, scope, defaults, an empty index, and a
- * placeholder `ListView`) to drive the registry-powered shell — sidebar, panes, settings toggles.
- * Each real module replaces its stub in the module's own phase (passwords → Phase 3, and so on).
+ * Modules start as lightweight stubs, then graduate in their plan phase. Passwords is the first
+ * real module (Phase 3); later modules keep their placeholders until their own phases land.
  */
 
-import { CreditCard, Key, ListTodo, Terminal, TrendingUp } from "lucide-react";
+import { CreditCard, ListTodo, Terminal, TrendingUp } from "lucide-react";
 
 import { ComingSoon } from "./ComingSoon";
+import { passwordsModule } from "./passwords/module";
 import type { FeatureModule } from "./types";
-
-const passwordsModule: FeatureModule = {
-  id: "passwords",
-  title: "Passwords",
-  icon: <Key className="h-4 w-4" />,
-  enabledByDefault: true,
-  scopePrefix: "p",
-  secretFields: ["password"],
-  createEmpty: () => [],
-  buildIndex: () => [],
-  ListView: () => <ComingSoon title="Passwords" phase="Phase 3" />,
-};
 
 const commandsModule: FeatureModule = {
   id: "commands",

@@ -26,6 +26,8 @@ describe("vaultApi", () => {
     await vaultApi.regenerateRecovery();
     await vaultApi.getVault();
     await vaultApi.saveVault("{}");
+    await vaultApi.copySecret("github", "password");
+    await vaultApi.revealSecret("github", "password");
     await vaultApi.vaultIncompatibility();
     await vaultApi.backupVault("keystash.dat");
     await vaultApi.backupVaultToChosenLocation("keystash.dat");
@@ -44,6 +46,8 @@ describe("vaultApi", () => {
       ["regenerate_recovery"],
       ["get_vault"],
       ["save_vault", { json: "{}" }],
+      ["copy_secret", { id: "github", field: "password" }],
+      ["reveal_secret", { id: "github", field: "password" }],
       ["vault_incompatibility"],
       ["backup_vault", { fileName: "keystash.dat" }],
       ["backup_vault_to_chosen_location", { fileName: "keystash.dat" }],

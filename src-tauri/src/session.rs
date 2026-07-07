@@ -9,11 +9,13 @@ use std::time::{Duration, Instant};
 
 use zeroize::Zeroizing;
 
+use crate::clipboard;
 use crate::container::Container;
 use crate::crypto::{Argon2Params, Key};
 use crate::envelope;
 use crate::error::{Error, Result};
 use crate::recovery::EmergencyKit;
+use crate::secrets;
 use crate::storage;
 
 /// Initial (empty) vault body for a freshly created vault. The structured model
@@ -169,24 +171,47 @@ impl Session {
         Ok(kit)
     }
 
-    /// Return the decrypted vault model as JSON (the frontend projection). Requires unlocked.
-    ///
-    /// In Phase 2 the model has no secret fields, so this is the full projection. When the passwords
-    /// module lands (Phase 3) with `secretFields`, this becomes a *redacted* projection and secrets
-    /// are served only via the concealed-clipboard `copy_secret` path (spec §4.5).
+    /// Return the decrypted vault model as a redacted JSON projection. Requires unlocked.
     pub fn vault_json(&mut self) -> Result<String> {
         let unlocked = self.unlocked.as_mut().ok_or(Error::Locked)?;
         unlocked.last_activity = Instant::now();
-        String::from_utf8(unlocked.vault.to_vec())
-            .map_err(|_| Error::Format("vault model is not valid UTF-8".to_string()))
+        secrets::redact_projection(&unlocked.vault)
     }
 
     /// Replace the vault model with `json`, re-seal it under the DEK, and persist. Requires unlocked.
     pub fn save_vault(&mut self, path: &Path, json: &str) -> Result<()> {
         let unlocked = self.unlocked.as_mut().ok_or(Error::Locked)?;
-        envelope::reseal_vault(&mut unlocked.container, &unlocked.dek, json.as_bytes())?;
+        let full_json = secrets::merge_redacted_secrets(&unlocked.vault, json)?;
+        envelope::reseal_vault(&mut unlocked.container, &unlocked.dek, &full_json)?;
         storage::write_container(path, &unlocked.container)?;
-        unlocked.vault = Zeroizing::new(json.as_bytes().to_vec());
+        unlocked.vault = Zeroizing::new(full_json);
+        unlocked.last_activity = Instant::now();
+        Ok(())
+    }
+
+    /// Copy a registered secret directly to the concealed pasteboard. Requires unlocked.
+    pub fn copy_secret(&mut self, id: &str, field: &str) -> Result<()> {
+        self.copy_secret_with_writer(id, field, |secret, clear_after| {
+            clipboard::copy_concealed(secret, clear_after).map_err(Error::Format)
+        })
+    }
+
+    /// Return a registered secret to Rust callers only. Requires unlocked.
+    pub fn secret_value(&mut self, id: &str, field: &str) -> Result<Zeroizing<String>> {
+        let unlocked = self.unlocked.as_mut().ok_or(Error::Locked)?;
+        let secret = Zeroizing::new(secrets::find_secret(&unlocked.vault, id, field)?);
+        unlocked.last_activity = Instant::now();
+        Ok(secret)
+    }
+
+    fn copy_secret_with_writer<F>(&mut self, id: &str, field: &str, writer: F) -> Result<()>
+    where
+        F: FnOnce(&str, Duration) -> Result<()>,
+    {
+        let unlocked = self.unlocked.as_mut().ok_or(Error::Locked)?;
+        let clear_after = Duration::from_secs(secrets::clipboard_clear_seconds(&unlocked.vault));
+        let secret = Zeroizing::new(secrets::find_secret(&unlocked.vault, id, field)?);
+        writer(&secret, clear_after)?;
         unlocked.last_activity = Instant::now();
         Ok(())
     }
@@ -387,6 +412,55 @@ mod tests {
         s.lock();
         s.unlock_password(&path, "pw").unwrap();
         assert_eq!(s.vault_json().unwrap(), model);
+        fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
+    fn vault_json_redacts_passwords_and_save_preserves_them() {
+        let dir = unique_temp_dir();
+        let path = dir.join(VAULT_FILE);
+        let mut s = session();
+        s.create(&path, "pw", TEST_ARGON).unwrap();
+        let full = r#"{
+          "settings":{"clipboardClearSeconds":5},
+          "modules":{"passwords":[{"id":"1","name":"GitHub","username":"sha","password":"secret","updatedAt":"now"}]}
+        }"#;
+        s.save_vault(&path, full).unwrap();
+
+        let projection = s.vault_json().unwrap();
+        assert!(!projection.contains("secret"));
+        assert!(projection.contains(crate::secrets::REDACTED_SECRET));
+
+        s.save_vault(&path, &projection).unwrap();
+        s.copy_secret_with_writer("1", "password", |secret, clear_after| {
+            assert_eq!(secret, "secret");
+            assert_eq!(clear_after, Duration::from_secs(5));
+            Ok(())
+        })
+        .unwrap();
+        fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
+    fn copy_secret_requires_unlock_and_registered_field() {
+        let dir = unique_temp_dir();
+        let path = dir.join(VAULT_FILE);
+        let mut s = session();
+        assert!(matches!(
+            s.copy_secret_with_writer("1", "password", |_, _| Ok(())),
+            Err(Error::Locked)
+        ));
+
+        s.create(&path, "pw", TEST_ARGON).unwrap();
+        s.save_vault(
+            &path,
+            r#"{"modules":{"passwords":[{"id":"1","password":"secret"}]}}"#,
+        )
+        .unwrap();
+        assert!(s
+            .copy_secret_with_writer("1", "username", |_, _| Ok(()))
+            .is_err());
+        assert!(s.secret_value("1", "username").is_err());
         fs::remove_dir_all(&dir).ok();
     }
 
