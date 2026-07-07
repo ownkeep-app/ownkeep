@@ -17,6 +17,7 @@ backup/restore and configuration. Full details: [`spec.md`](spec.md). Build orde
 - If a request conflicts with `spec.md`/`plan.md`, **flag it, cite the section, explain the tradeoff, and proceed only after explicit confirmation** — don't silently deviate.
 - If a change alters documented behavior or scope, **update `spec.md`/`plan.md` in the same change**.
 - If a change alters the vault/data shape (settings keys, module slices, schema/container versions, stored JSON paths, backup/restore behavior), **update the migration guide / migration registry in the same change** and make `$verify` confirm it against the latest `v*` release tag.
+- Keep **unit-test coverage >95%** on both surfaces (Vitest for the frontend, `cargo` coverage for the Rust core). `$verify` enforces the bar as a PASS gate; bringing the existing code to it (and wiring the tooling) is plan **Phase 2.2** (see `spec.md` §2.2).
 
 ## AI-assisted development workflow
 

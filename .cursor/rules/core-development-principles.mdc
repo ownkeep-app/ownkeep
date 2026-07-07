@@ -53,7 +53,7 @@ changing code:
 - **Small, focused units** — split a function/file once it outgrows one clear responsibility.
 - **Encapsulation** — hide internals, expose a small clear interface (aligns with the module registry's public API in `spec.md` §3.4).
 - **Boy Scout Rule** — leave code you touch a little cleaner than you found it, but keep refactors scoped to the task.
-- **Tests follow logic** — cover pure logic and edge cases; test behavior, not implementation (frameworks in `spec.md` §2.2).
+- **Tests follow logic** — cover pure logic and edge cases; test behavior, not implementation (frameworks in `spec.md` §2.2). Keep unit-test coverage **>95%** on both surfaces (Vitest + `cargo` coverage); `$verify` enforces the bar (see `plan.md` Phase 2.2).
 - **Version control** — small, focused commits with clear messages.
 
 > When two principles are in tension (e.g. DRY vs KISS), prefer the one that keeps the code

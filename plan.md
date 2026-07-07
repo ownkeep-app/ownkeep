@@ -25,6 +25,7 @@ layering optional modules on the stable core.
 | **1** | 🔐 Crypto core (Rust) | Create-vault, unlock (password **and** recovery code), auto-lock, atomic writes — all unit-tested | 3–5 d | W1–W2 · 07-06 |
 | **2** | App shell + registry + **Dashboard shell** | `FeatureModule` contract, registry, Dashboard (sidebar + content pane), onboarding (+ Emergency Kit), settings shell | 3–4 d | W3 · 07-20 |
 | **2.1** | 🔀 Versioning, migration guide & migrations | v(N) vault opens in a v(N+1) build through a user-aware migration guide; pre-migration backup; newer vault refused safely | 1–2 d | W3 · 07-20 |
+| **2.2** | 🧪 Unit-test coverage to >95% | Coverage tooling for TS **and** Rust; missing unit tests added; `pnpm coverage` + Rust coverage both **>95%**, enforced by config and `/verify` | 1–2 d | W3 · 07-20 |
 | **3** | 🔑 Passwords module (F1) | Add/edit/delete; **concealed-clipboard copy** never touches the DOM | 2–3 d | W3–W4 · 07-20 |
 | **4** | ⌨️ Command bar (F10) | Unified index, fuzzy **+ frecency**, scope prefixes, numbered copy | 2–3 d | W4 · 07-27 |
 | **5** | 📋 Commands module (F2) | Shiki highlighting, `{{ }}` placeholders, **interactive fill-in** + raw copy | 2–3 d | W5 · 08-03 |
@@ -100,6 +101,16 @@ with a **browsable Dashboard** (sidebar + content pane) and a safe upgrade path 
 - [x] **AI verification hook:** update `$verify` / `/verify` instructions so every data-shape change after the latest `v*` release tag is checked for a migration guide entry, a `package.json.version` current-release check, and tests.
 - **Exit:** a v(N) vault opens in a v(N+1) build only through the migration-guide flow; accepting creates a versioned pre-migration backup and preserves data except user-confirmed removals; rejecting leaves the vault untouched or exits through an explicit backup/erase path; older app builds refuse newer vaults.
 - **Deps:** P2 (model shape settled); borrows the P1 atomic-write helper; anticipates P6 backup.
+
+### Phase 2.2 — 🧪 Unit-test coverage to >95% · 1–2 d
+*Lock in a high coverage bar **now**, on the small pre-feature codebase (Phases 0–2.1), so every later phase inherits the discipline instead of back-filling tests once the surface is large. Coverage is a standing `/verify` PASS gate (spec §2.2): line coverage must stay **>95% on both surfaces**.*
+- [ ] **Coverage tooling (TS):** configure Vitest v8 `coverage.thresholds` at **95%** (lines/statements/functions/branches) in the Vitest config; confirm `pnpm coverage` fails when under the bar. Decide global vs. per-file enforcement.
+- [ ] **Coverage tooling (Rust):** add `cargo llvm-cov` (install + a `coverage` script, e.g. `cargo llvm-cov --fail-under-lines 95`); document running both in the README.
+- [ ] **Measure the gap:** run both and list every file/area under 95% — likely the UI components (`Dashboard`, `CommandBar`, onboarding / lock / reset / emergency-kit / migration screens), store error branches, `lib/window`, and Rust command / error paths not hit by unit tests.
+- [ ] **Add the missing unit tests:** close the gaps — component render/interaction (React Testing Library), store error/edge branches, Rust command + error-path tests — testing **behavior, not implementation** (spec §2.2); keep pure logic separated so tests stay DOM-free where possible.
+- [ ] **Enforce:** thresholds fail the coverage run below the bar, and `/verify` runs coverage on both surfaces and treats ≤95% (or an unmeasurable surface) as a blocking FAIL.
+- **Exit:** `pnpm coverage` **and** Rust coverage both report **>95%** (lines), enforced by config; `/verify` runs both and fails under the bar.
+- **Deps:** P2.1. A cross-cutting quality gate — land it before Phase 3 so real feature code is built on top of an enforced bar.
 
 ### Phase 3 — 🔑 Passwords module (F1) · 2–3 d · *proves the security model*
 - [ ] `passwordsModule`: `secretFields: ["password"]`, `buildIndex`, `ListView` (masked dashboard list), `DetailView`, `EditView`.
@@ -181,14 +192,14 @@ with a **browsable Dashboard** (sidebar + content pane) and a safe upgrade path 
 - Manual upgrade path is safe: older vaults show a migration guide; accepting creates a versioned pre-migration backup; rejecting can back up+quit, erase+continue, or quit untouched; older app builds refuse newer vaults.
 - Every enabled module toggles cleanly from Settings with data preserved.
 - Migration guide is maintained for every data-shape change since the latest `v*` release tag, with removals flagged as red data loss and renames showing old→new paths.
-- Tests green: **Vitest** (frontend logic) + **`cargo test` / `proptest`** (crypto); each module's pure logic covered.
+- Tests green **and unit-test coverage >95% on both surfaces**: **Vitest** (frontend logic) + **`cargo test` / `proptest`** (crypto); each module's pure logic covered; enforced by config and `/verify` (Phase 2.2).
 - Signed + notarized; opens on a clean Mac without warnings.
 
 ---
 
 ## Sequencing, parallelization & de-scoping levers
 
-- **Hard chain:** P0 → P1 → P2 → P2.1 → P3 → P4 → P5 → P6. Don't reorder — each builds on the last, P1 must be rock-solid before any real data, and P2.1 must land before user data begins accumulating.
+- **Hard chain:** P0 → P1 → P2 → P2.1 → P2.2 → P3 → P4 → P5 → P6. Don't reorder — each builds on the last, P1 must be rock-solid before any real data, P2.1 must land before user data begins accumulating, and **P2.2 sets the >95% coverage bar before feature code piles on**.
 - **Free-floating after P7:** P8 / P9 order is interchangeable; **P10 (Finance)** depends only on P2 and can be built any time after the shell.
 - **If time is tight, ship v0.9 (through P6)** and use it daily; treat P7–P11 as a backlog.
 - **De-scope levers:** drop recurrence from Todos; single-currency-only Finance (skip FX table); defer notarization (ad-hoc sign) until the app is a daily driver.

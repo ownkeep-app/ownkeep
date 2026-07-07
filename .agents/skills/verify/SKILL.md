@@ -19,12 +19,17 @@ Use the user's prompt as optional target or acceptance criteria. If no target is
    - `plan.md`
 3. Require it to run `pnpm check` and include the result. If `pnpm check` has any errors, the
    verdict must be `FAIL` (never `PASS`).
-3. Require it to check migration-guide maintenance for any vault-format, module data-shape, settings-key, schema-version, app-version, backup/restore, or migration-registry change since the latest `v*` release tag. For every such change it must confirm three things (or fail):
+4. Require it to measure **unit-test coverage on both surfaces** — the frontend via `pnpm coverage`
+   (Vitest v8) and the Rust core via `cargo llvm-cov` (per plan Phase 2.2) — and include the numbers.
+   **Line coverage must be greater than 95% on each surface.** If either surface is at or below 95%,
+   or its coverage cannot be measured (e.g. the Rust tool is not yet installed), the verdict must be
+   `FAIL` (never `PASS`). Closing the current gap is tracked by plan Phase 2.2.
+5. Require it to check migration-guide maintenance for any vault-format, module data-shape, settings-key, schema-version, app-version, backup/restore, or migration-registry change since the latest `v*` release tag. For every such change it must confirm three things (or fail):
    - **Migration guide entry** — a matching, typed step in the migration registry (`added` / `renamed` / `removed` / `transformed`), removals flagged as data loss and renames showing `old -> new`.
    - **`package.json.version` current-release check** — the change belongs to the working `package.json.version` release (product format `main.minor`, injected as `APP_VERSION`), and `APP_SCHEMA_VERSION` is bumped in the same change when the data shape moved.
    - **Tests** — coverage for the change: the migration transform and, where user-facing, the generated guide.
    If a change genuinely needs no migration, the diff must say why.
-4. Require it to stay read-only. If spawning the `verifier` subagent is unavailable, perform the same checks yourself in read-only mode and state that fallback clearly (including running `pnpm check`).
+6. Require it to stay read-only. If spawning the `verifier` subagent is unavailable, perform the same checks yourself in read-only mode and state that fallback clearly (including running `pnpm check` and coverage).
 
 ## Expected response
 
@@ -36,5 +41,5 @@ Report:
 - Blocking findings first, with file and line references when available.
 - Residual risks or skipped checks.
 
-If `pnpm check` is not clean, the verdict must not be `PASS`.
+If `pnpm check` is not clean, or unit-test coverage is not greater than 95% on both surfaces, the verdict must not be `PASS`.
 If the verdict is not `PASS`, do not fix the issues inside this skill. Return the next recommended `$implement` target instead.

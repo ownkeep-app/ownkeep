@@ -119,6 +119,7 @@ Two test surfaces, matching the two-language architecture:
 - **Design for testability:** each module keeps its **pure logic separate from its React views** (e.g. `commands/placeholders.ts`, `finance/totals.ts`), so the highest-value tests need no DOM — a natural fit for the module registry.
 - **Tauri IPC:** mock `@tauri-apps/api`'s `invoke` in Vitest (`vi.mock`) to test frontend flows without Rust; test the Rust command bodies directly with `cargo test`.
 - **Definition of done:** a phase/module isn't complete until its logic tests pass; the crypto core (Phase 1) is strictest — property-tested **before** any real data is stored.
+- **Coverage bar (>95%):** unit-test **line coverage must stay above 95% on both surfaces** — Vitest v8 (`pnpm coverage`) for the frontend and `cargo`-measured coverage (e.g. `cargo llvm-cov`) for the Rust core. `$verify` / `/verify` runs coverage and treats ≤95% (or a surface whose coverage cannot be measured) as a **blocking failure — never a `PASS`**. Bringing the existing code to the bar and wiring the enforcement (thresholds + tooling) is **Phase 2.2** (see `plan.md`); every phase after that keeps coverage above the bar.
 - **Why Vitest over Jest:** Vite-native (Tauri uses Vite), Jest-compatible API, faster. `happy-dom` is a lighter alternative to `jsdom` if suite speed matters.
 - **E2E (future, optional):** Tauri WebDriver via `tauri-driver` + WebdriverIO for full-app smoke tests — not needed for the MVP (see §14).
 
