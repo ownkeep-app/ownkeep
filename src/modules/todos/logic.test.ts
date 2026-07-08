@@ -196,20 +196,27 @@ describe("todo module logic", () => {
     expect(formatDateTime("bad")).toBe("Invalid date");
   });
 
-  it("filters invalid records and sorts open due todos first", () => {
+  it("filters invalid records and sorts by due date ascending", () => {
     expect(todoEntries([todo(), { id: "bad" }, null])).toEqual([todo()]);
 
     expect(
       sortTodos([
-        todo({ id: "done", title: "Done", done: true }),
+        todo({ id: "done", title: "Done", done: true, dueAt: null }),
         todo({
           id: "later",
           title: "Later",
           dueAt: "2026-07-10T00:00:00.000Z",
         }),
         todo({ id: "soon", title: "Soon", dueAt: "2026-07-09T00:00:00.000Z" }),
+        todo({ id: "undated", title: "Undated", dueAt: null }),
+        todo({
+          id: "done-early",
+          title: "Done early",
+          done: true,
+          dueAt: "2026-07-08T00:00:00.000Z",
+        }),
       ]).map((item) => item.id),
-    ).toEqual(["soon", "later", "done"]);
+    ).toEqual(["done-early", "soon", "later", "undated", "done"]);
   });
 
   it("uses scheduler de-dupe for due todo reminders", async () => {

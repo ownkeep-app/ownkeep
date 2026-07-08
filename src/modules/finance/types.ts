@@ -1,5 +1,7 @@
+import { DEFAULT_CURRENCY } from "@/components/currency-select";
+
 export const FINANCE_MODULE_ID = "finance";
-export const DEFAULT_BASE_CURRENCY = "USD";
+export const DEFAULT_BASE_CURRENCY = DEFAULT_CURRENCY;
 
 /** One holding within a snapshot (a place + category + balance in some currency). */
 export interface FinanceEntry {

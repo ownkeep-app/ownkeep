@@ -302,7 +302,7 @@ never migrates another module's slice.
       "commands":      { "enabled": true, "placeholderSyntax": "{{ }}", "defaultCopyMode": "fill" },
       "todos":         { "enabled": true,  "scopePrefix": "t", "defaultLeadMinutes": 30 },
       "subscriptions": { "enabled": true,  "scopePrefix": "s", "defaultLeadDays": 3 },
-      "finance":       { "enabled": true,  "scopePrefix": "f", "baseCurrency": "USD", "fxRates": { "SGD": 0.74, "CNY": 0.14 } }
+      "finance":       { "enabled": true,  "scopePrefix": "f", "baseCurrency": "CNY", "fxRates": { "USD": 7.2, "SGD": 5.3 } }
     }
   },
 
@@ -332,7 +332,7 @@ never migrates another module's slice.
 
     "subscriptions": [
       { "id": "uuid", "service": "Linode", "url": "https://cloud.linode.com/account/billing",
-        "amount": 20, "currency": "USD", "cycle": "monthly",   // weekly|monthly|yearly|custom
+        "amount": 20, "currency": "CNY", "cycle": "monthly",   // weekly|monthly|yearly|custom; form default CNY
         "customIntervalDays": null, "nextDueDate": "ISO", "autoRenew": true,
         "notifyLeadDays": 3, "notes": "", "updatedAt": "ISO" }
     ],
@@ -371,7 +371,7 @@ so editing a rate re-totals every snapshot. Future calendar/notes modules add th
 - **Acceptance:** create/edit/delete; copy password without it ever appearing in the DOM; masked by default; URLs open in browser.
 
 #### F2 — Command library (module `commands`)
-- Each command: a **title** ("Delete a remote branch"), a **category** (git/docker/mongo/…), optional description, and **one or more syntax-highlighted snippets** (Shiki).
+- Each command: a **title** ("Delete a remote branch"), a **category** (git/docker/mongo/…), optional description, and **one or more syntax-highlighted snippets** (Shiki). Snippet language is chosen from a fixed select: TypeScript (default), Bash, SQL, Python, Ruby, CSS, HTML, JavaScript.
 - One-line searchable form: `"<category> command to <title>: <primaryCopyTemplate>"`, e.g. `"Git command to delete a remote branch: git push origin --delete {{branch}}"`.
 - **Placeholders** use `{{name}}` (Warp-aligned). Names: `A-Za-z0-9_-`, not starting with a digit. Same name = same value (reused). Optional typed `arguments` (`text` | `enum` with `values`) enable dropdowns and validation (Warp-style).
 - **Copy behavior (interactive fill-in — the confirmed default):**
@@ -415,7 +415,7 @@ so editing a rate re-totals every snapshot. Future calendar/notes modules add th
 - **Monthly-ish snapshots**, each a set of `{place, category, amount, currency}` across bank/WeChat/Alipay/stocks/lent/crypto/etc.
 - Per snapshot: **auto stats** (total in base currency, breakdown by category) + a **free-text note**.
 - A **net-worth trend line** across snapshots (uPlot).
-- **FX (offline):** a small editable manual rate table (`settings.modules.finance.fxRates`); multi-currency totals convert to `baseCurrency`.
+- **FX (offline):** a small editable manual rate table (`settings.modules.finance.fxRates`); multi-currency totals convert to `baseCurrency`. New forms and unset base currency default to **CNY**; currency pickers offer **CNY** and **USD** (existing non-list values still display when editing).
 - **Acceptance:** add snapshot → total + by-category recompute; the curve updates; notes persist; editing a rate re-totals all snapshots.
 
 #### Future candidates (architecture ready, not spec'd here)
@@ -470,9 +470,11 @@ A persistent window for seeing and managing **all** content — not just quick-c
 `Cmd+Shift+D` (configurable), the tray menu, or by pressing **Enter** on a command-bar result.
 Layout: **left sidebar + right content pane.**
 
-- **Left sidebar (modules):** one row per *enabled* module — icon + title + item count — rendered straight from the registry, plus pinned **Settings** and **Lock** rows. The bottom footer shows the current app version (`keystash v0.1`) so the user can confirm which build is running after a manual upgrade. Navigate with `↑/↓` or `Cmd+1..9`; the selection persists across opens.
-- **Right pane (all content):** renders the selected module's **`ListView`** — the full list/table of its items (all passwords; all commands grouped by category; the todo list; all subscriptions; the finance snapshot table + trend chart). Includes a per-module filter box, sort, and **New / Edit / Delete**. Row **View** opens that module's `DetailView` in a dismissible modal (Esc + click-away); edit still uses the full-pane `EditView`. Table columns use fixed proportional widths so headers and common values (e.g. email usernames) stay readable without manual resizing.
-- **Secrets stay protected:** the passwords `ListView` shows metadata only (name, username, tags) with masked passwords; reveal/copy still route through the Rust `copy_secret` path (§4.5) — the Dashboard never holds plaintext either.
+- **When locked:** opening the Dashboard shows the same master-password unlock form as the launcher — users can unlock in place without switching to the command bar.
+- **Left sidebar (modules):** one row per *enabled* module — icon + title + item count — rendered straight from the registry, plus pinned **Settings**, **Help** (`⌘/`), and **Lock** rows. The bottom footer shows the current app version (`keystash v0.1`) so the user can confirm which build is running after a manual upgrade. Navigate with `↑/↓` or `Cmd+1..9`; the selection persists across opens.
+- **Right pane (all content):** renders the selected module's **`ListView`** — the full list/table of its items (all passwords; all commands grouped by category with title, description, and highlighted snippet per card; the todo list; all subscriptions; the finance snapshot table + trend chart). Includes a per-module filter box, **sortable table headers** (passwords, todos, subscriptions, finance), and **New / Edit / Delete**. Row **View** opens that module's `DetailView` in a dismissible two-column modal (Esc + click-away); edit still uses the full-pane `EditView`. Table columns use fixed proportional widths so headers and common values (e.g. email usernames) stay readable without manual resizing.
+- **Secrets stay protected:** the passwords `ListView` shows metadata only (name, username, tags) with masked passwords; clicking the mask reveals via Rust `reveal_secret` (native dialog — plaintext never enters the WebView); copy buttons in the password column and actions column route through `copy_secret` (§4.5).
+- **Sidebar footer:** Settings, **Help** (`⌘/` opens the keyboard-shortcut sheet), and Lock sit below the module list; the floating help trigger is not shown on the Dashboard (the command bar keeps its own).
 - **Registry-driven, so it scales:** a newly added module appears in the sidebar automatically via its `ListView`; a disabled module disappears but keeps its data (§3.4). No dashboard code changes per feature.
 - **Empty states:** every module ships a `ListView`; an empty module shows a friendly empty state + **New**.
 

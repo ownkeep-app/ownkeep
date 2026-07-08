@@ -20,11 +20,20 @@ import {
 export function KeyboardHelp({
   groups,
   showTrigger = true,
+  open: controlledOpen,
+  onOpenChange,
 }: {
   groups: ShortcutGroup[];
   showTrigger?: boolean;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }) {
-  const [open, setOpen] = useState(false);
+  const [internalOpen, setInternalOpen] = useState(false);
+  const open = controlledOpen ?? internalOpen;
+  function setOpen(next: boolean) {
+    if (onOpenChange) onOpenChange(next);
+    else setInternalOpen(next);
+  }
   const closeRef = useRef<HTMLButtonElement>(null);
   const reduce = useReducedMotion();
 
@@ -32,12 +41,13 @@ export function KeyboardHelp({
     function onKey(event: KeyboardEvent) {
       if ((event.metaKey || event.ctrlKey) && event.key === "/") {
         event.preventDefault();
-        setOpen((value) => !value);
+        if (onOpenChange) onOpenChange(!open);
+        else setInternalOpen((value) => !value);
       }
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, []);
+  }, [onOpenChange, open]);
 
   useEffect(() => {
     if (open) closeRef.current?.focus();

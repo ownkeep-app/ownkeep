@@ -198,10 +198,10 @@ export function collectTodoReminders(
 
 export function sortTodos(items: TodoEntry[]): TodoEntry[] {
   return [...items].sort((a, b) => {
-    if (a.done !== b.done) return a.done ? 1 : -1;
     const leftDue = a.dueAt ? Date.parse(a.dueAt) : Number.POSITIVE_INFINITY;
     const rightDue = b.dueAt ? Date.parse(b.dueAt) : Number.POSITIVE_INFINITY;
     if (leftDue !== rightDue) return leftDue - rightDue;
+    if (a.done !== b.done) return a.done ? 1 : -1;
     return a.title.localeCompare(b.title);
   });
 }

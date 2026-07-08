@@ -184,8 +184,10 @@ describe("SubscriptionsListView", () => {
       "https://login.tailscale.com/admin/billing",
     );
     await user.type(screen.getByLabelText("Subscription amount"), "5.50");
-    await user.clear(screen.getByLabelText("Subscription currency"));
-    await user.type(screen.getByLabelText("Subscription currency"), "sgd");
+    await user.selectOptions(
+      screen.getByLabelText("Subscription currency"),
+      "USD",
+    );
     await user.selectOptions(
       screen.getByLabelText("Subscription cycle"),
       "custom",
@@ -213,7 +215,7 @@ describe("SubscriptionsListView", () => {
         service: "Tailscale",
         url: "https://login.tailscale.com/admin/billing",
         amount: 5.5,
-        currency: "SGD",
+        currency: "USD",
         cycle: "custom",
         customIntervalDays: 45,
         nextDueDate: "2026-07-15T00:00:00.000Z",

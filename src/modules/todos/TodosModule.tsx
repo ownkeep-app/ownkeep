@@ -68,9 +68,10 @@ export function TodosListView({ items }: ListViewProps<TodoEntry>) {
   const [query, setQuery] = useState("");
   const [viewing, setViewing] = useState<TodoEntry | null>(null);
   const [editing, setEditing] = useState<TodoEntry | null | undefined>();
-  const [sortState, setSortState] = useState<SortState<TodoSortColumn> | null>(
-    null,
-  );
+  const [sortState, setSortState] = useState<SortState<TodoSortColumn> | null>({
+    column: "due",
+    direction: "asc",
+  });
 
   const todos = useMemo(() => todoEntries(items), [items]);
   const filtered = useMemo(() => {

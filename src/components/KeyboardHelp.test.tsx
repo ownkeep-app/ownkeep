@@ -1,5 +1,6 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { useState } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import { KeyboardHelp } from "./KeyboardHelp";
@@ -109,5 +110,34 @@ describe("KeyboardHelp", () => {
     await waitFor(() =>
       expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
     );
+  });
+
+  it("supports controlled open state from a parent surface", async () => {
+    const onOpenChange = vi.fn();
+
+    function ControlledHarness() {
+      const [open, setOpen] = useState(true);
+      return (
+        <KeyboardHelp
+          groups={[DASHBOARD_SHORTCUTS]}
+          onOpenChange={(next) => {
+            onOpenChange(next);
+            setOpen(next);
+          }}
+          open={open}
+          showTrigger={false}
+        />
+      );
+    }
+
+    render(<ControlledHarness />);
+
+    await waitFor(() => expect(screen.getByRole("dialog")).toBeInTheDocument());
+
+    fireEvent.keyDown(window, { key: "/", metaKey: true });
+    await waitFor(() =>
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
+    );
+    expect(onOpenChange).toHaveBeenCalledWith(false);
   });
 });

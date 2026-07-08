@@ -222,20 +222,19 @@ describe("FinanceListView", () => {
     await user.click(screen.getByRole("button", { name: /fx rates/i }));
 
     await user.click(screen.getByRole("button", { name: /add rate/i }));
-    await user.type(screen.getByLabelText("Rate 2 currency"), "EUR");
+    await user.selectOptions(screen.getByLabelText("Rate 2 currency"), "USD");
     await user.type(screen.getByLabelText("Rate 2 value"), "-1");
     await user.click(screen.getByRole("button", { name: /save rates/i }));
     expect(
-      screen.getByText(/rate for eur must be zero or greater/i),
+      screen.getByText(/rate for usd must be zero or greater/i),
     ).toBeInTheDocument();
     expect(updateFinanceSettings).not.toHaveBeenCalled();
 
     await user.click(screen.getByRole("button", { name: /remove rate 2/i }));
-    await user.clear(screen.getByLabelText("Base currency"));
-    await user.type(screen.getByLabelText("Base currency"), "sgd");
+    await user.selectOptions(screen.getByLabelText("Base currency"), "CNY");
     await user.click(screen.getByRole("button", { name: /save rates/i }));
     expect(updateFinanceSettings).toHaveBeenCalledWith({
-      baseCurrency: "SGD",
+      baseCurrency: "CNY",
       fxRates: { SGD: 0.74 },
     });
   });

@@ -24,6 +24,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
+import { CurrencySelect } from "@/components/currency-select";
 import {
   ActionsTableHead,
   SortableTableHead,
@@ -504,9 +505,8 @@ export function SubscriptionEditView({
         </label>
         <label className="space-y-1 text-sm font-medium">
           Currency
-          <Input
+          <CurrencySelect
             aria-label="Subscription currency"
-            maxLength={8}
             onChange={(event) => update("currency", event.target.value)}
             value={form.currency}
           />
@@ -630,11 +630,7 @@ function SummaryStrip({
     <div className="mt-4 grid gap-3 text-sm md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,2fr)]">
       <SummaryMetric label="Monthly" value={rawMonthly} />
       <SummaryMetric label="Annual" value={rawAnnual} />
-      <SummaryMetric
-        label="Converted"
-        value={converted ?? "No FX base"}
-        wide
-      />
+      <SummaryMetric label="Converted" value={converted ?? "No FX base"} wide />
     </div>
   );
 }

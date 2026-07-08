@@ -389,7 +389,7 @@ describe("subscription module logic", () => {
     expect(dateInputToIso("")).toBeNull();
     expect(isoToDateInput("bad")).toBe("");
     expect(formatDate("bad")).toBe("Invalid date");
-    expect(formatCurrencyAmount(3, "")).toBe("USD 3.00");
+    expect(formatCurrencyAmount(3, "")).toBe("CNY 3.00");
     expect(["/wk", "/mo", "/yr", "/custom"]).toEqual([
       cycleLabel("weekly"),
       cycleLabel("monthly"),

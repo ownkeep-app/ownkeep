@@ -11,6 +11,10 @@ import {
   DetailModalHero,
 } from "@/components/detail-fields";
 
+import {
+  LanguageSelect,
+  snippetLanguageLabel,
+} from "@/components/language-select";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { EmptyState } from "@/components/EmptyState";
@@ -134,59 +138,81 @@ export function CommandsListView({ items }: ListViewProps<CommandEntry>) {
             />
           )
         ) : (
-          <div className="min-h-0 flex-1 overflow-auto p-2">
+          <div className="min-h-0 flex-1 overflow-auto p-4">
             {groups.map((group) => (
-              <section key={group.category} className="mb-3">
-                <h2 className="px-2 py-1 text-xs font-medium uppercase text-muted-foreground">
+              <section className="mb-6" key={group.category}>
+                <h2 className="mb-2 text-xs font-medium uppercase text-muted-foreground">
                   {group.category}
                 </h2>
-                <ul>
-                  {group.commands.map((command) => (
-                    <li
-                      className="flex items-center gap-2 rounded-md px-2 py-1.5 hover:bg-accent/40"
-                      key={command.id}
-                    >
-                      <span className="min-w-0 flex-1 truncate text-sm">
-                        {command.title}
-                      </span>
-                      <Button
-                        aria-label={`View ${command.title}`}
-                        onClick={() => setViewing(command)}
-                        size="icon"
-                        type="button"
-                        variant="ghost"
+                <ul className="space-y-3">
+                  {group.commands.map((command) => {
+                    const snippet = command.snippets[0];
+                    return (
+                      <li
+                        className="rounded-md border border-border p-3 hover:bg-accent/40"
+                        key={command.id}
                       >
-                        <Eye className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        aria-label={`Copy ${command.title}`}
-                        onClick={() => startCopy(command)}
-                        size="icon"
-                        type="button"
-                        variant="ghost"
-                      >
-                        <Copy className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        aria-label={`Edit ${command.title}`}
-                        onClick={() => setEditing(command)}
-                        size="icon"
-                        type="button"
-                        variant="ghost"
-                      >
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        aria-label={`Delete ${command.title}`}
-                        onClick={() => void handleDelete(command.id)}
-                        size="icon"
-                        type="button"
-                        variant="ghost"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </li>
-                  ))}
+                        <div className="flex items-start gap-2">
+                          <div className="min-w-0 flex-1">
+                            <p className="text-sm font-medium">
+                              {command.title}
+                            </p>
+                            {command.description && (
+                              <p className="mt-0.5 text-sm text-muted-foreground">
+                                {command.description}
+                              </p>
+                            )}
+                            {snippet && (
+                              <div className="mt-2 overflow-x-auto">
+                                <SnippetView
+                                  code={snippet.code}
+                                  language={snippet.language}
+                                />
+                              </div>
+                            )}
+                          </div>
+                          <div className="flex shrink-0 gap-1">
+                            <Button
+                              aria-label={`View ${command.title}`}
+                              onClick={() => setViewing(command)}
+                              size="icon"
+                              type="button"
+                              variant="ghost"
+                            >
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              aria-label={`Copy ${command.title}`}
+                              onClick={() => startCopy(command)}
+                              size="icon"
+                              type="button"
+                              variant="ghost"
+                            >
+                              <Copy className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              aria-label={`Edit ${command.title}`}
+                              onClick={() => setEditing(command)}
+                              size="icon"
+                              type="button"
+                              variant="ghost"
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              aria-label={`Delete ${command.title}`}
+                              onClick={() => void handleDelete(command.id)}
+                              size="icon"
+                              type="button"
+                              variant="ghost"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </div>
+                      </li>
+                    );
+                  })}
                 </ul>
               </section>
             ))}
@@ -283,7 +309,7 @@ export function CommandDetailView({ item }: { item: CommandEntry }) {
         )}
         {snippet && (
           <DetailFieldSpan
-            label={`Snippet${snippet.language ? ` (${snippet.language})` : ""}`}
+            label={`Snippet (${snippetLanguageLabel(snippet.language)})`}
           >
             <div className="mt-1">
               <SnippetView code={snippet.code} language={snippet.language} />
@@ -372,7 +398,7 @@ export function CommandEditView({
           />
         </Field>
         <Field label="Language">
-          <Input
+          <LanguageSelect
             aria-label="Snippet language"
             onChange={(event) => update("language", event.target.value)}
             value={form.language}

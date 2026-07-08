@@ -81,9 +81,9 @@ describe("readFinanceFx", () => {
     expect(fx.rates).toEqual({ SGD: 0.74, CNY: 0.14 });
   });
 
-  it("defaults to USD with no rates", () => {
+  it("defaults to CNY with no rates", () => {
     expect(readFinanceFx(defaultSettings())).toEqual({
-      baseCurrency: "USD",
+      baseCurrency: "CNY",
       rates: {},
     });
   });

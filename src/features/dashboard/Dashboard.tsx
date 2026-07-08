@@ -1,13 +1,14 @@
 import { type ReactNode, useEffect, useMemo, useState } from "react";
 import { motion, useReducedMotion } from "motion/react";
 
-import { Lock, Settings as SettingsIcon } from "lucide-react";
+import { Keyboard, Lock, Settings as SettingsIcon } from "lucide-react";
 
 import { KeyboardHelp } from "@/components/KeyboardHelp";
 import {
   DASHBOARD_SHORTCUTS,
   GLOBAL_SHORTCUTS,
 } from "@/components/keyboard-shortcuts";
+import { LockScreen } from "@/features/auth/LockScreen";
 import { TAP_SCALE, motionOrUndefined, tapTransition } from "@/lib/motion";
 import { cn } from "@/lib/utils";
 import { MODULES } from "@/modules/registry";
@@ -23,6 +24,7 @@ export function Dashboard() {
   const model = useVaultStore((s) => s.model);
   const lock = useVaultStore((s) => s.lock);
   const [selected, setSelected] = useState<string>("");
+  const [helpOpen, setHelpOpen] = useState(false);
 
   const enabledModules = useMemo(
     () =>
@@ -67,12 +69,22 @@ export function Dashboard() {
     return () => window.removeEventListener("keydown", onKey);
   }, [enabledModules]);
 
+  if (status === "loading") {
+    return (
+      <main className="flex h-screen items-center justify-center bg-background text-sm text-muted-foreground">
+        <p>Loading…</p>
+      </main>
+    );
+  }
+
+  if (status === "locked") {
+    return <LockScreen />;
+  }
+
   if (status !== "unlocked" || !model) {
     return (
       <main className="flex h-screen items-center justify-center bg-background p-6 text-center text-sm text-muted-foreground">
-        <p role="status">
-          keystash is locked. Unlock it from the main window (⌘⇧Space).
-        </p>
+        <p role="status">Unlock keystash to use the Dashboard.</p>
       </main>
     );
   }
@@ -110,6 +122,12 @@ export function Dashboard() {
             onClick={() => setSelected(SETTINGS_KEY)}
           />
           <SidebarRow
+            icon={<Keyboard className="h-4 w-4" />}
+            label="Help"
+            shortcut="⌘/"
+            onClick={() => setHelpOpen(true)}
+          />
+          <SidebarRow
             icon={<Lock className="h-4 w-4" />}
             label="Lock"
             onClick={() => void lock()}
@@ -122,7 +140,12 @@ export function Dashboard() {
       <section className="flex-1 overflow-auto">
         {Pane ? <Pane items={items} /> : <SettingsPanel />}
       </section>
-      <KeyboardHelp groups={[DASHBOARD_SHORTCUTS, GLOBAL_SHORTCUTS]} />
+      <KeyboardHelp
+        groups={[DASHBOARD_SHORTCUTS, GLOBAL_SHORTCUTS]}
+        onOpenChange={setHelpOpen}
+        open={helpOpen}
+        showTrigger={false}
+      />
     </div>
   );
 }

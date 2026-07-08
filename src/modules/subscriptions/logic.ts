@@ -90,7 +90,7 @@ export function emptySubscriptionForm(): SubscriptionFormInput {
     service: "",
     url: "",
     amount: "",
-    currency: "USD",
+    currency: "CNY",
     cycle: "monthly",
     customIntervalDays: "",
     nextDueDate: "",
@@ -388,7 +388,7 @@ function parseCustomIntervalDays(
 }
 
 function normalizeCurrency(value: string): string {
-  return value.trim().toUpperCase() || "USD";
+  return value.trim().toUpperCase() || "CNY";
 }
 
 function effectiveLeadDays(

@@ -319,7 +319,7 @@ function normalizeSubscriptionMigrationItem(
     currency:
       typeof object.currency === "string" && object.currency.trim()
         ? object.currency.trim().toUpperCase()
-        : "USD",
+        : "CNY",
     cycle,
     customIntervalDays: cycle === "custom" ? customIntervalDays : null,
     nextDueDate:

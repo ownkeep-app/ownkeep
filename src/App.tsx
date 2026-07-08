@@ -28,9 +28,9 @@ function Loading() {
 }
 
 /**
- * Routes the two surfaces (§7.6). The Dashboard window always shows the Dashboard (which handles its
- * own locked state); the main launcher window routes on the vault lifecycle. Both share the Rust
- * session as the source of truth and re-sync on window focus.
+ * Routes the two surfaces (§7.6). The Dashboard window shows the unlock form when locked, then the
+ * browse/manage shell when unlocked; the main launcher window routes on the vault lifecycle. Both
+ * share the Rust session as the source of truth and re-sync on window focus.
  */
 function App() {
   const status = useVaultStore((s) => s.status);

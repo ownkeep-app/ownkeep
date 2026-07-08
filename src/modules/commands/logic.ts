@@ -1,3 +1,4 @@
+import { DEFAULT_SNIPPET_LANGUAGE } from "@/components/language-select";
 import type { IndexEntry } from "@/modules/types";
 import {
   COMMANDS_MODULE_ID,
@@ -150,7 +151,7 @@ export function emptyCommandForm(): CommandFormInput {
     category: "",
     title: "",
     description: "",
-    language: "bash",
+    language: DEFAULT_SNIPPET_LANGUAGE,
     code: "",
     argumentsText: "",
     tags: "",
@@ -163,7 +164,7 @@ export function formFromCommand(item: CommandEntry): CommandFormInput {
     category: item.category,
     title: item.title,
     description: item.description,
-    language: snippet?.language ?? "bash",
+    language: snippet?.language ?? DEFAULT_SNIPPET_LANGUAGE,
     code: snippet?.code ?? item.primaryCopyTemplate,
     argumentsText: argumentsToText(item.arguments),
     tags: item.tags.join(", "),
@@ -182,7 +183,13 @@ export function createCommandEntry(
     title: input.title.trim(),
     description: input.description.trim(),
     snippets: code.trim()
-      ? [{ language: input.language.trim() || "bash", code }]
+      ? [
+          {
+            language:
+              input.language.trim().toLowerCase() || DEFAULT_SNIPPET_LANGUAGE,
+            code,
+          },
+        ]
       : [],
     primaryCopyTemplate: code,
     arguments: parseArguments(input.argumentsText),

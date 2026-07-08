@@ -20,9 +20,11 @@ export function TrendChart({
     if (!el || points.length < 2) return;
     const xs = points.map((point) => Math.floor(Date.parse(point.date) / 1000));
     const ys = points.map((point) => point.total);
+    // Size to the unpadded plot host so axis labels do not force horizontal overflow.
+    const width = Math.max(0, el.clientWidth);
     const chart = new uPlot(
       {
-        width: el.clientWidth || 640,
+        width: width || 640,
         height: 180,
         cursor: { show: false },
         legend: { show: false },
@@ -39,7 +41,11 @@ export function TrendChart({
         ],
         axes: [
           { stroke: "#888888", grid: { show: false } },
-          { stroke: "#888888", grid: { stroke: "rgba(128,128,128,0.15)" } },
+          {
+            stroke: "#888888",
+            grid: { stroke: "rgba(128,128,128,0.15)" },
+            size: 56,
+          },
         ],
       },
       [xs, ys],
@@ -55,5 +61,9 @@ export function TrendChart({
       </p>
     );
   }
-  return <div className="border-t border-border px-4 py-3" ref={ref} />;
+  return (
+    <div className="border-t border-border px-6 py-3">
+      <div className="min-w-0 w-full overflow-hidden" ref={ref} />
+    </div>
+  );
 }

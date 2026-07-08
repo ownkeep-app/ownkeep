@@ -73,6 +73,8 @@ describe("CommandsListView", () => {
             id: "c2",
             category: "docker",
             title: "Run",
+            description: "Start a container",
+            snippets: [{ language: "bash", code: "docker run" }],
             primaryCopyTemplate: "docker run",
           }),
         ]}
@@ -80,6 +82,10 @@ describe("CommandsListView", () => {
     );
     expect(screen.getByRole("heading", { name: "git" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "docker" })).toBeInTheDocument();
+    expect(screen.getByText("Show status")).toBeInTheDocument();
+    expect(screen.getByText("Start a container")).toBeInTheDocument();
+    expect(screen.getByText("git status")).toBeInTheDocument();
+    expect(screen.getByText("docker run")).toBeInTheDocument();
   });
 
   it("filters commands", async () => {
@@ -150,8 +156,10 @@ describe("CommandsListView", () => {
     await user.type(screen.getByLabelText("Command title"), "List files");
     await user.type(screen.getByLabelText("Command category"), "shell");
     await user.type(screen.getByLabelText("Command description"), "list all");
-    await user.clear(screen.getByLabelText("Snippet language"));
-    await user.type(screen.getByLabelText("Snippet language"), "sh");
+    await user.selectOptions(
+      screen.getByLabelText("Snippet language"),
+      "bash",
+    );
     await user.type(screen.getByLabelText("Command code"), "ls -la");
     await user.type(screen.getByLabelText("Command arguments"), "path");
     await user.type(screen.getByLabelText("Command tags"), "shell, fs");
@@ -160,6 +168,7 @@ describe("CommandsListView", () => {
     await waitFor(() => expect(api.saveVault).toHaveBeenCalled());
     const saved = JSON.parse(api.saveVault.mock.calls[0][0] as string);
     expect(saved.modules.commands[0].title).toBe("List files");
+    expect(saved.modules.commands[0].snippets[0].language).toBe("bash");
     expect(saved.modules.commands[0].tags).toEqual(["shell", "fs"]);
   });
 

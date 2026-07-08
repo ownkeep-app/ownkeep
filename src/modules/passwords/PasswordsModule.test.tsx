@@ -176,13 +176,28 @@ describe("PasswordsListView", () => {
     );
   });
 
+  it("reveals from the masked password cell through the Rust-owned command", async () => {
+    const user = userEvent.setup();
+    render(<PasswordsListView items={[item]} />);
+
+    await user.click(
+      screen.getByRole("button", { name: /reveal password for github/i }),
+    );
+
+    expect(revealSecret).toHaveBeenCalledWith("github", "password");
+    expect(screen.queryByText("super-secret-value")).not.toBeInTheDocument();
+  });
+
   it("reveals through the Rust-owned command without rendering the secret", async () => {
     const user = userEvent.setup();
     render(<PasswordsListView items={[item]} />);
 
     await user.click(screen.getByRole("button", { name: /view github/i }));
+    const dialog = screen.getByRole("dialog", { name: "GitHub" });
     await user.click(
-      screen.getByRole("button", { name: /reveal password for github/i }),
+      within(dialog).getByRole("button", {
+        name: /reveal password for github/i,
+      }),
     );
 
     expect(revealSecret).toHaveBeenCalledWith("github", "password");
@@ -195,8 +210,11 @@ describe("PasswordsListView", () => {
     render(<PasswordsListView items={[item]} />);
 
     await user.click(screen.getByRole("button", { name: /view github/i }));
+    const dialog = screen.getByRole("dialog", { name: "GitHub" });
     await user.click(
-      screen.getByRole("button", { name: /reveal password for github/i }),
+      within(dialog).getByRole("button", {
+        name: /reveal password for github/i,
+      }),
     );
 
     expect(toasts.toastError).toHaveBeenCalledWith(

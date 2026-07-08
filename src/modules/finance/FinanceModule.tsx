@@ -20,6 +20,7 @@ import {
 } from "@/components/detail-fields";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { CurrencySelect, DEFAULT_CURRENCY } from "@/components/currency-select";
 import {
   ActionsTableHead,
   SortableTableHead,
@@ -137,7 +138,7 @@ export function FinanceListView({ items }: ListViewProps<Snapshot>) {
   const latest = series.length ? series[series.length - 1].total : 0;
 
   return (
-    <div className="flex h-full flex-col">
+    <div className="flex h-full flex-col overflow-x-hidden">
       <header className="border-b border-border px-6 py-4">
         <div className="flex items-center gap-3">
           <div className="min-w-0 flex-1">
@@ -553,13 +554,11 @@ export function FinanceEditView({
                 type="number"
                 value={entry.amount}
               />
-              <Input
+              <CurrencySelect
                 aria-label={`Entry ${index + 1} currency`}
-                maxLength={8}
                 onChange={(event) =>
                   updateEntry(index, "currency", event.target.value)
                 }
-                placeholder="Cur"
                 value={entry.currency}
               />
               <Button
@@ -609,7 +608,10 @@ export function FxRatesView({ onClose }: { onClose: () => void }) {
   }
 
   function addRow() {
-    setRows((current) => [...current, { currency: "", rate: "" }]);
+    setRows((current) => [
+      ...current,
+      { currency: DEFAULT_CURRENCY, rate: "" },
+    ]);
   }
 
   function removeRow(index: number) {
@@ -630,13 +632,13 @@ export function FxRatesView({ onClose }: { onClose: () => void }) {
       rates[currency] = rate;
     }
     await updateFinanceSettings({
-      baseCurrency: base.trim().toUpperCase() || "USD",
+      baseCurrency: base.trim().toUpperCase() || DEFAULT_CURRENCY,
       fxRates: rates,
     });
     onClose();
   }
 
-  const baseLabel = base.trim().toUpperCase() || "USD";
+  const baseLabel = base.trim().toUpperCase() || DEFAULT_CURRENCY;
 
   return (
     <div className="flex h-full flex-col">
@@ -662,9 +664,8 @@ export function FxRatesView({ onClose }: { onClose: () => void }) {
       <div className="flex-1 space-y-4 overflow-auto p-6">
         <label className="block max-w-xs space-y-1 text-sm font-medium">
           Base currency
-          <Input
+          <CurrencySelect
             aria-label="Base currency"
-            maxLength={8}
             onChange={(event) => setBase(event.target.value)}
             value={base}
           />
@@ -688,13 +689,11 @@ export function FxRatesView({ onClose }: { onClose: () => void }) {
               className="grid grid-cols-[1fr_1fr_2rem] items-center gap-2"
               key={index}
             >
-              <Input
+              <CurrencySelect
                 aria-label={`Rate ${index + 1} currency`}
-                maxLength={8}
                 onChange={(event) =>
                   updateRow(index, "currency", event.target.value)
                 }
-                placeholder="Currency"
                 value={row.currency}
               />
               <Input

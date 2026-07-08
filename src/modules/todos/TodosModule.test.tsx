@@ -92,6 +92,9 @@ describe("TodosListView", () => {
       />,
     );
 
+    // Default sort is due ascending.
+    expect(todoRowTitles()).toEqual(["Call bank", "Renew passport", "Buy tea"]);
+
     await user.click(
       screen.getByRole("button", { name: /sort title ascending/i }),
     );
@@ -111,6 +114,11 @@ describe("TodosListView", () => {
       screen.getByRole("button", { name: /sort due ascending/i }),
     );
     expect(todoRowTitles()).toEqual(["Call bank", "Renew passport", "Buy tea"]);
+
+    await user.click(
+      screen.getByRole("button", { name: /sort due descending/i }),
+    );
+    expect(todoRowTitles()).toEqual(["Buy tea", "Renew passport", "Call bank"]);
 
     await user.click(
       screen.getByRole("button", { name: /sort priority ascending/i }),

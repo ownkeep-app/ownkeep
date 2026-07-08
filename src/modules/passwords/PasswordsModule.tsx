@@ -224,8 +224,26 @@ export function PasswordsListView({ items }: ListViewProps<PasswordEntry>) {
                   <TableCell className="px-4 py-3 text-muted-foreground">
                     {item.username || "-"}
                   </TableCell>
-                  <TableCell className="px-4 py-3 font-mono text-muted-foreground">
-                    {MASKED_PASSWORD}
+                  <TableCell className="px-4 py-3">
+                    <div className="flex items-center gap-1">
+                      <button
+                        aria-label={`Reveal password for ${item.name}`}
+                        className="font-mono text-sm text-muted-foreground hover:text-foreground"
+                        onClick={() => void handleReveal(item.id)}
+                        type="button"
+                      >
+                        {MASKED_PASSWORD}
+                      </button>
+                      <Button
+                        aria-label={`Copy password for ${item.name}`}
+                        onClick={() => void handleCopy(item.id)}
+                        size="icon"
+                        type="button"
+                        variant="ghost"
+                      >
+                        <Copy className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </TableCell>
                   <TableCell className="truncate px-4 py-3 text-muted-foreground">
                     {item.tags.join(", ") || "-"}

@@ -176,7 +176,7 @@ with a **browsable Dashboard** (sidebar + content pane) and a safe upgrade path 
 ### Phase 11 — ✨ Polish + ship · 2–4 d
 - [x] Theming pass (light/dark/accent), empty states, error toasts, keyboard-map help. *(Theming was wired earlier; this pass added per-module truly-empty vs filtered empty states with an in-panel New action + a CommandBar no-results state, sonner toast feedback for copy/clipboard/secret actions, and a `⌘/` keyboard-shortcut cheat sheet on both surfaces.)*
 - [ ] Accessibility check; performance check (<300 ms to bar, <30 ms keystroke). *(In progress: added `nav`/`aria-current` on the Dashboard sidebar, `scope="col"` on module tables, `role="status"`/`aria-live` feedback via toasts + the no-results region, and `aria-busy`/`role="alert"` on onboarding. Performance measurement still pending.)*
-- [x] Motion UI polish: calm press/presence animations on shared primitives (`button`, `input`, `switch`, `select`, `checkbox`), EmptyState / KeyboardHelp overlays, CommandBar result stagger, and Dashboard sidebar taps — all reduced-motion aware via `useReducedMotion` ([Motion](https://motion.dev/)).
+- [x] Motion UI polish: calm press/presence animations on shared primitives (`button`, `switch`, `select`, `checkbox`), EmptyState / KeyboardHelp overlays, CommandBar result stagger, and Dashboard sidebar taps — all reduced-motion aware via `useReducedMotion` ([Motion](https://motion.dev/)). *(Input stays a plain native field — focus scale made the placeholder jump.)*
 - [ ] **Developer ID sign + notarize**; DMG/`.app` packaging; README + Emergency-Kit docs + migration-guide docs. *(Docs done: README now has a "Using keystash" section covering the Emergency Kit / recovery code, keyboard shortcuts, theme, and the upgrade/migration-guide flow. Signing, notarization, and DMG packaging still pending.)*
 - [ ] **Release bookkeeping:** tag shipped commits as `v<main>.<minor>`; immediately after a shipped tag, bump the working app version in `package.json` to the next release version (`main.minor`), run `node scripts/sync-version.mjs` to derive SemVer-only package metadata, and keep those derived fields from becoming a second app-version source.
 - **Exit:** Gatekeeper opens it clean on a second Mac; permissions prompt correctly; the shipped `.dmg` includes the migration guide for every schema step since the previous `v*` tag. **← v1.0.**
@@ -188,7 +188,7 @@ no changes to the crypto core or vault format unless explicitly required (and if
 changes, update migrations + the migration guide in the same release per spec §11.2 and the Phase
 2.1 contract).*
 
-- [ ] **Sortable module tables:** on every Dashboard module screen that uses a table, clicking a
+- [x] **Sortable module tables:** on every Dashboard module screen that uses a table, clicking a
   column header sorts the list (toggle ascending/descending, stable).
 - [x] ~~**Resizable table columns:**~~ removed after manual testing — fixed proportional columns
   are sufficient; drag handles were hard to use and clipped header labels.
@@ -199,19 +199,19 @@ changes, update migrations + the migration guide in the same release per spec §
     as appropriate.
   - [x] Keep the list the primary interaction surface; modals should be dismissible via Esc and
     click-away.
-- [ ] **Passwords list quick actions (Dashboard only):**
-  - [ ] Clicking the masked password (`*****`) reveals the real password inline/overlay **without
-    closing the Dashboard**.
-  - [ ] Add a `Copy` icon/button next to the masked password that copies immediately to the
+- [x] **Passwords list quick actions (Dashboard only):**
+  - [x] Clicking the masked password (`*****`) reveals via Rust `reveal_secret` (native dialog —
+    plaintext never enters the WebView) **without closing the Dashboard**.
+  - [x] Add a `Copy` icon/button next to the masked password that copies immediately to the
     concealed clipboard.
-  - [ ] Ensure secrets still never enter the WebView by default — reveal/copy must keep using the
+  - [x] Ensure secrets still never enter the WebView by default — reveal/copy must keep using the
     Rust `reveal_secret` / `copy_secret` path (spec §4.5).
-- [ ] **Commands list layout (Dashboard):** replace the Commands table with a category-grouped
+- [x] **Commands list layout (Dashboard):** replace the Commands table with a category-grouped
   layout:
-  - [ ] Sections per category (e.g. “Git”, “MongoDB”) and within each section, render each command
+  - [x] Sections per category (e.g. “Git”, “MongoDB”) and within each section, render each command
     as: title + description, then syntax-highlighted snippet below.
-  - [ ] Keep the existing filter box and “New” affordance.
-- [ ] **Help in the Dashboard sidebar:** remove the floating bottom-right keyboard-help icon on the
+  - [x] Keep the existing filter box and “New” affordance.
+- [x] **Help in the Dashboard sidebar:** remove the floating bottom-right keyboard-help icon on the
   Dashboard. Add a **Help** row to the left sidebar’s bottom menu (with Settings and Lock), styled
   like other sidebar rows: `[Keyboard icon] Help` plus the shortcut label **`⌘/`** on the right.
   Clicking the row opens the same Hotkey Help modal; `⌘/` continues to toggle it globally.

@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -34,12 +34,15 @@ describe("Dashboard", () => {
     });
   });
 
-  it("shows a locked message when the vault is not available", () => {
+  it("shows the unlock form when the vault is locked", () => {
     useVaultStore.setState({ status: "locked", model: null });
 
     render(<Dashboard />);
 
-    expect(screen.getByText(/keystash is locked/i)).toBeInTheDocument();
+    expect(screen.getByLabelText("Master password")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /^unlock$/i }),
+    ).toBeInTheDocument();
   });
 
   it("renders the first enabled module by default and switches panes by click", async () => {
@@ -127,5 +130,25 @@ describe("Dashboard", () => {
 
     expect(api.lock).toHaveBeenCalled();
     expect(useVaultStore.getState().status).toBe("locked");
+  });
+
+  it("opens keyboard help from the sidebar Help row", async () => {
+    const user = userEvent.setup();
+    render(<Dashboard />);
+
+    expect(
+      screen.queryByRole("dialog", { name: "Keyboard shortcuts" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Keyboard shortcuts" }),
+    ).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /help/i }));
+
+    await waitFor(() =>
+      expect(
+        screen.getByRole("dialog", { name: "Keyboard shortcuts" }),
+      ).toBeVisible(),
+    );
   });
 });
