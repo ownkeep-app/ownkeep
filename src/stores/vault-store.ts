@@ -24,6 +24,8 @@ import {
   SUBSCRIPTIONS_MODULE_ID,
   type SubscriptionEntry,
 } from "@/modules/subscriptions/types";
+import { financeSnapshots } from "@/modules/finance/logic";
+import { FINANCE_MODULE_ID, type Snapshot } from "@/modules/finance/types";
 import { todoEntries, toggleTodoDoneState } from "@/modules/todos/logic";
 import { TODOS_MODULE_ID, type TodoEntry } from "@/modules/todos/types";
 import { type EmergencyKit, vaultApi } from "@/vault/api";
@@ -40,6 +42,7 @@ import {
   parseVaultJson,
   recordFrecency,
   setModuleEnabled,
+  setModuleSettings,
   withUpdatedAt,
   type VaultSettings,
   type VaultModel,
@@ -95,6 +98,12 @@ interface VaultState {
   toggleTodoDone: (id: string) => Promise<void>;
   saveSubscription: (entry: SubscriptionEntry) => Promise<void>;
   deleteSubscription: (id: string) => Promise<void>;
+  saveSnapshot: (entry: Snapshot) => Promise<void>;
+  deleteSnapshot: (id: string) => Promise<void>;
+  updateFinanceSettings: (patch: {
+    baseCurrency?: string;
+    fxRates?: Record<string, number>;
+  }) => Promise<void>;
   copySecret: (id: string, field: string) => Promise<void>;
   revealSecret: (id: string, field: string) => Promise<void>;
   regenerateRecovery: () => Promise<EmergencyKit>;
@@ -710,6 +719,53 @@ export const useVaultStore = create<VaultState>((set, get) => ({
       },
       set,
     );
+  },
+
+  saveSnapshot: async (entry) => {
+    const model = get().model;
+    if (!model) return;
+    const current = financeSnapshots(
+      Array.isArray(model.modules[FINANCE_MODULE_ID])
+        ? model.modules[FINANCE_MODULE_ID]
+        : [],
+    );
+    const exists = current.some((item) => item.id === entry.id);
+    const nextItems = exists
+      ? current.map((item) => (item.id === entry.id ? entry : item))
+      : [...current, entry];
+    await saveThenReloadProjection(
+      {
+        ...model,
+        modules: { ...model.modules, [FINANCE_MODULE_ID]: nextItems },
+      },
+      set,
+    );
+  },
+
+  deleteSnapshot: async (id) => {
+    const model = get().model;
+    if (!model) return;
+    const current = financeSnapshots(
+      Array.isArray(model.modules[FINANCE_MODULE_ID])
+        ? model.modules[FINANCE_MODULE_ID]
+        : [],
+    );
+    await saveThenReloadProjection(
+      {
+        ...model,
+        modules: {
+          ...model.modules,
+          [FINANCE_MODULE_ID]: current.filter((item) => item.id !== id),
+        },
+      },
+      set,
+    );
+  },
+
+  updateFinanceSettings: async (patch) => {
+    const model = get().model;
+    if (!model) return;
+    await get().save(setModuleSettings(model, FINANCE_MODULE_ID, patch));
   },
 
   copySecret: async (id, field) => {

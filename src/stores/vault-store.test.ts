@@ -491,6 +491,124 @@ describe("vault store", () => {
     ).toBe(false);
   });
 
+  it("saveSnapshot adds then updates a finance snapshot", async () => {
+    api.isUnlocked.mockResolvedValue(true);
+    api.getVault.mockResolvedValue("{}");
+    await useVaultStore.getState().init();
+
+    await useVaultStore.getState().saveSnapshot({
+      id: "s1",
+      date: "2026-07-01T00:00:00.000Z",
+      entries: [
+        { place: "DBS", category: "bank", amount: 100, currency: "USD" },
+      ],
+      note: "old",
+      updatedAt: "2026-07-07T00:00:00.000Z",
+    });
+    let saved = JSON.parse(api.saveVault.mock.calls[0][0] as string);
+    expect(saved.modules.finance).toHaveLength(1);
+    expect(saved.modules.finance[0].id).toBe("s1");
+
+    api.getVault.mockResolvedValue(
+      JSON.stringify({
+        modules: {
+          finance: [
+            {
+              id: "s1",
+              date: "2026-07-01T00:00:00.000Z",
+              entries: [],
+              note: "old",
+              updatedAt: "2026-07-07T00:00:00.000Z",
+            },
+          ],
+        },
+      }),
+    );
+    await useVaultStore.getState().saveSnapshot({
+      id: "s1",
+      date: "2026-07-01T00:00:00.000Z",
+      entries: [],
+      note: "new",
+      updatedAt: "2026-07-08T00:00:00.000Z",
+    });
+    saved = JSON.parse(api.saveVault.mock.calls[1][0] as string);
+    expect(saved.modules.finance).toHaveLength(1);
+    expect(saved.modules.finance[0].note).toBe("new");
+  });
+
+  it("deleteSnapshot removes a finance snapshot", async () => {
+    api.isUnlocked.mockResolvedValue(true);
+    api.getVault.mockResolvedValue(
+      JSON.stringify({
+        modules: {
+          finance: [
+            {
+              id: "s1",
+              date: "2026-07-01T00:00:00.000Z",
+              entries: [],
+              note: "",
+              updatedAt: "2026-07-01T00:00:00.000Z",
+            },
+          ],
+        },
+      }),
+    );
+    await useVaultStore.getState().init();
+
+    await useVaultStore.getState().deleteSnapshot("s1");
+    const saved = JSON.parse(api.saveVault.mock.calls[0][0] as string);
+    expect(saved.modules.finance).toEqual([]);
+  });
+
+  it("updateFinanceSettings persists base currency and FX rates", async () => {
+    api.isUnlocked.mockResolvedValue(true);
+    api.getVault.mockResolvedValue("{}");
+    await useVaultStore.getState().init();
+
+    await useVaultStore
+      .getState()
+      .updateFinanceSettings({ baseCurrency: "SGD", fxRates: { USD: 1.35 } });
+    const saved = JSON.parse(api.saveVault.mock.calls[0][0] as string);
+    expect(saved.settings.modules.finance.baseCurrency).toBe("SGD");
+    expect(saved.settings.modules.finance.fxRates).toEqual({ USD: 1.35 });
+  });
+
+  it("finance mutations no-op without a model and coerce a non-array slice", async () => {
+    useVaultStore.setState({ model: null });
+    await useVaultStore.getState().saveSnapshot({
+      id: "x",
+      date: "2026-07-01T00:00:00.000Z",
+      entries: [],
+      note: "",
+      updatedAt: "2026-07-07T00:00:00.000Z",
+    });
+    await useVaultStore.getState().deleteSnapshot("x");
+    await useVaultStore
+      .getState()
+      .updateFinanceSettings({ baseCurrency: "USD" });
+    expect(api.saveVault).not.toHaveBeenCalled();
+
+    api.isUnlocked.mockResolvedValue(true);
+    api.getVault.mockResolvedValue(
+      JSON.stringify({ modules: { finance: { legacy: true } } }),
+    );
+    await useVaultStore.getState().init();
+
+    await useVaultStore.getState().saveSnapshot({
+      id: "s1",
+      date: "2026-07-01T00:00:00.000Z",
+      entries: [],
+      note: "",
+      updatedAt: "2026-07-07T00:00:00.000Z",
+    });
+    const added = JSON.parse(api.saveVault.mock.calls[0][0] as string);
+    expect(added.modules.finance).toHaveLength(1);
+
+    await useVaultStore.getState().deleteSnapshot("s1");
+    const removed = JSON.parse(api.saveVault.mock.calls[1][0] as string);
+    expect(removed.modules.finance).toEqual([]);
+  });
+
   it("savePassword persists plaintext once and reloads the redacted projection", async () => {
     api.isUnlocked.mockResolvedValue(true);
     api.getVault.mockResolvedValueOnce("{}").mockResolvedValueOnce(

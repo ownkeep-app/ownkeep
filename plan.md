@@ -165,10 +165,10 @@ with a **browsable Dashboard** (sidebar + content pane) and a safe upgrade path 
 - **Deps:** P7 (independent of P8 — can swap order).
 
 ### Phase 10 — 📈 Finance module (M3) · 2–3 d
-- [ ] `financeModule`: snapshots of `{place,category,amount,currency}`; recompute total + by-category on save.
-- [ ] Manual **FX rate table**; convert to `baseCurrency`; **uPlot** net-worth trend.
-- [ ] `ListView` (dashboard): the uPlot trend atop the right pane + the snapshot table below.
-- [ ] **Tests:** total + by-category + FX conversion; re-total after a rate edit (Vitest).
+- [x] `financeModule`: `Snapshot[]` of `{place,category,amount,currency}` entries; total + by-category **derived on the fly** (a rate edit re-totals).
+- [x] Manual **FX rate table** (base currency + rates in `settings.modules.finance`); convert to `baseCurrency`; **uPlot** net-worth trend.
+- [x] `ListView` (dashboard): the uPlot trend atop the right pane + the snapshot table + by-category detail.
+- [x] **Tests:** total + by-category + FX conversion; re-total after a rate edit (Vitest).
 - **Exit:** adding a snapshot updates totals + curve; editing a rate re-totals all snapshots.
 - **Deps:** P2 (data), independent of P7–P9.
 

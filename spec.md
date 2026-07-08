@@ -337,25 +337,24 @@ never migrates another module's slice.
         "notifyLeadDays": 3, "notes": "", "updatedAt": "ISO" }
     ],
 
-    "finance": {
-      "snapshots": [
-        { "id": "uuid", "date": "2026-07-01",
-          "entries": [
-            { "place": "DBS",     "category": "bank",   "amount": 12000, "currency": "SGD" },
-            { "place": "WeChat",  "category": "wechat", "amount": 800,   "currency": "CNY" },
-            { "place": "Binance", "category": "crypto", "amount": 5000,  "currency": "USD" }
-          ],
-          "note": "Free text, e.g. paid annual insurance premium this month.",
-          "computed": { "total": 0, "byCategory": {} }   // recomputed on save
-        }
-      ]
-    }
+    "finance": [
+      { "id": "uuid", "date": "2026-07-01T00:00:00.000Z",
+        "entries": [
+          { "place": "DBS",     "category": "bank",   "amount": 12000, "currency": "SGD" },
+          { "place": "WeChat",  "category": "wechat", "amount": 800,   "currency": "CNY" },
+          { "place": "Binance", "category": "crypto", "amount": 5000,  "currency": "USD" }
+        ],
+        "note": "Free text, e.g. paid annual insurance premium this month.",
+        "updatedAt": "ISO" }
+    ]
   }
 }
 ```
 
-*(FX rates + baseCurrency live under `settings.modules.finance`. Future calendar/notes modules add
-their own slice under `modules` with no impact on the above.)*
+*(The finance slice is a bare `Snapshot[]`, like every other module. FX rates + baseCurrency live
+under `settings.modules.finance`; totals + by-category are **derived on the fly** from the FX table,
+so editing a rate re-totals every snapshot. Future calendar/notes modules add their own slice under
+`modules` with no impact on the above.)*
 
 ---
 

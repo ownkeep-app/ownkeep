@@ -109,13 +109,14 @@ describe("Dashboard", () => {
     expect(screen.getByRole("heading", { name: "Settings" })).toBeVisible();
   });
 
-  it("renders object-shaped module slices as empty lists", async () => {
+  it("renders the finance module pane with its empty state", async () => {
     const user = userEvent.setup();
     render(<Dashboard />);
 
     await user.click(screen.getByRole("button", { name: /finance/i }));
 
-    expect(screen.getByText(/phase 10/i)).toBeVisible();
+    expect(screen.getByRole("heading", { name: "Finance" })).toBeVisible();
+    expect(screen.getByText(/no snapshots yet/i)).toBeVisible();
   });
 
   it("locks the vault from the sidebar", async () => {

@@ -154,6 +154,25 @@ export function setModuleEnabled(
 }
 
 /**
+ * Merge a patch into a module's settings entry (e.g. finance base currency + FX rates), preserving
+ * the enable flag and every other module's settings.
+ */
+export function setModuleSettings(
+  model: VaultModel,
+  id: string,
+  patch: Record<string, unknown>,
+): VaultModel {
+  const existing = model.settings.modules[id] ?? { enabled: false };
+  return {
+    ...model,
+    settings: {
+      ...model.settings,
+      modules: { ...model.settings.modules, [id]: { ...existing, ...patch } },
+    },
+  };
+}
+
+/**
  * Record one use of a command-bar item, bumping its frecency (spec §7.2): increment the count and
  * refresh `lastUsedAt` so habitual items rank higher next time. Pure; the store persists the result.
  */
