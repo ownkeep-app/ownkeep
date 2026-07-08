@@ -249,6 +249,91 @@ pub async fn backup_vault_to_chosen_location(
     Ok(Some(backup_path.display().to_string()))
 }
 
+/// Pick and restore an encrypted backup after validating it with the backup's master password.
+#[tauri::command]
+pub async fn restore_vault_from_chosen_location_with_password(
+    app: AppHandle,
+    password: String,
+    pre_restore_file_name: String,
+) -> Result<Option<String>, String> {
+    storage::validate_backup_file_name(&pre_restore_file_name).map_err(|e| e.to_string())?;
+    let Some(backup_path) = pick_restore_path(&app)? else {
+        return Ok(None);
+    };
+    restore_selected_vault(
+        app,
+        backup_path,
+        move |session, active_path, backup_path| {
+            session.restore_password(active_path, backup_path, &password, &pre_restore_file_name)
+        },
+    )
+    .await
+}
+
+/// Pick and restore an encrypted backup after validating it with the backup's recovery code.
+#[tauri::command]
+pub async fn restore_vault_from_chosen_location_with_recovery(
+    app: AppHandle,
+    code: String,
+    pre_restore_file_name: String,
+) -> Result<Option<String>, String> {
+    storage::validate_backup_file_name(&pre_restore_file_name).map_err(|e| e.to_string())?;
+    let Some(backup_path) = pick_restore_path(&app)? else {
+        return Ok(None);
+    };
+    restore_selected_vault(
+        app,
+        backup_path,
+        move |session, active_path, backup_path| {
+            session.restore_recovery(active_path, backup_path, &code, &pre_restore_file_name)
+        },
+    )
+    .await
+}
+
+fn pick_restore_path(app: &AppHandle) -> Result<Option<PathBuf>, String> {
+    let source = app
+        .dialog()
+        .file()
+        .set_title("Restore keystash vault")
+        .add_filter("Keystash vault backup", &["dat"])
+        .blocking_pick_file();
+    source
+        .map(|file| file.into_path().map_err(|e| e.to_string()))
+        .transpose()
+}
+
+async fn restore_selected_vault<F>(
+    app: AppHandle,
+    backup_path: PathBuf,
+    restore: F,
+) -> Result<Option<String>, String>
+where
+    F: FnOnce(&mut Session, &std::path::Path, &std::path::Path) -> crate::error::Result<()>
+        + Send
+        + 'static,
+{
+    let active_path = vault_path(&app)?;
+    let restored_path = backup_path.display().to_string();
+    let delay = {
+        let session = app.state::<SharedSession>();
+        let guard = session.lock().unwrap();
+        guard.backoff_delay()
+    };
+    let app = app.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        if !delay.is_zero() {
+            std::thread::sleep(delay);
+        }
+        let state = app.state::<SharedSession>();
+        let mut guard = state.lock().unwrap();
+        restore(&mut guard, &active_path, &backup_path).map_err(|e| e.to_string())
+    })
+    .await
+    .map_err(|e| e.to_string())??;
+    Ok(Some(restored_path))
+}
+
 /// Permanently erase the active vault file and lock any decrypted in-memory state.
 #[tauri::command]
 pub fn erase_vault(app: AppHandle, state: State<'_, SharedSession>) -> Result<(), String> {

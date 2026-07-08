@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import {
   Command,
@@ -6,20 +6,25 @@ import {
   CommandItem,
   CommandList,
 } from "@/components/ui/command";
+import { writeClipboard } from "@/lib/clipboard";
 import { runQuery, type RankedResult } from "@/lib/search";
 import { hideWindow } from "@/lib/window";
+import { FillInForm } from "@/modules/commands/FillInForm";
+import { commandEntries, parsePlaceholders } from "@/modules/commands/logic";
+import {
+  COMMANDS_MODULE_ID,
+  type CommandEntry,
+} from "@/modules/commands/types";
 import { MODULES } from "@/modules/registry";
 import type { FeatureModule } from "@/modules/types";
 import { useShellStore } from "@/stores/shell-store";
 import { useVaultStore } from "@/stores/vault-store";
 
 /**
- * The launcher surface on the main window (spec §7): one search input over the unified index, with
- * results ranked by fuzzy × frecency (§7.2), capped at `settings.resultLimit`, and numbered 1–9.
- * A result's primary action runs via the numbered copy hotkey (Cmd+<n>) or Enter/click — for a
- * password that is a concealed-clipboard copy from Rust, so plaintext never enters the WebView
- * (§4.5/§7.3) — then the launcher hides. `modules` is injectable for tests; production uses the
- * registry.
+ * The launcher surface (spec §7): a search input over the unified index, results ranked by fuzzy ×
+ * frecency (§7.2), numbered 1–9. A result's primary action runs via Cmd+<n> or Enter/click —
+ * password → concealed-clipboard copy from Rust (§4.5); command with no placeholders → copy; command
+ * with `{{ }}` placeholders → inline fill-in (§7.3). Opt+Cmd+<n> copies a command's raw template.
  */
 export function CommandBar({
   modules = MODULES,
@@ -31,10 +36,30 @@ export function CommandBar({
   const model = useVaultStore((state) => state.model);
   const copySecret = useVaultStore((state) => state.copySecret);
   const recordUse = useVaultStore((state) => state.recordUse);
+  const [filling, setFilling] = useState<CommandEntry | null>(null);
 
   const results = useMemo(
     () => (model ? runQuery(model, modules, query) : []),
     [model, modules, query],
+  );
+
+  const finishAction = useCallback(
+    async (id: string) => {
+      await recordUse(id); // frecency reorders repeats (§7.2)
+      setQuery("");
+      await hideWindow();
+    },
+    [recordUse, setQuery],
+  );
+
+  const findCommand = useCallback(
+    (id: string): CommandEntry | undefined => {
+      const slice = model?.modules[COMMANDS_MODULE_ID];
+      return commandEntries(Array.isArray(slice) ? slice : []).find(
+        (command) => command.id === id,
+      );
+    },
+    [model],
   );
 
   const runPrimaryAction = useCallback(
@@ -44,33 +69,80 @@ export function CommandBar({
         ?.secretFields?.[0];
       if (secretField) {
         await copySecret(entry.id, secretField);
+        await finishAction(entry.id);
+        return;
       }
-      // Frecency reorders repeats (§7.2); clear the query and hide so the next open is fresh (§7.3).
-      await recordUse(entry.id);
-      setQuery("");
-      await hideWindow();
+      if (entry.type === "command") {
+        const command = findCommand(entry.id);
+        if (command) {
+          if (parsePlaceholders(command.primaryCopyTemplate).length > 0) {
+            setFilling(command); // open the inline fill-in; the copy happens on submit (§7.3)
+            return;
+          }
+          await writeClipboard(command.primaryCopyTemplate);
+          await finishAction(entry.id);
+          return;
+        }
+      }
+      await finishAction(entry.id);
     },
-    [modules, copySecret, recordUse, setQuery],
+    [modules, copySecret, finishAction, findCommand],
+  );
+
+  const copyRaw = useCallback(
+    async (result: RankedResult) => {
+      const command = findCommand(result.entry.id);
+      if (!command) return;
+      await writeClipboard(command.primaryCopyTemplate); // placeholders intact (§7.3)
+      await finishAction(command.id);
+    },
+    [findCommand, finishAction],
   );
 
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
       if (event.key === "Escape") {
-        void hideWindow();
+        if (filling) setFilling(null);
+        else void hideWindow();
         return;
       }
-      // Cmd+1..9 runs the Nth result's primary action without opening the Dashboard (§7.3).
+      // Cmd+1..9 = primary action; Opt+Cmd+1..9 = raw copy of a command template (§7.3).
       if (event.metaKey && event.key >= "1" && event.key <= "9") {
         const result = results[Number(event.key) - 1];
         if (result) {
           event.preventDefault();
-          void runPrimaryAction(result);
+          if (event.altKey) void copyRaw(result);
+          else void runPrimaryAction(result);
         }
       }
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [results, runPrimaryAction]);
+  }, [results, filling, runPrimaryAction, copyRaw]);
+
+  if (filling) {
+    const command = filling;
+    return (
+      <main className="flex h-screen items-start justify-center overflow-hidden bg-background px-5 py-2 text-foreground">
+        <section className="w-full max-w-2xl rounded-lg border border-border shadow-sm">
+          <FillInForm
+            command={command}
+            onCancel={() => setFilling(null)}
+            onComplete={(filled) => {
+              setFilling(null);
+              void writeClipboard(filled).then(() => finishAction(command.id));
+            }}
+            onRaw={() => {
+              setFilling(null);
+              void writeClipboard(command.primaryCopyTemplate).then(() =>
+                finishAction(command.id),
+              );
+            }}
+          />
+        </section>
+      </main>
+    );
+  }
 
   return (
     <main className="flex h-screen items-start justify-center overflow-hidden bg-background px-5 py-2 text-foreground">

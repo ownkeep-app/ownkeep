@@ -68,7 +68,9 @@ mod tests {
         assert_eq!(Error::Rng.to_string(), "secure random generation failed");
         assert!(Error::Format("bad".to_string()).to_string().contains("bad"));
         assert!(Error::VaultTooNew.to_string().contains("newer keystash"));
-        assert!(Error::Recovery("oops".to_string()).to_string().contains("oops"));
+        assert!(Error::Recovery("oops".to_string())
+            .to_string()
+            .contains("oops"));
         assert_eq!(Error::Locked.to_string(), "vault is locked");
     }
 

@@ -15,10 +15,8 @@ describe("MODULES registry", () => {
         module.buildIndex(Array.isArray(empty) ? empty : []),
       ).toBeDefined();
 
-      const expectedTitle =
-        module.id === "commands" ? "Command library" : module.title;
       const { unmount } = render(<module.ListView items={[]} />);
-      expect(screen.getByText(expectedTitle)).toBeVisible();
+      expect(screen.getByText(module.title)).toBeVisible();
       unmount();
     }
   });

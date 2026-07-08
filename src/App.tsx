@@ -15,6 +15,7 @@ import {
   mainWindowMode,
   setMainWindowMode,
 } from "@/lib/window";
+import { applyThemeSettings } from "@/lib/theme";
 import { useVaultStore } from "@/stores/vault-store";
 
 function Loading() {
@@ -33,6 +34,8 @@ function Loading() {
 function App() {
   const status = useVaultStore((s) => s.status);
   const pendingKit = useVaultStore((s) => s.pendingKit);
+  const theme = useVaultStore((s) => s.model?.settings.theme ?? "system");
+  const accent = useVaultStore((s) => s.model?.settings.accent ?? "#4F7CFF");
   const init = useVaultStore((s) => s.init);
   const label = currentWindowLabel();
 
@@ -42,6 +45,14 @@ function App() {
     window.addEventListener("focus", onFocus);
     return () => window.removeEventListener("focus", onFocus);
   }, [init]);
+
+  useEffect(() => {
+    const media = window.matchMedia?.("(prefers-color-scheme: dark)");
+    const apply = () => applyThemeSettings(theme, accent);
+    apply();
+    media?.addEventListener("change", apply);
+    return () => media?.removeEventListener("change", apply);
+  }, [theme, accent]);
 
   // Resize before paint when the active surface changes. Do not re-run on window focus —
   // redundant setSize steals keyboard focus from auth inputs on macOS.

@@ -2,7 +2,12 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { writeClipboard } from "@/lib/clipboard";
 import { hideWindow } from "@/lib/window";
+import {
+  COMMANDS_MODULE_ID,
+  type CommandEntry,
+} from "@/modules/commands/types";
 import {
   PASSWORD_SECRET_FIELD,
   PASSWORDS_MODULE_ID,
@@ -15,6 +20,7 @@ import { createDefaultModel, type VaultModel } from "@/vault/model";
 import { CommandBar } from "./CommandBar";
 
 vi.mock("@/lib/window", () => ({ hideWindow: vi.fn(async () => {}) }));
+vi.mock("@/lib/clipboard", () => ({ writeClipboard: vi.fn(async () => true) }));
 vi.mock("@/vault/api", () => ({
   vaultApi: {
     copySecret: vi.fn(async () => {}),
@@ -23,6 +29,7 @@ vi.mock("@/vault/api", () => ({
 }));
 
 const mockHideWindow = vi.mocked(hideWindow);
+const clip = vi.mocked(writeClipboard);
 const api = vi.mocked(vaultApi);
 const NOW = "2026-07-07T00:00:00.000Z";
 
@@ -46,6 +53,30 @@ function withPasswords(items: ReturnType<typeof passwordItem>[]): VaultModel {
     ...base,
     settings: { ...base.settings, modules: { passwords: { enabled: true } } },
     modules: { [PASSWORDS_MODULE_ID]: items },
+  };
+}
+
+function command(overrides: Partial<CommandEntry> = {}): CommandEntry {
+  return {
+    id: "run",
+    category: "docker",
+    title: "Run",
+    description: "",
+    snippets: [],
+    primaryCopyTemplate: "docker run {{img}}",
+    arguments: [],
+    tags: [],
+    updatedAt: NOW,
+    ...overrides,
+  };
+}
+
+function withCommands(items: CommandEntry[]): VaultModel {
+  const base = createDefaultModel(NOW);
+  return {
+    ...base,
+    settings: { ...base.settings, modules: { commands: { enabled: true } } },
+    modules: { [COMMANDS_MODULE_ID]: items },
   };
 }
 
@@ -175,5 +206,92 @@ describe("CommandBar", () => {
 
     await waitFor(() => expect(api.saveVault).toHaveBeenCalled());
     expect(api.copySecret).not.toHaveBeenCalled();
+  });
+
+  it("copies a placeholder-free command immediately", async () => {
+    setModel(withCommands([command({ primaryCopyTemplate: "git status" })]));
+    render(<CommandBar />);
+
+    fireEvent.keyDown(window, { key: "1", metaKey: true });
+
+    await waitFor(() => expect(clip).toHaveBeenCalledWith("git status"));
+    expect(api.saveVault).toHaveBeenCalled(); // frecency recorded
+    expect(mockHideWindow).toHaveBeenCalled();
+  });
+
+  it("opens the inline fill-in for a command with placeholders", async () => {
+    setModel(withCommands([command()]));
+    render(<CommandBar />);
+
+    fireEvent.keyDown(window, { key: "1", metaKey: true });
+
+    expect(await screen.findByLabelText("img")).toBeInTheDocument();
+    expect(clip).not.toHaveBeenCalled(); // nothing copied until the form is submitted
+  });
+
+  it("copies the completed command from the fill-in", async () => {
+    const user = userEvent.setup();
+    setModel(withCommands([command()]));
+    render(<CommandBar />);
+
+    fireEvent.keyDown(window, { key: "1", metaKey: true });
+    await user.type(await screen.findByLabelText("img"), "nginx");
+    await user.click(screen.getByRole("button", { name: /^copy$/i }));
+
+    await waitFor(() => expect(clip).toHaveBeenCalledWith("docker run nginx"));
+  });
+
+  it("cancels the fill-in on Escape without hiding the launcher", async () => {
+    setModel(withCommands([command()]));
+    render(<CommandBar />);
+
+    fireEvent.keyDown(window, { key: "1", metaKey: true });
+    await screen.findByLabelText("img");
+    fireEvent.keyDown(window, { key: "Escape" });
+
+    await waitFor(() =>
+      expect(screen.queryByLabelText("img")).not.toBeInTheDocument(),
+    );
+    expect(mockHideWindow).not.toHaveBeenCalled();
+  });
+
+  it("copies a command's raw template via Opt+Cmd+<n>", async () => {
+    setModel(withCommands([command()]));
+    render(<CommandBar />);
+
+    fireEvent.keyDown(window, { key: "1", metaKey: true, altKey: true });
+
+    await waitFor(() =>
+      expect(clip).toHaveBeenCalledWith("docker run {{img}}"),
+    );
+  });
+
+  it("copies raw from within the fill-in form", async () => {
+    const user = userEvent.setup();
+    setModel(withCommands([command()]));
+    render(<CommandBar />);
+
+    fireEvent.keyDown(window, { key: "1", metaKey: true });
+    await screen.findByLabelText("img");
+    await user.click(screen.getByRole("button", { name: /copy raw/i }));
+
+    await waitFor(() =>
+      expect(clip).toHaveBeenCalledWith("docker run {{img}}"),
+    );
+  });
+
+  it("cancels the fill-in via its Cancel button", async () => {
+    const user = userEvent.setup();
+    setModel(withCommands([command()]));
+    render(<CommandBar />);
+
+    fireEvent.keyDown(window, { key: "1", metaKey: true });
+    await screen.findByLabelText("img");
+    await user.click(screen.getByRole("button", { name: /cancel/i }));
+
+    await waitFor(() =>
+      expect(screen.queryByLabelText("img")).not.toBeInTheDocument(),
+    );
+    expect(clip).not.toHaveBeenCalled();
   });
 });

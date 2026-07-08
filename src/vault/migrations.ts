@@ -261,6 +261,10 @@ export function preMigrationBackupName(
   return `keystash-pre-migration-v${oldAppVersion}-to-v${newAppVersion}-${backupTimestamp(date)}.dat`;
 }
 
+export function preRestoreBackupName(date = new Date()): string {
+  return `keystash-pre-restore-${backupTimestamp(date)}.dat`;
+}
+
 export function vaultBackupName(appVersion: string, date = new Date()): string {
   return `keystash-v${appVersion}-${backupTimestamp(date)}.dat`;
 }

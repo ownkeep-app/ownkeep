@@ -50,7 +50,9 @@ describe("Dashboard", () => {
 
     await user.click(screen.getByRole("button", { name: /commands/i }));
 
-    expect(screen.getByText("Command library")).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "Commands" }),
+    ).toBeInTheDocument();
   });
 
   it("supports numbered and arrow-key sidebar navigation outside text inputs", () => {
@@ -58,22 +60,30 @@ describe("Dashboard", () => {
 
     // Start with arrow navigation while nothing is selected (covers the default-row branch).
     fireEvent.keyDown(window, { key: "ArrowDown" });
-    expect(screen.getByText("Command library")).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "Commands" }),
+    ).toBeInTheDocument();
 
     fireEvent.keyDown(window, { key: "2", metaKey: true });
-    expect(screen.getByText("Command library")).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "Commands" }),
+    ).toBeInTheDocument();
 
     fireEvent.keyDown(window, { key: "ArrowDown" });
     expect(screen.getByText(/phase 8/i)).toBeInTheDocument();
 
     fireEvent.keyDown(window, { key: "ArrowUp" });
-    expect(screen.getByText("Command library")).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "Commands" }),
+    ).toBeInTheDocument();
 
     const input = document.createElement("input");
     document.body.appendChild(input);
     input.focus();
     fireEvent.keyDown(window, { key: "ArrowDown" });
-    expect(screen.getByText("Command library")).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "Commands" }),
+    ).toBeInTheDocument();
     input.remove();
   });
 

@@ -148,6 +148,69 @@ impl Session {
         Ok(())
     }
 
+    /// Restore a selected backup after proving the supplied master password can fully decrypt it.
+    pub fn restore_password(
+        &mut self,
+        path: &Path,
+        backup_path: &Path,
+        password: &str,
+        pre_restore_file_name: &str,
+    ) -> Result<()> {
+        self.restore_verified(path, backup_path, pre_restore_file_name, |container| {
+            envelope::unlock_with_password(container, password)
+        })
+    }
+
+    /// Restore a selected backup after proving the supplied recovery code can fully decrypt it.
+    pub fn restore_recovery(
+        &mut self,
+        path: &Path,
+        backup_path: &Path,
+        phrase: &str,
+        pre_restore_file_name: &str,
+    ) -> Result<()> {
+        self.restore_verified(path, backup_path, pre_restore_file_name, |container| {
+            envelope::unlock_with_recovery(container, phrase)
+        })
+    }
+
+    /// Shared restore path: read the chosen backup, derive its DEK, decrypt the vault body, then
+    /// snapshot and atomically replace the active file. Nothing is written before decrypt succeeds.
+    fn restore_verified<F>(
+        &mut self,
+        path: &Path,
+        backup_path: &Path,
+        pre_restore_file_name: &str,
+        derive: F,
+    ) -> Result<()>
+    where
+        F: FnOnce(&Container) -> Result<Key>,
+    {
+        storage::validate_backup_file_name(pre_restore_file_name)?;
+        let container = storage::read_container(backup_path)?;
+        let dek = match derive(&container) {
+            Ok(dek) => dek,
+            Err(e) => {
+                self.record_failure();
+                return Err(e);
+            }
+        };
+        let vault = envelope::decrypt_vault(&container, &dek)?;
+
+        if storage::vault_exists(path) {
+            storage::backup_vault_file(path, pre_restore_file_name)?;
+        }
+        storage::write_container(path, &container)?;
+        self.unlocked = Some(UnlockedVault {
+            container,
+            dek,
+            vault,
+            last_activity: Instant::now(),
+        });
+        self.reset_failures();
+        Ok(())
+    }
+
     /// Change the master password (re-wrap the DEK, fresh salt) and persist. Requires unlocked.
     pub fn change_master(
         &mut self,
@@ -495,6 +558,116 @@ mod tests {
         assert_eq!(
             crate::storage::read_container(&path).unwrap().version,
             crate::container::VERSION
+        );
+        fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
+    fn restore_refuses_wrong_password_before_replacing_or_snapshotting() {
+        let dir = unique_temp_dir();
+        let active_path = dir.join(VAULT_FILE);
+        let backup_path = dir.join("keystash-v0.1-20260707-1530.dat");
+
+        let mut active = session();
+        active
+            .create(&active_path, "current pw", TEST_ARGON)
+            .unwrap();
+        active
+            .save_vault(&active_path, r#"{"settings":{"theme":"dark"}}"#)
+            .unwrap();
+        let before = fs::read(&active_path).unwrap();
+
+        let mut backup = session();
+        backup
+            .create(&backup_path, "backup pw", TEST_ARGON)
+            .unwrap();
+        backup
+            .save_vault(&backup_path, r#"{"settings":{"theme":"light"}}"#)
+            .unwrap();
+
+        assert!(active
+            .restore_password(
+                &active_path,
+                &backup_path,
+                "wrong pw",
+                "keystash-pre-restore-20260707-1530.dat",
+            )
+            .is_err());
+
+        assert_eq!(fs::read(&active_path).unwrap(), before);
+        assert!(!dir.join("keystash-pre-restore-20260707-1530.dat").exists());
+        fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
+    fn restore_with_password_snapshots_replaces_and_unlocks_backup() {
+        let dir = unique_temp_dir();
+        let active_path = dir.join(VAULT_FILE);
+        let backup_path = dir.join("keystash-v0.1-20260707-1530.dat");
+        let pre_restore = "keystash-pre-restore-20260707-1530.dat";
+
+        let mut active = session();
+        active
+            .create(&active_path, "current pw", TEST_ARGON)
+            .unwrap();
+        active
+            .save_vault(&active_path, r#"{"settings":{"theme":"dark"}}"#)
+            .unwrap();
+
+        let mut backup = session();
+        backup
+            .create(&backup_path, "backup pw", TEST_ARGON)
+            .unwrap();
+        backup
+            .save_vault(&backup_path, r#"{"settings":{"theme":"light"}}"#)
+            .unwrap();
+
+        active
+            .restore_password(&active_path, &backup_path, "backup pw", pre_restore)
+            .unwrap();
+
+        assert_eq!(
+            active.vault_json().unwrap(),
+            r#"{"settings":{"theme":"light"}}"#,
+        );
+        assert!(dir.join(pre_restore).exists());
+        active.lock();
+        assert!(active.unlock_password(&active_path, "current pw").is_err());
+        active.unlock_password(&active_path, "backup pw").unwrap();
+        fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
+    fn restore_with_recovery_uses_the_backup_recovery_wrap() {
+        let dir = unique_temp_dir();
+        let active_path = dir.join(VAULT_FILE);
+        let backup_path = dir.join("keystash-v0.1-20260707-1530.dat");
+
+        let mut active = session();
+        active
+            .create(&active_path, "current pw", TEST_ARGON)
+            .unwrap();
+
+        let mut backup = session();
+        let kit = backup
+            .create(&backup_path, "backup pw", TEST_ARGON)
+            .unwrap();
+        backup
+            .save_vault(&backup_path, r#"{"settings":{"resultLimit":5}}"#)
+            .unwrap();
+
+        active
+            .restore_recovery(
+                &active_path,
+                &backup_path,
+                &kit.recovery_code,
+                "keystash-pre-restore-20260707-1531.dat",
+            )
+            .unwrap();
+
+        assert_eq!(
+            active.vault_json().unwrap(),
+            r#"{"settings":{"resultLimit":5}}"#,
         );
         fs::remove_dir_all(&dir).ok();
     }

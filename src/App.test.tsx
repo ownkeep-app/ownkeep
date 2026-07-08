@@ -38,6 +38,7 @@ vi.mock("@/vault/api", () => ({
     unlockRecovery: vi.fn(async () => {}),
     lock: vi.fn(async () => {}),
     setAutoLock: vi.fn(async () => {}),
+    setHotkeys: vi.fn(async () => {}),
     changeMaster: vi.fn(async () => {}),
     regenerateRecovery: vi.fn(),
   },
@@ -104,6 +105,42 @@ describe("App routing", () => {
     window.dispatchEvent(new Event("focus"));
 
     expect(mockSetMainWindowMode).not.toHaveBeenCalled();
+  });
+
+  it("subscribes to system theme changes when theme is set to system", async () => {
+    const originalMatchMedia = window.matchMedia;
+    const addEventListener = vi.fn();
+    const removeEventListener = vi.fn();
+    Object.defineProperty(window, "matchMedia", {
+      configurable: true,
+      writable: true,
+      value: vi.fn(() => ({
+        matches: true,
+        addEventListener,
+        removeEventListener,
+      })),
+    });
+
+    const view = render(<App />);
+    await screen.findByRole("combobox", { name: /search keystash/i });
+
+    expect(document.documentElement.classList.contains("dark")).toBe(true);
+    expect(addEventListener).toHaveBeenCalledWith(
+      "change",
+      expect.any(Function),
+    );
+
+    view.unmount();
+    expect(removeEventListener).toHaveBeenCalledWith(
+      "change",
+      expect.any(Function),
+    );
+    Object.defineProperty(window, "matchMedia", {
+      configurable: true,
+      writable: true,
+      value: originalMatchMedia,
+    });
+    document.documentElement.classList.remove("dark");
   });
 
   it("shows the Dashboard (with its module sidebar) on the dashboard window", async () => {

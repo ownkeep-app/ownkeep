@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { vaultApi } from "@/vault/api";
-import { APP_VERSION, SCHEMA_VERSION } from "@/vault/model";
+import { APP_VERSION, createDefaultModel, SCHEMA_VERSION } from "@/vault/model";
 import { useVaultStore } from "./vault-store";
 
 vi.mock("@/vault/api", () => ({
@@ -15,6 +15,12 @@ vi.mock("@/vault/api", () => ({
     revealSecret: vi.fn(async () => {}),
     backupVault: vi.fn(async () => "/tmp/backup.dat"),
     backupVaultToChosenLocation: vi.fn(async () => "/tmp/chosen-backup.dat"),
+    restoreVaultFromChosenLocationWithPassword: vi.fn(
+      async () => "/tmp/restored.dat",
+    ),
+    restoreVaultFromChosenLocationWithRecovery: vi.fn(
+      async () => "/tmp/restored.dat",
+    ),
     eraseVault: vi.fn(async () => {}),
     quitApp: vi.fn(async () => {}),
     createVault: vi.fn(async () => ({
@@ -27,6 +33,7 @@ vi.mock("@/vault/api", () => ({
     changeMaster: vi.fn(async () => {}),
     lock: vi.fn(async () => {}),
     setAutoLock: vi.fn(async () => {}),
+    setHotkeys: vi.fn(async () => {}),
     regenerateRecovery: vi.fn(async () => ({
       app: "",
       recovery_code: "",
@@ -228,6 +235,124 @@ describe("vault store", () => {
 
     expect(api.quitApp).not.toHaveBeenCalled();
     expect(useVaultStore.getState().status).toBe("migration");
+  });
+
+  it("backupVault writes the encrypted container to a chosen versioned filename", async () => {
+    useVaultStore.setState({
+      model: createDefaultModel("2026-07-07T00:00:00.000Z"),
+    });
+
+    const backupPath = await useVaultStore.getState().backupVault();
+
+    expect(backupPath).toBe("/tmp/chosen-backup.dat");
+    expect(api.backupVaultToChosenLocation).toHaveBeenCalledWith(
+      expect.stringMatching(/^keystash-v0\.1-/),
+    );
+    expect(useVaultStore.getState().busy).toBe(false);
+  });
+
+  it("backupVault surfaces file-picker or copy failures", async () => {
+    api.backupVaultToChosenLocation.mockRejectedValueOnce(
+      new Error("no permission"),
+    );
+    useVaultStore.setState({
+      model: createDefaultModel("2026-07-07T00:00:00.000Z"),
+    });
+
+    await expect(useVaultStore.getState().backupVault()).rejects.toThrow(
+      /no permission/,
+    );
+
+    expect(useVaultStore.getState().error).toMatch(/no permission/);
+  });
+
+  it("restoreVaultWithPassword verifies the selected backup then reloads the restored model", async () => {
+    api.getVault.mockResolvedValue(
+      JSON.stringify({
+        settings: { autoLockMinutes: 15, theme: "dark" },
+      }),
+    );
+
+    const restoredPath = await useVaultStore
+      .getState()
+      .restoreVaultWithPassword("backup pw");
+
+    expect(restoredPath).toBe("/tmp/restored.dat");
+    expect(api.restoreVaultFromChosenLocationWithPassword).toHaveBeenCalledWith(
+      "backup pw",
+      expect.stringMatching(/^keystash-pre-restore-/),
+    );
+    expect(api.setAutoLock).toHaveBeenCalledWith(15);
+    expect(useVaultStore.getState().status).toBe("unlocked");
+    expect(useVaultStore.getState().model?.settings.theme).toBe("dark");
+  });
+
+  it("restoreVaultWithPassword moves to incompatible when the restored model is newer", async () => {
+    api.getVault.mockResolvedValue(
+      JSON.stringify({
+        meta: {
+          schemaVersion: SCHEMA_VERSION,
+          appVersion: "99.0",
+          createdAt: "2026-07-01T00:00:00.000Z",
+          updatedAt: "2026-07-01T00:00:00.000Z",
+        },
+      }),
+    );
+
+    const restoredPath = await useVaultStore
+      .getState()
+      .restoreVaultWithPassword("backup pw");
+
+    expect(restoredPath).toBeNull();
+    expect(api.lock).toHaveBeenCalled();
+    expect(useVaultStore.getState().status).toBe("incompatible");
+    expect(useVaultStore.getState().incompatibleMessage).toMatch(
+      /older version/i,
+    );
+  });
+
+  it("restoreVaultWithRecovery does not reload when the picker is cancelled", async () => {
+    api.restoreVaultFromChosenLocationWithRecovery.mockResolvedValueOnce(null);
+
+    const restoredPath = await useVaultStore
+      .getState()
+      .restoreVaultWithRecovery("backup words");
+
+    expect(restoredPath).toBeNull();
+    expect(api.getVault).not.toHaveBeenCalled();
+    expect(useVaultStore.getState().busy).toBe(false);
+  });
+
+  it("restoreVaultWithRecovery reloads a restored backup", async () => {
+    api.getVault.mockResolvedValue(
+      JSON.stringify({
+        settings: { theme: "light", resultLimit: 5 },
+      }),
+    );
+
+    const restoredPath = await useVaultStore
+      .getState()
+      .restoreVaultWithRecovery("backup words");
+
+    expect(restoredPath).toBe("/tmp/restored.dat");
+    expect(api.restoreVaultFromChosenLocationWithRecovery).toHaveBeenCalledWith(
+      "backup words",
+      expect.stringMatching(/^keystash-pre-restore-/),
+    );
+    expect(useVaultStore.getState().model?.settings.resultLimit).toBe(5);
+  });
+
+  it("restore surfaces wrong-password failures without loading a replacement model", async () => {
+    api.restoreVaultFromChosenLocationWithPassword.mockRejectedValueOnce(
+      new Error("authentication failed"),
+    );
+
+    await expect(
+      useVaultStore.getState().restoreVaultWithPassword("wrong"),
+    ).rejects.toThrow(/authentication failed/);
+
+    expect(api.getVault).not.toHaveBeenCalled();
+    expect(useVaultStore.getState().error).toMatch(/authentication failed/);
   });
 
   it("eraseVaultAndStartFresh deletes the vault and returns to onboarding", async () => {
@@ -533,6 +658,70 @@ describe("vault store", () => {
     expect(api.saveVault).not.toHaveBeenCalled();
   });
 
+  const commandFixture = {
+    id: "c1",
+    category: "git",
+    title: "Status",
+    description: "",
+    snippets: [],
+    primaryCopyTemplate: "git status",
+    arguments: [],
+    tags: [],
+    updatedAt: "2026-07-07T00:00:00.000Z",
+  };
+
+  it("saveCommand adds a command and persists it", async () => {
+    api.getVault.mockResolvedValue("{}");
+    useVaultStore.setState({
+      model: createDefaultModel("2026-07-07T00:00:00.000Z"),
+    });
+
+    await useVaultStore.getState().saveCommand(commandFixture);
+
+    const saved = JSON.parse(api.saveVault.mock.calls[0][0] as string);
+    expect(saved.modules.commands[0].id).toBe("c1");
+  });
+
+  it("saveCommand updates an existing command in place", async () => {
+    api.getVault.mockResolvedValue("{}");
+    useVaultStore.setState({
+      model: {
+        ...createDefaultModel("2026-07-07T00:00:00.000Z"),
+        modules: { commands: [commandFixture] },
+      },
+    });
+
+    await useVaultStore
+      .getState()
+      .saveCommand({ ...commandFixture, title: "Renamed" });
+
+    const saved = JSON.parse(api.saveVault.mock.calls[0][0] as string);
+    expect(saved.modules.commands).toHaveLength(1);
+    expect(saved.modules.commands[0].title).toBe("Renamed");
+  });
+
+  it("deleteCommand removes a command", async () => {
+    api.getVault.mockResolvedValue("{}");
+    useVaultStore.setState({
+      model: {
+        ...createDefaultModel("2026-07-07T00:00:00.000Z"),
+        modules: { commands: [commandFixture] },
+      },
+    });
+
+    await useVaultStore.getState().deleteCommand("c1");
+
+    const saved = JSON.parse(api.saveVault.mock.calls[0][0] as string);
+    expect(saved.modules.commands).toEqual([]);
+  });
+
+  it("saveCommand and deleteCommand are no-ops without a model", async () => {
+    useVaultStore.setState({ model: null });
+    await useVaultStore.getState().saveCommand(commandFixture);
+    await useVaultStore.getState().deleteCommand("c1");
+    expect(api.saveVault).not.toHaveBeenCalled();
+  });
+
   it("setAutoLock persists the minutes and pushes them to the Rust session", async () => {
     api.isUnlocked.mockResolvedValue(true);
     api.getVault.mockResolvedValue("{}");
@@ -546,7 +735,58 @@ describe("vault store", () => {
     expect(useVaultStore.getState().model?.settings.autoLockMinutes).toBe(0);
   });
 
-  it("unlock pushes the vault's stored auto-lock setting to the Rust session", async () => {
+  it("updateSettings persists encrypted settings fields", async () => {
+    api.isUnlocked.mockResolvedValue(true);
+    api.getVault.mockResolvedValue("{}");
+    await useVaultStore.getState().init();
+
+    await useVaultStore.getState().updateSettings({
+      globalHotkey: "Cmd+Option+Space",
+      clipboardClearSeconds: 12,
+      theme: "dark",
+      accent: "#00AA88",
+      resultLimit: 5,
+    });
+
+    const saved = JSON.parse(api.saveVault.mock.calls[0][0] as string);
+    expect(saved.settings.globalHotkey).toBe("Cmd+Option+Space");
+    expect(saved.settings.clipboardClearSeconds).toBe(12);
+    expect(saved.settings.theme).toBe("dark");
+    expect(saved.settings.accent).toBe("#00AA88");
+    expect(saved.settings.resultLimit).toBe(5);
+    expect(api.setHotkeys).toHaveBeenCalledWith(
+      "Cmd+Option+Space",
+      "Cmd+Shift+D",
+    );
+  });
+
+  it("regenerateRecovery stores the one-time kit for Settings to display", async () => {
+    api.regenerateRecovery.mockResolvedValueOnce({
+      app: "keystash",
+      recovery_code: "fresh words",
+      instructions: "Save it.",
+    });
+
+    const kit = await useVaultStore.getState().regenerateRecovery();
+
+    expect(kit.recovery_code).toBe("fresh words");
+    expect(useVaultStore.getState().pendingKit?.recovery_code).toBe(
+      "fresh words",
+    );
+  });
+
+  it("regenerateRecovery surfaces backend failures", async () => {
+    api.regenerateRecovery.mockRejectedValueOnce(new Error("rewrap failed"));
+
+    await expect(useVaultStore.getState().regenerateRecovery()).rejects.toThrow(
+      /rewrap failed/,
+    );
+
+    expect(useVaultStore.getState().error).toMatch(/rewrap failed/);
+    expect(useVaultStore.getState().busy).toBe(false);
+  });
+
+  it("unlock pushes stored runtime settings to the Rust session", async () => {
     api.getVault.mockResolvedValue(
       JSON.stringify({
         meta: {
@@ -555,19 +795,29 @@ describe("vault store", () => {
           createdAt: "2026-07-01T00:00:00.000Z",
           updatedAt: "2026-07-01T00:00:00.000Z",
         },
-        settings: { autoLockMinutes: 15 },
+        settings: {
+          autoLockMinutes: 15,
+          globalHotkey: "Cmd+Option+Space",
+          dashboardHotkey: "Cmd+Option+D",
+        },
       }),
     );
 
     await useVaultStore.getState().unlock("master pw");
 
     expect(api.setAutoLock).toHaveBeenCalledWith(15);
+    expect(api.setHotkeys).toHaveBeenCalledWith(
+      "Cmd+Option+Space",
+      "Cmd+Option+D",
+    );
     expect(useVaultStore.getState().status).toBe("unlocked");
   });
 
   it("no-ops migration and model actions when their required state is absent", async () => {
     await useVaultStore.getState().acceptMigration();
+    await useVaultStore.getState().backupVault();
     await useVaultStore.getState().backupMigrationAndQuit();
+    await useVaultStore.getState().updateSettings({ theme: "dark" });
     await useVaultStore.getState().setAutoLock(5);
     await useVaultStore.getState().toggleModule("passwords", false);
 

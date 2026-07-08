@@ -57,15 +57,20 @@ pub fn copy_concealed(secret: &str, clear_after: Duration) -> Result<(), String>
 
     let pasteboard = MacPasteboard(NSPasteboard::generalPasteboard());
 
-    copy_concealed_with(&pasteboard, secret, clear_after, move |delay, change_count| {
-        std::thread::spawn(move || {
-            std::thread::sleep(delay);
-            let pasteboard = NSPasteboard::generalPasteboard();
-            if pasteboard.changeCount() == change_count {
-                pasteboard.clearContents();
-            }
-        });
-    })
+    copy_concealed_with(
+        &pasteboard,
+        secret,
+        clear_after,
+        move |delay, change_count| {
+            std::thread::spawn(move || {
+                std::thread::sleep(delay);
+                let pasteboard = NSPasteboard::generalPasteboard();
+                if pasteboard.changeCount() == change_count {
+                    pasteboard.clearContents();
+                }
+            });
+        },
+    )
 }
 
 #[cfg(not(target_os = "macos"))]
@@ -111,14 +116,17 @@ mod tests {
             ..Default::default()
         };
 
-        copy_concealed_with(&fake, "secret", Duration::ZERO, |_d, _c| {})
-            .expect("copy succeeds");
+        copy_concealed_with(&fake, "secret", Duration::ZERO, |_d, _c| {}).expect("copy succeeds");
 
         assert_eq!(*fake.cleared.lock().unwrap(), 1);
         let writes = fake.writes.lock().unwrap();
         assert!(writes.iter().any(|(_, t)| t == "public.utf8-plain-text"));
-        assert!(writes.iter().any(|(_, t)| t == "org.nspasteboard.ConcealedType"));
-        assert!(writes.iter().any(|(_, t)| t == "org.nspasteboard.TransientType"));
+        assert!(writes
+            .iter()
+            .any(|(_, t)| t == "org.nspasteboard.ConcealedType"));
+        assert!(writes
+            .iter()
+            .any(|(_, t)| t == "org.nspasteboard.TransientType"));
     }
 
     #[test]

@@ -1,0 +1,117 @@
+import { type FormEvent, type KeyboardEvent, useMemo, useState } from "react";
+
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { fillTemplate, parsePlaceholders } from "./logic";
+import type { CommandEntry } from "./types";
+
+/**
+ * Interactive fill-in for a command's `{{ }}` placeholders (spec §6/F2, §7.3): one field per unique
+ * placeholder (enum → dropdown), native Tab/Shift-Tab between fields, Enter copies the completed
+ * command, Opt/Alt+Enter copies the raw template. Side effects live in the caller's callbacks.
+ */
+export function FillInForm({
+  command,
+  onComplete,
+  onRaw,
+  onCancel,
+}: {
+  command: CommandEntry;
+  onComplete: (filled: string) => void;
+  onRaw: () => void;
+  onCancel: () => void;
+}) {
+  const placeholders = useMemo(
+    () => parsePlaceholders(command.primaryCopyTemplate),
+    [command.primaryCopyTemplate],
+  );
+  const argByName = useMemo(
+    () => new Map(command.arguments.map((arg) => [arg.name, arg])),
+    [command.arguments],
+  );
+  const [values, setValues] = useState<Record<string, string>>(() =>
+    Object.fromEntries(placeholders.map((name) => [name, ""])),
+  );
+
+  const preview = fillTemplate(command.primaryCopyTemplate, values);
+
+  function setValue(name: string, value: string) {
+    setValues((current) => ({ ...current, [name]: value }));
+  }
+
+  function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    onComplete(preview);
+  }
+
+  function onKeyDown(event: KeyboardEvent<HTMLFormElement>) {
+    // Opt/Alt+Enter copies the raw template with placeholders intact (§7.3).
+    if (event.altKey && event.key === "Enter") {
+      event.preventDefault();
+      onRaw();
+    }
+  }
+
+  return (
+    <form
+      className="flex flex-col gap-3 p-4"
+      onKeyDown={onKeyDown}
+      onSubmit={submit}
+    >
+      <div>
+        <p className="text-sm font-medium">{command.title}</p>
+        <p className="truncate text-xs text-muted-foreground">
+          {command.primaryCopyTemplate}
+        </p>
+      </div>
+
+      {placeholders.map((name, index) => {
+        const arg = argByName.get(name);
+        const isEnum =
+          arg?.type === "enum" && arg.values && arg.values.length > 0;
+        return (
+          <label className="grid gap-1 text-sm" key={name}>
+            <span className="font-medium">{name}</span>
+            {isEnum ? (
+              <select
+                aria-label={name}
+                autoFocus={index === 0}
+                className="rounded-md border border-input bg-transparent px-2 py-1 text-sm"
+                onChange={(event) => setValue(name, event.target.value)}
+                value={values[name]}
+              >
+                <option value="">{`Select ${name}`}</option>
+                {arg!.values!.map((option) => (
+                  <option key={option} value={option}>
+                    {option}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <Input
+                aria-label={name}
+                autoFocus={index === 0}
+                onChange={(event) => setValue(name, event.target.value)}
+                value={values[name]}
+              />
+            )}
+          </label>
+        );
+      })}
+
+      <pre className="overflow-x-auto rounded-md bg-muted p-2 text-xs">
+        {preview}
+      </pre>
+
+      <div className="flex gap-2">
+        <Button type="submit">Copy</Button>
+        <Button onClick={onRaw} type="button" variant="outline">
+          Copy raw
+        </Button>
+        <Button onClick={onCancel} type="button" variant="ghost">
+          Cancel
+        </Button>
+      </div>
+    </form>
+  );
+}

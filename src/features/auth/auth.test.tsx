@@ -37,6 +37,7 @@ vi.mock("@/vault/api", () => ({
     quitApp: vi.fn(async () => {}),
     lock: vi.fn(async () => {}),
     setAutoLock: vi.fn(async () => {}),
+    setHotkeys: vi.fn(async () => {}),
     changeMaster: vi.fn(async () => {}),
     regenerateRecovery: vi.fn(async () => ({
       app: "",

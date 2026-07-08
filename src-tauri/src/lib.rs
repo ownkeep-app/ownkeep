@@ -21,6 +21,16 @@ use tauri::{
     AppHandle,
 };
 
+#[cfg(desktop)]
+use std::str::FromStr;
+#[cfg(desktop)]
+use tauri_plugin_global_shortcut::{GlobalShortcutExt, Shortcut, ShortcutState};
+
+#[cfg(desktop)]
+const DEFAULT_GLOBAL_HOTKEY: &str = "Cmd+Shift+Space";
+#[cfg(desktop)]
+const DEFAULT_DASHBOARD_HOTKEY: &str = "Cmd+Shift+D";
+
 /// Show the main launcher window and give it keyboard focus.
 #[cfg(desktop)]
 fn show_and_focus_main(app: &AppHandle) {
@@ -61,13 +71,34 @@ fn toggle_dashboard_window(app: &AppHandle) {
     }
 }
 
+/// Register the configured launcher + Dashboard hotkeys. Settings can call the same helper at
+/// runtime; both shortcut strings are parsed before unregistering the previous bindings.
+#[cfg(desktop)]
+fn register_desktop_hotkeys(
+    app: &AppHandle,
+    global_hotkey: &str,
+    dashboard_hotkey: &str,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let toggle_launcher = Shortcut::from_str(global_hotkey)?;
+    let toggle_dash = Shortcut::from_str(dashboard_hotkey)?;
+    let shortcuts = app.global_shortcut();
+    shortcuts.unregister_all()?;
+    shortcuts.on_shortcut(toggle_launcher, move |app, _shortcut, event| {
+        if event.state == ShortcutState::Pressed {
+            toggle_main_window(app);
+        }
+    })?;
+    shortcuts.on_shortcut(toggle_dash, move |app, _shortcut, event| {
+        if event.state == ShortcutState::Pressed {
+            toggle_dashboard_window(app);
+        }
+    })?;
+    Ok(())
+}
+
 /// Wire the desktop shell: no-Dock activation policy, tray icon, and the global toggle hotkeys.
 #[cfg(desktop)]
 fn setup_desktop(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
-    use tauri_plugin_global_shortcut::{
-        Code, GlobalShortcutExt, Modifiers, Shortcut, ShortcutState,
-    };
-
     // Menu-bar app with no Dock icon — keystash is summoned by its hotkey, not clicked in the Dock.
     #[cfg(target_os = "macos")]
     app.set_activation_policy(tauri::ActivationPolicy::Accessory);
@@ -95,21 +126,12 @@ fn setup_desktop(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>>
         })
         .build(app)?;
 
-    // Global hotkeys (need Accessibility perm): Cmd+Shift+Space = launcher, Cmd+Shift+D = Dashboard.
-    let toggle_launcher = Shortcut::new(Some(Modifiers::SUPER | Modifiers::SHIFT), Code::Space);
-    app.global_shortcut()
-        .on_shortcut(toggle_launcher, move |app, _shortcut, event| {
-            if event.state == ShortcutState::Pressed {
-                toggle_main_window(app);
-            }
-        })?;
-    let toggle_dash = Shortcut::new(Some(Modifiers::SUPER | Modifiers::SHIFT), Code::KeyD);
-    app.global_shortcut()
-        .on_shortcut(toggle_dash, move |app, _shortcut, event| {
-            if event.state == ShortcutState::Pressed {
-                toggle_dashboard_window(app);
-            }
-        })?;
+    // Global hotkeys (need Accessibility perm): defaults come from the encrypted settings model.
+    register_desktop_hotkeys(
+        app.handle(),
+        DEFAULT_GLOBAL_HOTKEY,
+        DEFAULT_DASHBOARD_HOTKEY,
+    )?;
 
     Ok(())
 }
@@ -154,8 +176,11 @@ pub fn run() {
             commands::reveal_secret,
             commands::backup_vault,
             commands::backup_vault_to_chosen_location,
+            commands::restore_vault_from_chosen_location_with_password,
+            commands::restore_vault_from_chosen_location_with_recovery,
             commands::erase_vault,
             commands::quit_app,
+            set_hotkeys,
             set_main_window_blur_dismiss,
         ])
         .setup(|app| {
@@ -188,6 +213,24 @@ fn set_main_window_blur_dismiss(state: tauri::State<'_, MainWindowBehavior>, ena
     *state.0.lock().unwrap() = enabled;
 }
 
+/// Apply the hotkeys persisted in the encrypted vault settings.
+#[tauri::command]
+fn set_hotkeys(
+    app: tauri::AppHandle,
+    global_hotkey: String,
+    dashboard_hotkey: String,
+) -> Result<(), String> {
+    #[cfg(desktop)]
+    {
+        register_desktop_hotkeys(&app, &global_hotkey, &dashboard_hotkey).map_err(|e| e.to_string())
+    }
+    #[cfg(not(desktop))]
+    {
+        let _ = (app, global_hotkey, dashboard_hotkey);
+        Ok(())
+    }
+}
+
 /// Periodically wipe keys if the vault has been idle past its auto-lock timeout (spec §4.3).
 /// A dedicated background thread keeps this independent of window/UI activity.
 fn spawn_auto_lock(handle: tauri::AppHandle) {
@@ -203,8 +246,18 @@ fn spawn_auto_lock(handle: tauri::AppHandle) {
 
 #[cfg(test)]
 mod tests {
+    #[cfg(desktop)]
+    use super::*;
+
     #[test]
     fn rust_test_harness_is_wired() {
         assert_eq!(env!("CARGO_PKG_NAME"), "keystash");
+    }
+
+    #[test]
+    #[cfg(desktop)]
+    fn default_hotkeys_parse_with_the_plugin_parser() {
+        assert!(Shortcut::from_str(DEFAULT_GLOBAL_HOTKEY).is_ok());
+        assert!(Shortcut::from_str(DEFAULT_DASHBOARD_HOTKEY).is_ok());
     }
 }

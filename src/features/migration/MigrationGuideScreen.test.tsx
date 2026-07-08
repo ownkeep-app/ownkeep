@@ -17,6 +17,7 @@ vi.mock("@/vault/api", () => ({
     backupVaultToChosenLocation: vi.fn(async () => "/tmp/chosen-backup.dat"),
     saveVault: vi.fn(async () => {}),
     setAutoLock: vi.fn(async () => {}),
+    setHotkeys: vi.fn(async () => {}),
     eraseVault: vi.fn(async () => {}),
     quitApp: vi.fn(async () => {}),
   },

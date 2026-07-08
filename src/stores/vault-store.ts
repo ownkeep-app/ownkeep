@@ -9,6 +9,11 @@
 import { create } from "zustand";
 
 import { MODULES } from "@/modules/registry";
+import { commandEntries } from "@/modules/commands/logic";
+import {
+  COMMANDS_MODULE_ID,
+  type CommandEntry,
+} from "@/modules/commands/types";
 import { passwordEntries } from "@/modules/passwords/logic";
 import {
   PASSWORDS_MODULE_ID,
@@ -17,6 +22,7 @@ import {
 import { type EmergencyKit, vaultApi } from "@/vault/api";
 import {
   preMigrationBackupName,
+  preRestoreBackupName,
   prepareVaultModel,
   vaultBackupName,
   VaultCompatibilityError,
@@ -28,6 +34,7 @@ import {
   recordFrecency,
   setModuleEnabled,
   withUpdatedAt,
+  type VaultSettings,
   type VaultModel,
 } from "@/vault/model";
 
@@ -41,6 +48,7 @@ export type VaultStatus =
   | "incompatible";
 
 type PostMigrationStatus = "unlocked" | "reset";
+type SettingsPatch = Partial<Omit<VaultSettings, "modules">>;
 
 interface VaultState {
   status: VaultStatus;
@@ -60,8 +68,12 @@ interface VaultState {
   changeMaster: (newPassword: string) => Promise<void>;
   lock: () => Promise<void>;
   setAutoLock: (minutes: number) => Promise<void>;
+  updateSettings: (patch: SettingsPatch) => Promise<void>;
   acceptMigration: () => Promise<void>;
+  backupVault: () => Promise<string | null>;
   backupMigrationAndQuit: () => Promise<void>;
+  restoreVaultWithPassword: (password: string) => Promise<string | null>;
+  restoreVaultWithRecovery: (code: string) => Promise<string | null>;
   eraseVaultAndStartFresh: () => Promise<void>;
   quitApp: () => Promise<void>;
   save: (next: VaultModel) => Promise<void>;
@@ -69,8 +81,11 @@ interface VaultState {
   recordUse: (id: string) => Promise<void>;
   savePassword: (entry: PasswordEntry) => Promise<void>;
   deletePassword: (id: string) => Promise<void>;
+  saveCommand: (entry: CommandEntry) => Promise<void>;
+  deleteCommand: (id: string) => Promise<void>;
   copySecret: (id: string, field: string) => Promise<void>;
   revealSecret: (id: string, field: string) => Promise<void>;
+  regenerateRecovery: () => Promise<EmergencyKit>;
   dismissKit: () => void;
 }
 
@@ -90,8 +105,12 @@ async function loadModel(): Promise<{
  * setting (spec §4.3) — the session otherwise starts on its default timeout each launch. Fire-and-
  * forget: a failed sync only means the default timeout stays in effect, never a data problem.
  */
-function syncAutoLock(model: VaultModel): void {
+function syncRuntimeSettings(model: VaultModel): void {
   void vaultApi.setAutoLock(model.settings.autoLockMinutes);
+  void vaultApi.setHotkeys(
+    model.settings.globalHotkey,
+    model.settings.dashboardHotkey,
+  );
 }
 
 async function saveThenReloadProjection(
@@ -118,7 +137,7 @@ export const useVaultStore = create<VaultState>((set, get) => ({
     try {
       if (await vaultApi.isUnlocked()) {
         const loaded = await loadModel();
-        syncAutoLock(loaded.model);
+        syncRuntimeSettings(loaded.model);
         set({
           status: loaded.migration ? "migration" : "unlocked",
           model: loaded.model,
@@ -179,7 +198,7 @@ export const useVaultStore = create<VaultState>((set, get) => ({
       // Persist a default model immediately so settings exist right after onboarding.
       const model = ensureModuleDefaults(parseVaultJson("{}", now()), MODULES);
       await vaultApi.saveVault(JSON.stringify(model));
-      syncAutoLock(model);
+      syncRuntimeSettings(model);
       set({
         status: "unlocked",
         model,
@@ -198,7 +217,7 @@ export const useVaultStore = create<VaultState>((set, get) => ({
     try {
       await vaultApi.unlock(password);
       const loaded = await loadModel();
-      syncAutoLock(loaded.model);
+      syncRuntimeSettings(loaded.model);
       set({
         status: loaded.migration ? "migration" : "unlocked",
         model: loaded.model,
@@ -230,7 +249,7 @@ export const useVaultStore = create<VaultState>((set, get) => ({
     try {
       await vaultApi.unlockRecovery(code);
       const loaded = await loadModel();
-      syncAutoLock(loaded.model);
+      syncRuntimeSettings(loaded.model);
       // §4.1 path B: a recovery unlock forces the user to set a new master password next.
       set({
         status: loaded.migration ? "migration" : "reset",
@@ -286,6 +305,28 @@ export const useVaultStore = create<VaultState>((set, get) => ({
     await vaultApi.setAutoLock(minutes);
   },
 
+  updateSettings: async (patch) => {
+    const model = get().model;
+    if (!model) return;
+    await get().save({
+      ...model,
+      settings: { ...model.settings, ...patch },
+    });
+    if (patch.autoLockMinutes !== undefined) {
+      await vaultApi.setAutoLock(patch.autoLockMinutes);
+    }
+    if (
+      patch.globalHotkey !== undefined ||
+      patch.dashboardHotkey !== undefined
+    ) {
+      const nextSettings = { ...model.settings, ...patch };
+      await vaultApi.setHotkeys(
+        nextSettings.globalHotkey,
+        nextSettings.dashboardHotkey,
+      );
+    }
+  },
+
   acceptMigration: async () => {
     const { migration, postMigrationStatus } = get();
     if (!migration) return;
@@ -301,13 +342,30 @@ export const useVaultStore = create<VaultState>((set, get) => ({
       );
       const stamped = withUpdatedAt(migration.migratedModel, now());
       await vaultApi.saveVault(JSON.stringify(stamped));
-      syncAutoLock(stamped);
+      syncRuntimeSettings(stamped);
       set({
         status: postMigrationStatus,
         model: stamped,
         migration: null,
         incompatibleMessage: null,
       });
+    } catch (e) {
+      set({ error: String(e) });
+      throw e;
+    } finally {
+      set({ busy: false });
+    }
+  },
+
+  backupVault: async () => {
+    const model = get().model;
+    if (!model) return null;
+
+    set({ busy: true, error: null });
+    try {
+      return await vaultApi.backupVaultToChosenLocation(
+        vaultBackupName(model.meta.appVersion, new Date()),
+      );
     } catch (e) {
       set({ error: String(e) });
       throw e;
@@ -329,6 +387,86 @@ export const useVaultStore = create<VaultState>((set, get) => ({
         await vaultApi.quitApp();
       }
     } catch (e) {
+      set({ error: String(e) });
+      throw e;
+    } finally {
+      set({ busy: false });
+    }
+  },
+
+  restoreVaultWithPassword: async (password) => {
+    set({ busy: true, error: null });
+    try {
+      const restoredPath =
+        await vaultApi.restoreVaultFromChosenLocationWithPassword(
+          password,
+          preRestoreBackupName(new Date()),
+        );
+      if (!restoredPath) return null;
+
+      const loaded = await loadModel();
+      syncRuntimeSettings(loaded.model);
+      set({
+        status: loaded.migration ? "migration" : "unlocked",
+        model: loaded.model,
+        migration: loaded.migration,
+        postMigrationStatus: "unlocked",
+        incompatibleMessage: null,
+        pendingKit: null,
+      });
+      return restoredPath;
+    } catch (e) {
+      if (e instanceof VaultCompatibilityError) {
+        await vaultApi.lock();
+        set({
+          status: "incompatible",
+          model: null,
+          migration: null,
+          incompatibleMessage: e.message,
+          error: null,
+        });
+        return null;
+      }
+      set({ error: String(e) });
+      throw e;
+    } finally {
+      set({ busy: false });
+    }
+  },
+
+  restoreVaultWithRecovery: async (code) => {
+    set({ busy: true, error: null });
+    try {
+      const restoredPath =
+        await vaultApi.restoreVaultFromChosenLocationWithRecovery(
+          code,
+          preRestoreBackupName(new Date()),
+        );
+      if (!restoredPath) return null;
+
+      const loaded = await loadModel();
+      syncRuntimeSettings(loaded.model);
+      set({
+        status: loaded.migration ? "migration" : "unlocked",
+        model: loaded.model,
+        migration: loaded.migration,
+        postMigrationStatus: "unlocked",
+        incompatibleMessage: null,
+        pendingKit: null,
+      });
+      return restoredPath;
+    } catch (e) {
+      if (e instanceof VaultCompatibilityError) {
+        await vaultApi.lock();
+        set({
+          status: "incompatible",
+          model: null,
+          migration: null,
+          incompatibleMessage: e.message,
+          error: null,
+        });
+        return null;
+      }
       set({ error: String(e) });
       throw e;
     } finally {
@@ -419,12 +557,67 @@ export const useVaultStore = create<VaultState>((set, get) => ({
     );
   },
 
+  saveCommand: async (entry) => {
+    const model = get().model;
+    if (!model) return;
+    const current = commandEntries(
+      Array.isArray(model.modules[COMMANDS_MODULE_ID])
+        ? model.modules[COMMANDS_MODULE_ID]
+        : [],
+    );
+    const exists = current.some((item) => item.id === entry.id);
+    const nextItems = exists
+      ? current.map((item) => (item.id === entry.id ? entry : item))
+      : [...current, entry];
+    await saveThenReloadProjection(
+      {
+        ...model,
+        modules: { ...model.modules, [COMMANDS_MODULE_ID]: nextItems },
+      },
+      set,
+    );
+  },
+
+  deleteCommand: async (id) => {
+    const model = get().model;
+    if (!model) return;
+    const current = commandEntries(
+      Array.isArray(model.modules[COMMANDS_MODULE_ID])
+        ? model.modules[COMMANDS_MODULE_ID]
+        : [],
+    );
+    await saveThenReloadProjection(
+      {
+        ...model,
+        modules: {
+          ...model.modules,
+          [COMMANDS_MODULE_ID]: current.filter((item) => item.id !== id),
+        },
+      },
+      set,
+    );
+  },
+
   copySecret: async (id, field) => {
     await vaultApi.copySecret(id, field);
   },
 
   revealSecret: async (id, field) => {
     await vaultApi.revealSecret(id, field);
+  },
+
+  regenerateRecovery: async () => {
+    set({ busy: true, error: null });
+    try {
+      const kit = await vaultApi.regenerateRecovery();
+      set({ pendingKit: kit });
+      return kit;
+    } catch (e) {
+      set({ error: String(e) });
+      throw e;
+    } finally {
+      set({ busy: false });
+    }
   },
 
   dismissKit: () => set({ pendingKit: null }),

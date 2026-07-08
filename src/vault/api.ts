@@ -31,6 +31,9 @@ export const vaultApi = {
   lock: () => invoke<void>("lock"),
   /** Update the idle auto-lock timeout in the Rust session (minutes; `0` = never). Spec §4.3/§9. */
   setAutoLock: (minutes: number) => invoke<void>("set_auto_lock", { minutes }),
+  /** Apply the configured global/window hotkeys to the desktop shell. Spec §9/F9. */
+  setHotkeys: (globalHotkey: string, dashboardHotkey: string) =>
+    invoke<void>("set_hotkeys", { globalHotkey, dashboardHotkey }),
   changeMaster: (newPassword: string) =>
     invoke<void>("change_master", { newPassword }),
   regenerateRecovery: () => invoke<EmergencyKit>("regenerate_recovery"),
@@ -47,6 +50,22 @@ export const vaultApi = {
     invoke<string>("backup_vault", { fileName }),
   backupVaultToChosenLocation: (fileName: string) =>
     invoke<string | null>("backup_vault_to_chosen_location", { fileName }),
+  restoreVaultFromChosenLocationWithPassword: (
+    password: string,
+    preRestoreFileName: string,
+  ) =>
+    invoke<string | null>("restore_vault_from_chosen_location_with_password", {
+      password,
+      preRestoreFileName,
+    }),
+  restoreVaultFromChosenLocationWithRecovery: (
+    code: string,
+    preRestoreFileName: string,
+  ) =>
+    invoke<string | null>("restore_vault_from_chosen_location_with_recovery", {
+      code,
+      preRestoreFileName,
+    }),
   eraseVault: () => invoke<void>("erase_vault"),
   quitApp: () => invoke<void>("quit_app"),
 };

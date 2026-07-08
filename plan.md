@@ -129,17 +129,17 @@ with a **browsable Dashboard** (sidebar + content pane) and a safe upgrade path 
 - **Deferred (follow-up):** the §7.2 bridge where **`Enter` opens the item in the Dashboard** (vs. running the primary action) needs cross-window item selection the Dashboard doesn't have yet (separate WebView contexts); until then `Enter`/click runs the result's primary action. Password copy is the only wired primary action so far — later modules add their own (§7.4) in their phases.
 
 ### Phase 5 — 📋 Commands module (F2) · 2–3 d
-- [ ] `commandsModule`: category/title/description/snippets; Shiki highlighting; `ListView` (grouped by category).
-- [ ] `{{name}}` parser; typed `arguments` (text/enum); **interactive fill-in form** (Tab/Shift-Tab, Enter=copy completed).
-- [ ] Raw-copy secondary action (`Opt+Cmd+<n>` / `Opt+Enter`).
-- [ ] **Tests:** `{{ }}` parse (names, reuse, invalid) + fill substitution + raw-vs-filled output (Vitest).
+- [x] `commandsModule`: category/title/description/snippets; Shiki highlighting; `ListView` (grouped by category).
+- [x] `{{name}}` parser; typed `arguments` (text/enum); **interactive fill-in form** (Tab/Shift-Tab, Enter=copy completed).
+- [x] Raw-copy secondary action (`Opt+Cmd+<n>` / `Opt+Enter`).
+- [x] **Tests:** `{{ }}` parse (names, reuse, invalid) + fill substitution + raw-vs-filled output (Vitest).
 - **Exit:** a mid-string placeholder (`docker run -p {{port}}:{{port}} {{img}}`) fills correctly; raw copy preserves `{{ }}`; snippets highlight.
 - **Deps:** P4.
 
 ### Phase 6 — 💾 Backup/restore (§11) + Settings UI (§9) · 2–3 d
-- [ ] Backup: file dialog → copy encrypted container with versioned filename (`keystash-v<appVersion>-<timestamp>.dat`).
-- [ ] Restore: pick file → decrypt-verify → warn → optional `pre-restore` snapshot → atomic replace → reload.
-- [ ] Settings UI: hotkeys, clipboard clear, theme/accent, result limit, per-module toggles; Emergency Kit regen. *(Auto-lock timeout — configurable presets incl. never, wired to the Rust idle timer — was pulled forward and shipped in Phase 2.1.)*
+- [x] Backup: file dialog → copy encrypted container with versioned filename (`keystash-v<appVersion>-<timestamp>.dat`).
+- [x] Restore: pick file → decrypt-verify → warn → optional `pre-restore` snapshot → atomic replace → reload.
+- [x] Settings UI: hotkeys, clipboard clear, theme/accent, result limit, per-module toggles; Emergency Kit regen. *(Auto-lock timeout — configurable presets incl. never, wired to the Rust idle timer — was pulled forward and shipped in Phase 2.1.)*
 - **Exit:** backup→restore round-trips on a fresh machine; backup filename includes the vault/app version; restore refuses a wrong password; settings persist (encrypted).
 - **Deps:** P5. **← MVP / v0.9 ends here.**
 

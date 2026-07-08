@@ -5,22 +5,12 @@
  * real module (Phase 3); later modules keep their placeholders until their own phases land.
  */
 
-import { CreditCard, ListTodo, Terminal, TrendingUp } from "lucide-react";
+import { CreditCard, ListTodo, TrendingUp } from "lucide-react";
 
 import { ComingSoon } from "./ComingSoon";
+import { commandsModule } from "./commands/module";
 import { passwordsModule } from "./passwords/module";
 import type { FeatureModule } from "./types";
-
-const commandsModule: FeatureModule = {
-  id: "commands",
-  title: "Commands",
-  icon: <Terminal className="h-4 w-4" />,
-  enabledByDefault: true,
-  scopePrefix: "c",
-  createEmpty: () => [],
-  buildIndex: () => [],
-  ListView: () => <ComingSoon title="Command library" phase="Phase 5" />,
-};
 
 const todosModule: FeatureModule = {
   id: "todos",
