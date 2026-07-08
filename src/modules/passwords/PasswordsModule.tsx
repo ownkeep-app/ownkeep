@@ -1,19 +1,36 @@
 import { type FormEvent, type ReactNode, useMemo, useState } from "react";
 
-import {
-  Copy,
-  Eye,
-  ExternalLink,
-  Pencil,
-  Plus,
-  Search,
-  Trash2,
-  X,
-} from "lucide-react";
+import { Copy, Eye, Pencil, Plus, Search, Trash2, X } from "lucide-react";
 
+import { DetailModal } from "@/components/DetailModal";
+import {
+  DetailField,
+  DetailFields,
+  DetailFieldSpan,
+  DetailModalBody,
+  DetailModalHero,
+  DetailUrlField,
+} from "@/components/detail-fields";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import {
+  ActionsTableHead,
+  SortableTableHead,
+} from "@/components/ui/sortable-table-head";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { EmptyState } from "@/components/EmptyState";
+import {
+  nextSortState,
+  stableSortBy,
+  type SortState,
+  type SortValue,
+} from "@/lib/table-sort";
 import { toastError, toastSecretCopied } from "@/lib/toast";
 import type { ListViewProps } from "@/modules/types";
 import { useVaultStore } from "@/stores/vault-store";
@@ -41,42 +58,48 @@ export function PasswordsListView({ items }: ListViewProps<PasswordEntry>) {
     (s) => s.model?.settings.clipboardClearSeconds ?? 30,
   );
   const [query, setQuery] = useState("");
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [viewing, setViewing] = useState<PasswordEntry | null>(null);
   const [editing, setEditing] = useState<PasswordEntry | null | undefined>();
+  const [sortState, setSortState] =
+    useState<SortState<PasswordSortColumn> | null>(null);
 
   const passwords = useMemo(() => passwordEntries(items), [items]);
   const filtered = useMemo(() => {
     const term = query.trim().toLowerCase();
     const sorted = [...passwords].sort((a, b) => a.name.localeCompare(b.name));
-    if (!term) return sorted;
-    return sorted.filter((item) =>
-      [
-        item.name,
-        item.username,
-        item.loginUrl,
-        item.recoveryUrl,
-        item.notes,
-        item.tags.join(" "),
-      ]
-        .join(" ")
-        .toLowerCase()
-        .includes(term),
-    );
-  }, [passwords, query]);
-  const selected =
-    passwords.find((item) => item.id === selectedId) ?? filtered[0] ?? null;
+    const visible = term
+      ? sorted.filter((item) =>
+          [
+            item.name,
+            item.username,
+            item.loginUrl,
+            item.recoveryUrl,
+            item.notes,
+            item.tags.join(" "),
+          ]
+            .join(" ")
+            .toLowerCase()
+            .includes(term),
+        )
+      : sorted;
+    return sortState
+      ? stableSortBy(visible, sortState, passwordSortValue)
+      : visible;
+  }, [passwords, query, sortState]);
+  const handleSort = (column: PasswordSortColumn) =>
+    setSortState((current) => nextSortState(current, column));
 
   const startCreate = () => setEditing(null);
 
   async function handleSave(entry: PasswordEntry) {
     await savePassword(entry);
-    setSelectedId(entry.id);
+    setViewing(null);
     setEditing(undefined);
   }
 
   async function handleDelete(id: string) {
     await deletePassword(id);
-    if (selectedId === id) setSelectedId(null);
+    if (viewing?.id === id) setViewing(null);
   }
 
   async function handleCopy(id: string) {
@@ -122,144 +145,190 @@ export function PasswordsListView({ items }: ListViewProps<PasswordEntry>) {
         </Button>
       </header>
 
-      <div className="flex min-h-0 flex-1">
-        <div className="flex min-w-0 flex-1 flex-col">
-          <div className="border-b border-border p-4">
-            <label className="relative block">
-              <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input
-                aria-label="Filter passwords"
-                className="pl-9"
-                onChange={(event) => setQuery(event.target.value)}
-                placeholder="Filter passwords"
-                value={query}
-              />
-            </label>
-          </div>
-
-          {filtered.length === 0 ? (
-            query.trim() ? (
-              <EmptyState
-                title="No matches"
-                description={`Nothing matches “${query.trim()}”.`}
-              />
-            ) : (
-              <EmptyState
-                title="No passwords yet"
-                description="Add your first login to start filling the vault."
-                action={
-                  <Button onClick={startCreate}>
-                    <Plus className="h-4 w-4" />
-                    New password
-                  </Button>
-                }
-              />
-            )
-          ) : (
-            <div className="min-h-0 flex-1 overflow-auto">
-              <table className="w-full table-fixed text-sm">
-                <thead className="sticky top-0 bg-background text-left text-xs uppercase text-muted-foreground">
-                  <tr className="border-b border-border">
-                    <th className="w-4/12 px-4 py-2 font-medium" scope="col">
-                      Name
-                    </th>
-                    <th className="w-3/12 px-4 py-2 font-medium" scope="col">
-                      Username
-                    </th>
-                    <th className="w-2/12 px-4 py-2 font-medium" scope="col">
-                      Password
-                    </th>
-                    <th className="w-3/12 px-4 py-2 font-medium" scope="col">
-                      Tags
-                    </th>
-                    <th className="w-32 px-4 py-2 font-medium" scope="col">
-                      Actions
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filtered.map((item) => (
-                    <tr
-                      className={
-                        selected?.id === item.id
-                          ? "border-b border-border bg-accent/60"
-                          : "border-b border-border hover:bg-accent/40"
-                      }
-                      key={item.id}
-                    >
-                      <td className="truncate px-4 py-3">
-                        <button
-                          className="max-w-full truncate text-left font-medium"
-                          onClick={() => setSelectedId(item.id)}
-                          type="button"
-                        >
-                          {item.name}
-                        </button>
-                      </td>
-                      <td className="truncate px-4 py-3 text-muted-foreground">
-                        {item.username || "-"}
-                      </td>
-                      <td className="px-4 py-3 font-mono text-muted-foreground">
-                        {MASKED_PASSWORD}
-                      </td>
-                      <td className="truncate px-4 py-3 text-muted-foreground">
-                        {item.tags.join(", ") || "-"}
-                      </td>
-                      <td className="px-4 py-2">
-                        <div className="flex justify-end gap-1">
-                          <Button
-                            aria-label={`Copy password for ${item.name}`}
-                            onClick={() => void handleCopy(item.id)}
-                            size="icon"
-                            type="button"
-                            variant="ghost"
-                          >
-                            <Copy className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            aria-label={`Edit ${item.name}`}
-                            onClick={() => setEditing(item)}
-                            size="icon"
-                            type="button"
-                            variant="ghost"
-                          >
-                            <Pencil className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            aria-label={`Delete ${item.name}`}
-                            onClick={() => void handleDelete(item.id)}
-                            size="icon"
-                            type="button"
-                            variant="ghost"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
+      <div className="flex min-h-0 flex-1 flex-col">
+        <div className="border-b border-border p-4">
+          <label className="relative block">
+            <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Input
+              aria-label="Filter passwords"
+              className="pl-9"
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="Filter passwords"
+              value={query}
+            />
+          </label>
         </div>
 
-        <aside className="w-80 border-l border-border">
-          {selected ? (
-            <PasswordDetailView
-              item={selected}
-              onCopy={() => void handleCopy(selected.id)}
-              onReveal={() => void handleReveal(selected.id)}
+        {filtered.length === 0 ? (
+          query.trim() ? (
+            <EmptyState
+              title="No matches"
+              description={`Nothing matches “${query.trim()}”.`}
             />
           ) : (
-            <div className="p-6 text-sm text-muted-foreground">
-              Select a password to inspect its metadata.
-            </div>
+            <EmptyState
+              title="No passwords yet"
+              description="Add your first login to start filling the vault."
+              action={
+                <Button onClick={startCreate}>
+                  <Plus className="h-4 w-4" />
+                  New password
+                </Button>
+              }
+            />
+          )
+        ) : (
+          <Table className="table-fixed" wrapperClassName="min-h-0 flex-1">
+            <TableHeader className="sticky top-0 bg-background text-xs uppercase text-muted-foreground">
+              <TableRow>
+                <SortableTableHead
+                  className="w-[28%] px-4"
+                  column="name"
+                  label="Name"
+                  onSort={handleSort}
+                  sort={sortState}
+                />
+                <SortableTableHead
+                  className="w-[26%] px-4"
+                  column="username"
+                  label="Username"
+                  onSort={handleSort}
+                  sort={sortState}
+                />
+                <SortableTableHead
+                  className="w-[14%] px-4"
+                  column="password"
+                  label="Password"
+                  onSort={handleSort}
+                  sort={sortState}
+                />
+                <SortableTableHead
+                  className="w-[14%] px-4"
+                  column="tags"
+                  label="Tags"
+                  onSort={handleSort}
+                  sort={sortState}
+                />
+                <ActionsTableHead className="w-36 px-4" />
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filtered.map((item) => (
+                <TableRow
+                  className="border-b border-border hover:bg-accent/40"
+                  key={item.id}
+                >
+                  <TableCell className="break-words px-4 py-3 font-medium whitespace-normal">
+                    {item.name}
+                  </TableCell>
+                  <TableCell className="px-4 py-3 text-muted-foreground">
+                    {item.username || "-"}
+                  </TableCell>
+                  <TableCell className="px-4 py-3 font-mono text-muted-foreground">
+                    {MASKED_PASSWORD}
+                  </TableCell>
+                  <TableCell className="truncate px-4 py-3 text-muted-foreground">
+                    {item.tags.join(", ") || "-"}
+                  </TableCell>
+                  <TableCell className="px-4 py-2">
+                    <div className="flex justify-end gap-1">
+                      <Button
+                        aria-label={`View ${item.name}`}
+                        onClick={() => setViewing(item)}
+                        size="icon"
+                        type="button"
+                        variant="ghost"
+                      >
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        aria-label={`Copy password for ${item.name}`}
+                        onClick={() => void handleCopy(item.id)}
+                        size="icon"
+                        type="button"
+                        variant="ghost"
+                      >
+                        <Copy className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        aria-label={`Edit ${item.name}`}
+                        onClick={() => setEditing(item)}
+                        size="icon"
+                        type="button"
+                        variant="ghost"
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        aria-label={`Delete ${item.name}`}
+                        onClick={() => void handleDelete(item.id)}
+                        size="icon"
+                        type="button"
+                        variant="ghost"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        )}
+
+        <DetailModal
+          actions={
+            viewing && (
+              <>
+                <Button
+                  onClick={() => {
+                    setViewing(null);
+                    setEditing(viewing);
+                  }}
+                  type="button"
+                  variant="outline"
+                >
+                  <Pencil className="h-4 w-4" />
+                  Edit
+                </Button>
+                <Button
+                  onClick={() => void handleDelete(viewing.id)}
+                  type="button"
+                  variant="outline"
+                >
+                  <Trash2 className="h-4 w-4" />
+                  Delete
+                </Button>
+              </>
+            )
+          }
+          onClose={() => setViewing(null)}
+          open={viewing !== null}
+          title={viewing?.name ?? ""}
+        >
+          {viewing && (
+            <PasswordDetailView
+              item={viewing}
+              onCopy={() => void handleCopy(viewing.id)}
+              onReveal={() => void handleReveal(viewing.id)}
+            />
           )}
-        </aside>
+        </DetailModal>
       </div>
     </div>
   );
+}
+
+type PasswordSortColumn = "name" | "username" | "password" | "tags";
+
+function passwordSortValue(
+  item: PasswordEntry,
+  column: PasswordSortColumn,
+): SortValue {
+  if (column === "name") return item.name;
+  if (column === "username") return item.username;
+  if (column === "tags") return item.tags.join(", ");
+  return MASKED_PASSWORD;
 }
 
 export function PasswordDetailView({
@@ -272,51 +341,52 @@ export function PasswordDetailView({
   onReveal?: () => void;
 }) {
   return (
-    <div className="space-y-5 p-6">
-      <div>
+    <DetailModalBody>
+      <DetailModalHero>
         <p className="text-xs uppercase text-muted-foreground">Login</p>
-        <h2 className="truncate text-lg font-semibold">{item.name}</h2>
+        <h2 className="break-words text-lg font-semibold">{item.name}</h2>
         <p className="truncate text-sm text-muted-foreground">
           {item.username || "No username"}
         </p>
-      </div>
-      <div>
-        <p className="text-xs uppercase text-muted-foreground">Password</p>
-        <div className="mt-1 flex items-center gap-2">
-          <p className="flex-1 font-mono text-sm">{MASKED_PASSWORD}</p>
-          {onReveal && (
-            <Button
-              aria-label={`Reveal password for ${item.name}`}
-              onClick={onReveal}
-              size="icon"
-              type="button"
-              variant="ghost"
-            >
-              <Eye className="h-4 w-4" />
-            </Button>
-          )}
-          {onCopy && (
-            <Button
-              aria-label={`Copy password for ${item.name}`}
-              onClick={onCopy}
-              size="icon"
-              type="button"
-              variant="ghost"
-            >
-              <Copy className="h-4 w-4" />
-            </Button>
-          )}
-        </div>
-      </div>
-      <UrlRow label="Login URL" value={item.loginUrl} />
-      <UrlRow label="Recovery URL" value={item.recoveryUrl} />
-      <DetailRow label="Notes" value={item.notes || "-"} />
-      <DetailRow label="Tags" value={item.tags.join(", ") || "-"} />
-      <DetailRow
-        label="Updated"
-        value={new Date(item.updatedAt).toLocaleString()}
-      />
-    </div>
+      </DetailModalHero>
+      <DetailFields>
+        <DetailFieldSpan label="Password">
+          <div className="mt-1 flex items-center gap-2">
+            <p className="flex-1 font-mono text-sm">{MASKED_PASSWORD}</p>
+            {onReveal && (
+              <Button
+                aria-label={`Reveal password for ${item.name}`}
+                onClick={onReveal}
+                size="icon"
+                type="button"
+                variant="ghost"
+              >
+                <Eye className="h-4 w-4" />
+              </Button>
+            )}
+            {onCopy && (
+              <Button
+                aria-label={`Copy password for ${item.name}`}
+                onClick={onCopy}
+                size="icon"
+                type="button"
+                variant="ghost"
+              >
+                <Copy className="h-4 w-4" />
+              </Button>
+            )}
+          </div>
+        </DetailFieldSpan>
+        <DetailUrlField label="Login URL" value={item.loginUrl} />
+        <DetailUrlField label="Recovery URL" value={item.recoveryUrl} />
+        <DetailField label="Tags" value={item.tags.join(", ") || "-"} />
+        <DetailField
+          label="Updated"
+          value={new Date(item.updatedAt).toLocaleString()}
+        />
+        <DetailFieldSpan label="Notes" value={item.notes || "-"} />
+      </DetailFields>
+    </DetailModalBody>
   );
 }
 
@@ -449,51 +519,4 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
       {children}
     </label>
   );
-}
-
-function DetailRow({
-  label,
-  value,
-  mono,
-}: {
-  label: string;
-  value: string;
-  mono?: boolean;
-}) {
-  return (
-    <div>
-      <p className="text-xs uppercase text-muted-foreground">{label}</p>
-      <p className={mono ? "font-mono text-sm" : "break-words text-sm"}>
-        {value}
-      </p>
-    </div>
-  );
-}
-
-function UrlRow({ label, value }: { label: string; value: string }) {
-  if (!value) return <DetailRow label={label} value="-" />;
-  return (
-    <div>
-      <p className="text-xs uppercase text-muted-foreground">{label}</p>
-      <button
-        className="inline-flex max-w-full items-center gap-1 truncate text-left text-sm text-primary hover:underline"
-        onClick={() => openExternalUrl(value)}
-        type="button"
-      >
-        <span className="truncate">{value}</span>
-        <ExternalLink className="h-3.5 w-3.5 shrink-0" />
-      </button>
-    </div>
-  );
-}
-
-function openExternalUrl(value: string) {
-  try {
-    const url = new URL(value);
-    if (url.protocol === "http:" || url.protocol === "https:") {
-      window.open(url.toString(), "_blank", "noopener,noreferrer");
-    }
-  } catch {
-    // Invalid URLs stay inert; the edit form keeps them visible for correction.
-  }
 }

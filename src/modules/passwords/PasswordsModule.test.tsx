@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -90,6 +90,53 @@ describe("PasswordsListView", () => {
     expect(screen.queryByText("GitHub")).not.toBeInTheDocument();
   });
 
+  it("sorts rows by clicked table headers", async () => {
+    const user = userEvent.setup();
+    render(
+      <PasswordsListView
+        items={[
+          item,
+          {
+            ...item,
+            id: "aws",
+            name: "AWS",
+            username: "root",
+            tags: ["cloud"],
+          },
+          {
+            ...item,
+            id: "mail",
+            name: "Fastmail",
+            username: "me@example.com",
+            tags: ["personal"],
+          },
+        ]}
+      />,
+    );
+
+    expect(passwordRowNames()).toEqual(["AWS", "Fastmail", "GitHub"]);
+
+    await user.click(
+      screen.getByRole("button", { name: /sort username ascending/i }),
+    );
+    expect(passwordRowNames()).toEqual(["Fastmail", "AWS", "GitHub"]);
+
+    await user.click(
+      screen.getByRole("button", { name: /sort username descending/i }),
+    );
+    expect(passwordRowNames()).toEqual(["GitHub", "AWS", "Fastmail"]);
+
+    await user.click(
+      screen.getByRole("button", { name: /sort tags ascending/i }),
+    );
+    expect(passwordRowNames()).toEqual(["AWS", "GitHub", "Fastmail"]);
+
+    await user.click(
+      screen.getByRole("button", { name: /sort password ascending/i }),
+    );
+    expect(passwordRowNames()).toEqual(["AWS", "Fastmail", "GitHub"]);
+  });
+
   it("shows a no-matches state when the filter excludes everything", async () => {
     const user = userEvent.setup();
     render(<PasswordsListView items={[item]} />);
@@ -133,6 +180,7 @@ describe("PasswordsListView", () => {
     const user = userEvent.setup();
     render(<PasswordsListView items={[item]} />);
 
+    await user.click(screen.getByRole("button", { name: /view github/i }));
     await user.click(
       screen.getByRole("button", { name: /reveal password for github/i }),
     );
@@ -146,6 +194,7 @@ describe("PasswordsListView", () => {
     revealSecret.mockRejectedValueOnce(new Error("locked"));
     render(<PasswordsListView items={[item]} />);
 
+    await user.click(screen.getByRole("button", { name: /view github/i }));
     await user.click(
       screen.getByRole("button", { name: /reveal password for github/i }),
     );
@@ -233,7 +282,7 @@ describe("PasswordsListView", () => {
       />,
     );
 
-    await user.click(screen.getByRole("button", { name: "GitHub" }));
+    await user.click(screen.getByRole("button", { name: /view github/i }));
     await user.click(screen.getByRole("button", { name: item.loginUrl }));
     expect(open).toHaveBeenCalledWith(
       item.loginUrl,
@@ -241,7 +290,7 @@ describe("PasswordsListView", () => {
       "noopener,noreferrer",
     );
 
-    await user.click(screen.getByRole("button", { name: "FTP" }));
+    await user.click(screen.getByRole("button", { name: /view ftp/i }));
     await user.click(screen.getByRole("button", { name: "ftp://x" }));
     expect(open).toHaveBeenCalledTimes(1);
   });
@@ -257,8 +306,15 @@ describe("PasswordsListView", () => {
       />,
     );
 
-    await user.click(screen.getByRole("button", { name: "Bad" }));
+    await user.click(screen.getByRole("button", { name: /view bad/i }));
     await user.click(screen.getByRole("button", { name: "not a url" }));
     expect(open).not.toHaveBeenCalled();
   });
 });
+
+function passwordRowNames(): string[] {
+  return screen
+    .getAllByRole("row")
+    .slice(1)
+    .map((row) => within(row).getAllByRole("cell")[0].textContent ?? "");
+}

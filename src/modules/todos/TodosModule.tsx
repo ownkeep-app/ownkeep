@@ -4,6 +4,7 @@ import {
   CalendarClock,
   CheckCircle2,
   Circle,
+  Eye,
   Pencil,
   Plus,
   Search,
@@ -11,11 +12,36 @@ import {
   X,
 } from "lucide-react";
 
+import { DetailModal } from "@/components/DetailModal";
+import {
+  DetailField,
+  DetailFields,
+  DetailFieldSpan,
+  DetailModalBody,
+  DetailModalHero,
+} from "@/components/detail-fields";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
+import {
+  ActionsTableHead,
+  SortableTableHead,
+} from "@/components/ui/sortable-table-head";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { EmptyState } from "@/components/EmptyState";
+import {
+  nextSortState,
+  stableSortBy,
+  type SortState,
+  type SortValue,
+} from "@/lib/table-sort";
 import type { ListViewProps } from "@/modules/types";
 import { useVaultStore } from "@/stores/vault-store";
 import {
@@ -40,46 +66,62 @@ export function TodosListView({ items }: ListViewProps<TodoEntry>) {
   const deleteTodo = useVaultStore((s) => s.deleteTodo);
   const toggleTodoDone = useVaultStore((s) => s.toggleTodoDone);
   const [query, setQuery] = useState("");
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [viewing, setViewing] = useState<TodoEntry | null>(null);
   const [editing, setEditing] = useState<TodoEntry | null | undefined>();
+  const [sortState, setSortState] = useState<SortState<TodoSortColumn> | null>(
+    null,
+  );
 
   const todos = useMemo(() => todoEntries(items), [items]);
   const filtered = useMemo(() => {
     const term = query.trim().toLowerCase();
     const sorted = sortTodos(todos);
-    if (!term) return sorted;
-    return sorted.filter((item) =>
-      [
-        item.title,
-        item.notes,
-        item.priority,
-        item.recurrence,
-        item.tags.join(" "),
-      ]
-        .join(" ")
-        .toLowerCase()
-        .includes(term),
-    );
-  }, [todos, query]);
-  const selected =
-    todos.find((item) => item.id === selectedId) ?? filtered[0] ?? null;
+    const visible = term
+      ? sorted.filter((item) =>
+          [
+            item.title,
+            item.notes,
+            item.priority,
+            item.recurrence,
+            item.tags.join(" "),
+          ]
+            .join(" ")
+            .toLowerCase()
+            .includes(term),
+        )
+      : sorted;
+    return sortState
+      ? stableSortBy(visible, sortState, todoSortValue)
+      : visible;
+  }, [todos, query, sortState]);
+  const handleSort = (column: TodoSortColumn) =>
+    setSortState((current) => nextSortState(current, column));
   const openCount = todos.filter((item) => !item.done).length;
 
   const startCreate = () => setEditing(null);
 
   async function handleSave(entry: TodoEntry) {
     await saveTodo(entry);
-    setSelectedId(entry.id);
+    setViewing(null);
     setEditing(undefined);
   }
 
   async function handleDelete(id: string) {
     await deleteTodo(id);
-    if (selectedId === id) setSelectedId(null);
+    if (viewing?.id === id) setViewing(null);
   }
 
-  async function handleToggle(id: string) {
+  async function handleToggle(id: string, done: boolean) {
+    const item = todos.find((todo) => todo.id === id);
+    if (!item || item.done === done) return;
     await toggleTodoDone(id);
+    const slice = useVaultStore.getState().model?.modules.todos;
+    const updated = Array.isArray(slice)
+      ? todoEntries(slice).find((todo) => todo.id === id)
+      : undefined;
+    if (updated) {
+      setViewing((current) => (current?.id === id ? updated : current));
+    }
   }
 
   if (editing !== undefined) {
@@ -107,163 +149,214 @@ export function TodosListView({ items }: ListViewProps<TodoEntry>) {
         </Button>
       </header>
 
-      <div className="flex min-h-0 flex-1">
-        <div className="flex min-w-0 flex-1 flex-col">
-          <div className="border-b border-border p-4">
-            <label className="relative block">
-              <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input
-                aria-label="Filter todos"
-                className="pl-9"
-                onChange={(event) => setQuery(event.target.value)}
-                placeholder="Filter todos"
-                value={query}
-              />
-            </label>
-          </div>
-
-          {filtered.length === 0 ? (
-            query.trim() ? (
-              <EmptyState
-                title="No matches"
-                description={`Nothing matches “${query.trim()}”.`}
-              />
-            ) : (
-              <EmptyState
-                title="No todos yet"
-                description="Add a task — set a due time to get reminders."
-                action={
-                  <Button onClick={startCreate}>
-                    <Plus className="h-4 w-4" />
-                    New todo
-                  </Button>
-                }
-              />
-            )
-          ) : (
-            <div className="min-h-0 flex-1 overflow-auto">
-              <table className="w-full table-fixed text-sm">
-                <thead className="sticky top-0 bg-background text-left text-xs uppercase text-muted-foreground">
-                  <tr className="border-b border-border">
-                    <th className="w-14 px-4 py-2 font-medium" scope="col">
-                      Done
-                    </th>
-                    <th className="w-4/12 px-4 py-2 font-medium" scope="col">
-                      Title
-                    </th>
-                    <th className="w-3/12 px-4 py-2 font-medium" scope="col">
-                      Due
-                    </th>
-                    <th className="w-2/12 px-4 py-2 font-medium" scope="col">
-                      Priority
-                    </th>
-                    <th className="w-2/12 px-4 py-2 font-medium" scope="col">
-                      Tags
-                    </th>
-                    <th className="w-28 px-4 py-2 font-medium" scope="col">
-                      Actions
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filtered.map((item) => (
-                    <tr
-                      className={
-                        selected?.id === item.id
-                          ? "border-b border-border bg-accent/60"
-                          : "border-b border-border hover:bg-accent/40"
-                      }
-                      key={item.id}
-                    >
-                      <td className="px-4 py-3">
-                        <Checkbox
-                          aria-label={`Toggle ${item.title}`}
-                          checked={item.done}
-                          onCheckedChange={() => void handleToggle(item.id)}
-                        />
-                      </td>
-                      <td className="truncate px-4 py-3">
-                        <button
-                          className={
-                            item.done
-                              ? "max-w-full truncate text-left text-muted-foreground line-through"
-                              : "max-w-full truncate text-left font-medium"
-                          }
-                          onClick={() => setSelectedId(item.id)}
-                          type="button"
-                        >
-                          {item.title}
-                        </button>
-                      </td>
-                      <td className="truncate px-4 py-3 text-muted-foreground">
-                        {formatDateTime(item.dueAt)}
-                      </td>
-                      <td className="px-4 py-3">
-                        <PriorityPill priority={item.priority} />
-                      </td>
-                      <td className="truncate px-4 py-3 text-muted-foreground">
-                        {item.tags.join(", ") || "-"}
-                      </td>
-                      <td className="px-4 py-2">
-                        <div className="flex justify-end gap-1">
-                          <Button
-                            aria-label={`Edit ${item.title}`}
-                            onClick={() => setEditing(item)}
-                            size="icon"
-                            type="button"
-                            variant="ghost"
-                          >
-                            <Pencil className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            aria-label={`Delete ${item.title}`}
-                            onClick={() => void handleDelete(item.id)}
-                            size="icon"
-                            type="button"
-                            variant="ghost"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
+      <div className="flex min-h-0 flex-1 flex-col">
+        <div className="border-b border-border p-4">
+          <label className="relative block">
+            <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Input
+              aria-label="Filter todos"
+              className="pl-9"
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="Filter todos"
+              value={query}
+            />
+          </label>
         </div>
 
-        <aside className="w-80 border-l border-border">
-          {selected ? (
-            <TodoDetailView
-              item={selected}
-              onEdit={() => setEditing(selected)}
-              onToggle={() => void handleToggle(selected.id)}
+        {filtered.length === 0 ? (
+          query.trim() ? (
+            <EmptyState
+              title="No matches"
+              description={`Nothing matches “${query.trim()}”.`}
             />
           ) : (
-            <div className="p-6 text-sm text-muted-foreground">
-              Select a todo to inspect it.
-            </div>
-          )}
-        </aside>
+            <EmptyState
+              title="No todos yet"
+              description="Add a task — set a due time to get reminders."
+              action={
+                <Button onClick={startCreate}>
+                  <Plus className="h-4 w-4" />
+                  New todo
+                </Button>
+              }
+            />
+          )
+        ) : (
+          <Table className="table-fixed" wrapperClassName="min-h-0 flex-1">
+            <TableHeader className="sticky top-0 bg-background text-xs uppercase text-muted-foreground">
+              <TableRow>
+                <SortableTableHead
+                  className="w-14 px-4"
+                  column="done"
+                  label="Done"
+                  onSort={handleSort}
+                  sort={sortState}
+                />
+                <SortableTableHead
+                  className="w-[28%] px-4"
+                  column="title"
+                  label="Title"
+                  onSort={handleSort}
+                  sort={sortState}
+                />
+                <SortableTableHead
+                  className="w-[20%] px-4"
+                  column="due"
+                  label="Due"
+                  onSort={handleSort}
+                  sort={sortState}
+                />
+                <SortableTableHead
+                  className="w-[14%] px-4"
+                  column="priority"
+                  label="Priority"
+                  onSort={handleSort}
+                  sort={sortState}
+                />
+                <SortableTableHead
+                  className="w-[18%] px-4"
+                  column="tags"
+                  label="Tags"
+                  onSort={handleSort}
+                  sort={sortState}
+                />
+                <ActionsTableHead className="w-32 px-4" />
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filtered.map((item) => (
+                <TableRow
+                  className="border-b border-border hover:bg-accent/40"
+                  key={item.id}
+                >
+                  <TableCell className="px-4 py-3">
+                    <Checkbox
+                      aria-label={`Toggle ${item.title}`}
+                      checked={item.done}
+                      onCheckedChange={(checked) =>
+                        void handleToggle(item.id, checked)
+                      }
+                    />
+                  </TableCell>
+                  <TableCell
+                    className={
+                      item.done
+                        ? "truncate px-4 py-3 text-muted-foreground line-through"
+                        : "truncate px-4 py-3 font-medium"
+                    }
+                  >
+                    {item.title}
+                  </TableCell>
+                  <TableCell className="truncate px-4 py-3 text-muted-foreground">
+                    {formatDateTime(item.dueAt)}
+                  </TableCell>
+                  <TableCell className="px-4 py-3">
+                    <PriorityPill priority={item.priority} />
+                  </TableCell>
+                  <TableCell className="truncate px-4 py-3 text-muted-foreground">
+                    {item.tags.join(", ") || "-"}
+                  </TableCell>
+                  <TableCell className="px-4 py-2">
+                    <div className="flex justify-end gap-1">
+                      <Button
+                        aria-label={`View ${item.title}`}
+                        onClick={() => setViewing(item)}
+                        size="icon"
+                        type="button"
+                        variant="ghost"
+                      >
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        aria-label={`Edit ${item.title}`}
+                        onClick={() => setEditing(item)}
+                        size="icon"
+                        type="button"
+                        variant="ghost"
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        aria-label={`Delete ${item.title}`}
+                        onClick={() => void handleDelete(item.id)}
+                        size="icon"
+                        type="button"
+                        variant="ghost"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        )}
+
+        <DetailModal
+          actions={
+            viewing && (
+              <>
+                <Button
+                  onClick={() => void handleToggle(viewing.id, !viewing.done)}
+                  type="button"
+                  variant="outline"
+                >
+                  {viewing.done ? "Mark open" : "Mark done"}
+                </Button>
+                <Button
+                  onClick={() => {
+                    setViewing(null);
+                    setEditing(viewing);
+                  }}
+                  type="button"
+                  variant="outline"
+                >
+                  <Pencil className="h-4 w-4" />
+                  Edit
+                </Button>
+                <Button
+                  onClick={() => void handleDelete(viewing.id)}
+                  type="button"
+                  variant="outline"
+                >
+                  <Trash2 className="h-4 w-4" />
+                  Delete
+                </Button>
+              </>
+            )
+          }
+          onClose={() => setViewing(null)}
+          open={viewing !== null}
+          title={viewing?.title ?? ""}
+        >
+          {viewing && <TodoDetailView item={viewing} />}
+        </DetailModal>
       </div>
     </div>
   );
 }
 
-export function TodoDetailView({
-  item,
-  onEdit,
-  onToggle,
-}: {
-  item: TodoEntry;
-  onEdit?: () => void;
-  onToggle?: () => void;
-}) {
+type TodoSortColumn = "done" | "title" | "due" | "priority" | "tags";
+
+function todoSortValue(item: TodoEntry, column: TodoSortColumn): SortValue {
+  if (column === "done") return item.done;
+  if (column === "title") return item.title;
+  if (column === "due") return item.dueAt ? Date.parse(item.dueAt) : null;
+  if (column === "tags") return item.tags.join(", ");
+  return priorityRank[item.priority];
+}
+
+const priorityRank: Record<TodoEntry["priority"], number> = {
+  high: 0,
+  normal: 1,
+  low: 2,
+};
+
+export function TodoDetailView({ item }: { item: TodoEntry }) {
   return (
-    <div className="space-y-5 p-6">
-      <div>
+    <DetailModalBody>
+      <DetailModalHero>
         <p className="text-xs uppercase text-muted-foreground">Todo</p>
         <div className="mt-1 flex items-start gap-2">
           {item.done ? (
@@ -273,40 +366,24 @@ export function TodoDetailView({
           )}
           <h2 className="min-w-0 flex-1 text-lg font-semibold">{item.title}</h2>
         </div>
-      </div>
-      <DetailRow label="Status" value={item.done ? "Done" : "Open"} />
-      <DetailRow label="Due" value={formatDateTime(item.dueAt)} />
-      <DetailRow
-        label="Reminder"
-        value={`${item.notifyLeadMinutes} minutes before due`}
-      />
-      <DetailRow label="Priority" value={item.priority} />
-      <DetailRow label="Recurrence" value={item.recurrence} />
-      <DetailRow label="Notes" value={item.notes || "-"} />
-      <DetailRow label="Tags" value={item.tags.join(", ") || "-"} />
-      <DetailRow
-        label="Updated"
-        value={new Date(item.updatedAt).toLocaleString()}
-      />
-      <div className="flex gap-2">
-        {onToggle && (
-          <Button onClick={onToggle} type="button" variant="secondary">
-            {item.done ? (
-              <Circle className="h-4 w-4" />
-            ) : (
-              <CheckCircle2 className="h-4 w-4" />
-            )}
-            {item.done ? "Reopen" : "Complete"}
-          </Button>
-        )}
-        {onEdit && (
-          <Button onClick={onEdit} type="button" variant="outline">
-            <Pencil className="h-4 w-4" />
-            Edit
-          </Button>
-        )}
-      </div>
-    </div>
+      </DetailModalHero>
+      <DetailFields>
+        <DetailField label="Status" value={item.done ? "Done" : "Open"} />
+        <DetailField label="Due" value={formatDateTime(item.dueAt)} />
+        <DetailField
+          label="Reminder"
+          value={`${item.notifyLeadMinutes} minutes before due`}
+        />
+        <DetailField label="Priority" value={item.priority} />
+        <DetailField label="Recurrence" value={item.recurrence} />
+        <DetailField label="Tags" value={item.tags.join(", ") || "-"} />
+        <DetailField
+          label="Updated"
+          value={new Date(item.updatedAt).toLocaleString()}
+        />
+        <DetailFieldSpan label="Notes" value={item.notes || "-"} />
+      </DetailFields>
+    </DetailModalBody>
   );
 }
 
@@ -476,14 +553,5 @@ function PriorityPill({ priority }: { priority: TodoEntry["priority"] }) {
     <span className="inline-flex rounded-sm border border-border px-2 py-0.5 text-xs text-muted-foreground">
       {label}
     </span>
-  );
-}
-
-function DetailRow({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <p className="text-xs uppercase text-muted-foreground">{label}</p>
-      <p className="mt-1 break-words text-sm">{value}</p>
-    </div>
   );
 }

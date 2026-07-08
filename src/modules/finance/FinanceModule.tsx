@@ -2,6 +2,7 @@ import { type FormEvent, useMemo, useState } from "react";
 
 import {
   Coins,
+  Eye,
   Pencil,
   Plus,
   Search,
@@ -10,9 +11,33 @@ import {
   X,
 } from "lucide-react";
 
+import { DetailModal } from "@/components/DetailModal";
+import {
+  DetailFields,
+  DetailFieldSpan,
+  DetailModalBody,
+  DetailModalHero,
+} from "@/components/detail-fields";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import {
+  ActionsTableHead,
+  SortableTableHead,
+} from "@/components/ui/sortable-table-head";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { EmptyState } from "@/components/EmptyState";
+import {
+  nextSortState,
+  stableSortBy,
+  type SortState,
+  type SortValue,
+} from "@/lib/table-sort";
 import type { ListViewProps } from "@/modules/types";
 import { useVaultStore } from "@/stores/vault-store";
 import { defaultSettings } from "@/vault/model";
@@ -33,7 +58,11 @@ import {
   validateSnapshotInput,
   type FinanceFx,
 } from "./logic";
-import type { FinanceEntryInput, Snapshot, SnapshotFormInput } from "./types";
+import {
+  type FinanceEntryInput,
+  type Snapshot,
+  type SnapshotFormInput,
+} from "./types";
 
 export function FinanceListView({ items }: ListViewProps<Snapshot>) {
   const model = useVaultStore((s) => s.model);
@@ -42,9 +71,11 @@ export function FinanceListView({ items }: ListViewProps<Snapshot>) {
   const settings = model?.settings ?? defaultSettings();
 
   const [query, setQuery] = useState("");
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [viewing, setViewing] = useState<Snapshot | null>(null);
   const [editing, setEditing] = useState<Snapshot | null | undefined>();
   const [showFx, setShowFx] = useState(false);
+  const [sortState, setSortState] =
+    useState<SortState<FinanceSortColumn> | null>(null);
 
   const snapshots = useMemo(() => financeSnapshots(items), [items]);
   const fx = useMemo(() => readFinanceFx(settings), [settings]);
@@ -52,38 +83,42 @@ export function FinanceListView({ items }: ListViewProps<Snapshot>) {
   const sorted = useMemo(() => sortSnapshots(snapshots), [snapshots]);
   const filtered = useMemo(() => {
     const term = query.trim().toLowerCase();
-    if (!term) return sorted;
-    return sorted.filter((snapshot) =>
-      [
-        formatSnapshotDate(snapshot.date),
-        snapshot.note,
-        ...snapshot.entries.flatMap((entry) => [
-          entry.place,
-          entry.category,
-          entry.currency,
-        ]),
-      ]
-        .join(" ")
-        .toLowerCase()
-        .includes(term),
-    );
-  }, [sorted, query]);
-  const selected =
-    snapshots.find((snapshot) => snapshot.id === selectedId) ??
-    filtered[0] ??
-    null;
+    const visible = term
+      ? sorted.filter((snapshot) =>
+          [
+            formatSnapshotDate(snapshot.date),
+            snapshot.note,
+            ...snapshot.entries.flatMap((entry) => [
+              entry.place,
+              entry.category,
+              entry.currency,
+            ]),
+          ]
+            .join(" ")
+            .toLowerCase()
+            .includes(term),
+        )
+      : sorted;
+    return sortState
+      ? stableSortBy(visible, sortState, (snapshot, column) =>
+          financeSortValue(snapshot, column, fx),
+        )
+      : visible;
+  }, [sorted, query, sortState, fx]);
+  const handleSort = (column: FinanceSortColumn) =>
+    setSortState((current) => nextSortState(current, column));
 
   const startCreate = () => setEditing(null);
 
   async function handleSave(entry: Snapshot) {
     await saveSnapshot(entry);
-    setSelectedId(entry.id);
+    setViewing(null);
     setEditing(undefined);
   }
 
   async function handleDelete(id: string) {
     await deleteSnapshot(id);
-    if (selectedId === id) setSelectedId(null);
+    if (viewing?.id === id) setViewing(null);
   }
 
   if (editing !== undefined) {
@@ -129,147 +164,181 @@ export function FinanceListView({ items }: ListViewProps<Snapshot>) {
 
       <TrendChart currency={fx.baseCurrency} points={series} />
 
-      <div className="flex min-h-0 flex-1 border-t border-border">
-        <div className="flex min-w-0 flex-1 flex-col">
-          <div className="border-b border-border p-4">
-            <label className="relative block">
-              <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input
-                aria-label="Filter snapshots"
-                className="pl-9"
-                onChange={(event) => setQuery(event.target.value)}
-                placeholder="Filter snapshots"
-                value={query}
-              />
-            </label>
-          </div>
-
-          {filtered.length === 0 ? (
-            query.trim() ? (
-              <EmptyState
-                title="No matches"
-                description={`Nothing matches “${query.trim()}”.`}
-              />
-            ) : (
-              <EmptyState
-                title="No snapshots yet"
-                description="Add a snapshot to start tracking net worth over time."
-                action={
-                  <Button onClick={startCreate} type="button">
-                    <Plus className="h-4 w-4" />
-                    New snapshot
-                  </Button>
-                }
-              />
-            )
-          ) : (
-            <div className="min-h-0 flex-1 overflow-auto">
-              <table className="w-full table-fixed text-sm">
-                <thead className="sticky top-0 bg-background text-left text-xs uppercase text-muted-foreground">
-                  <tr className="border-b border-border">
-                    <th className="w-4/12 px-4 py-2 font-medium" scope="col">
-                      Date
-                    </th>
-                    <th className="w-5/12 px-4 py-2 font-medium" scope="col">
-                      Net worth
-                    </th>
-                    <th className="w-2/12 px-4 py-2 font-medium" scope="col">
-                      Places
-                    </th>
-                    <th className="w-24 px-4 py-2 font-medium" scope="col">
-                      Actions
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filtered.map((snapshot) => {
-                    const stats = computeSnapshotStats(snapshot, fx);
-                    return (
-                      <tr
-                        className={
-                          selected?.id === snapshot.id
-                            ? "border-b border-border bg-accent/60"
-                            : "border-b border-border hover:bg-accent/40"
-                        }
-                        key={snapshot.id}
-                      >
-                        <td className="truncate px-4 py-3">
-                          <button
-                            className="max-w-full truncate text-left font-medium"
-                            onClick={() => setSelectedId(snapshot.id)}
-                            type="button"
-                          >
-                            {formatSnapshotDate(snapshot.date)}
-                          </button>
-                        </td>
-                        <td className="truncate px-4 py-3 text-muted-foreground">
-                          {formatMoney(stats.totalBase, fx.baseCurrency)}
-                          {stats.missingCurrencies.length > 0 && (
-                            <span className="ml-1 text-xs text-destructive">
-                              (+{stats.missingCurrencies.join(", ")})
-                            </span>
-                          )}
-                        </td>
-                        <td className="px-4 py-3 text-muted-foreground">
-                          {snapshot.entries.length}
-                        </td>
-                        <td className="px-4 py-2">
-                          <div className="flex justify-end gap-1">
-                            <Button
-                              aria-label={`Edit snapshot ${formatSnapshotDate(snapshot.date)}`}
-                              onClick={() => setEditing(snapshot)}
-                              size="icon"
-                              type="button"
-                              variant="ghost"
-                            >
-                              <Pencil className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              aria-label={`Delete snapshot ${formatSnapshotDate(snapshot.date)}`}
-                              onClick={() => void handleDelete(snapshot.id)}
-                              size="icon"
-                              type="button"
-                              variant="ghost"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
+      <div className="flex min-h-0 flex-1 flex-col border-t border-border">
+        <div className="border-b border-border p-4">
+          <label className="relative block">
+            <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Input
+              aria-label="Filter snapshots"
+              className="pl-9"
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="Filter snapshots"
+              value={query}
+            />
+          </label>
         </div>
 
-        <aside className="w-80 border-l border-border">
-          {selected ? (
-            <FinanceDetailView
-              fx={fx}
-              onEdit={() => setEditing(selected)}
-              snapshot={selected}
+        {filtered.length === 0 ? (
+          query.trim() ? (
+            <EmptyState
+              title="No matches"
+              description={`Nothing matches “${query.trim()}”.`}
             />
           ) : (
-            <div className="p-6 text-sm text-muted-foreground">
-              Select a snapshot to see its breakdown.
-            </div>
-          )}
-        </aside>
+            <EmptyState
+              title="No snapshots yet"
+              description="Add a snapshot to start tracking net worth over time."
+              action={
+                <Button onClick={startCreate} type="button">
+                  <Plus className="h-4 w-4" />
+                  New snapshot
+                </Button>
+              }
+            />
+          )
+        ) : (
+          <Table className="table-fixed" wrapperClassName="min-h-0 flex-1">
+            <TableHeader className="sticky top-0 bg-background text-xs uppercase text-muted-foreground">
+              <TableRow>
+                <SortableTableHead
+                  className="w-[22%] px-4"
+                  column="date"
+                  label="Date"
+                  onSort={handleSort}
+                  sort={sortState}
+                />
+                <SortableTableHead
+                  className="w-[40%] px-4"
+                  column="netWorth"
+                  label="Net worth"
+                  onSort={handleSort}
+                  sort={sortState}
+                />
+                <SortableTableHead
+                  className="w-[14%] px-4"
+                  column="places"
+                  label="Places"
+                  onSort={handleSort}
+                  sort={sortState}
+                />
+                <ActionsTableHead className="w-32 px-4" />
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filtered.map((snapshot) => {
+                const stats = computeSnapshotStats(snapshot, fx);
+                return (
+                  <TableRow
+                    className="border-b border-border hover:bg-accent/40"
+                    key={snapshot.id}
+                  >
+                    <TableCell className="truncate px-4 py-3 font-medium">
+                      {formatSnapshotDate(snapshot.date)}
+                    </TableCell>
+                    <TableCell className="truncate px-4 py-3 text-muted-foreground">
+                      {formatMoney(stats.totalBase, fx.baseCurrency)}
+                      {stats.missingCurrencies.length > 0 && (
+                        <span className="ml-1 text-xs text-destructive">
+                          (+{stats.missingCurrencies.join(", ")})
+                        </span>
+                      )}
+                    </TableCell>
+                    <TableCell className="px-4 py-3 text-muted-foreground">
+                      {snapshot.entries.length}
+                    </TableCell>
+                    <TableCell className="px-4 py-2">
+                      <div className="flex justify-end gap-1">
+                        <Button
+                          aria-label={`View snapshot ${formatSnapshotDate(snapshot.date)}`}
+                          onClick={() => setViewing(snapshot)}
+                          size="icon"
+                          type="button"
+                          variant="ghost"
+                        >
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          aria-label={`Edit snapshot ${formatSnapshotDate(snapshot.date)}`}
+                          onClick={() => setEditing(snapshot)}
+                          size="icon"
+                          type="button"
+                          variant="ghost"
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          aria-label={`Delete snapshot ${formatSnapshotDate(snapshot.date)}`}
+                          onClick={() => void handleDelete(snapshot.id)}
+                          size="icon"
+                          type="button"
+                          variant="ghost"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        )}
+
+        <DetailModal
+          actions={
+            viewing && (
+              <>
+                <Button
+                  onClick={() => {
+                    setViewing(null);
+                    setEditing(viewing);
+                  }}
+                  type="button"
+                  variant="outline"
+                >
+                  <Pencil className="h-4 w-4" />
+                  Edit
+                </Button>
+                <Button
+                  onClick={() => void handleDelete(viewing.id)}
+                  type="button"
+                  variant="outline"
+                >
+                  <Trash2 className="h-4 w-4" />
+                  Delete
+                </Button>
+              </>
+            )
+          }
+          onClose={() => setViewing(null)}
+          open={viewing !== null}
+          title={viewing ? formatSnapshotDate(viewing.date) : ""}
+        >
+          {viewing && <FinanceDetailView fx={fx} snapshot={viewing} />}
+        </DetailModal>
       </div>
     </div>
   );
 }
 
+type FinanceSortColumn = "date" | "netWorth" | "places";
+
+function financeSortValue(
+  snapshot: Snapshot,
+  column: FinanceSortColumn,
+  fx: FinanceFx,
+): SortValue {
+  if (column === "date") return Date.parse(snapshot.date);
+  if (column === "places") return snapshot.entries.length;
+  return computeSnapshotStats(snapshot, fx).totalBase;
+}
+
 export function FinanceDetailView({
   snapshot,
   fx,
-  onEdit,
 }: {
   snapshot: Snapshot;
   fx: FinanceFx;
-  onEdit?: () => void;
 }) {
   const stats = computeSnapshotStats(snapshot, fx);
   const categories = Object.entries(stats.byCategory).sort(
@@ -277,8 +346,8 @@ export function FinanceDetailView({
   );
 
   return (
-    <div className="space-y-5 p-6">
-      <div>
+    <DetailModalBody>
+      <DetailModalHero>
         <p className="text-xs uppercase text-muted-foreground">Snapshot</p>
         <div className="mt-1 flex items-start gap-2">
           <TrendingUp className="mt-1 h-4 w-4 text-primary" />
@@ -289,64 +358,56 @@ export function FinanceDetailView({
         <p className="mt-1 text-2xl font-semibold">
           {formatMoney(stats.totalBase, fx.baseCurrency)}
         </p>
-      </div>
+      </DetailModalHero>
 
       {stats.missingCurrencies.length > 0 && (
-        <p className="text-sm text-destructive">
+        <p className="mb-4 text-sm text-destructive">
           No FX rate for {stats.missingCurrencies.join(", ")} — excluded from
           the total. Add a rate under FX rates.
         </p>
       )}
 
-      <div>
-        <p className="text-xs uppercase text-muted-foreground">By category</p>
-        {categories.length === 0 ? (
-          <p className="mt-1 text-sm text-muted-foreground">-</p>
-        ) : (
+      <DetailFields>
+        <div>
+          <p className="text-xs uppercase text-muted-foreground">By category</p>
+          {categories.length === 0 ? (
+            <p className="mt-1 text-sm text-muted-foreground">-</p>
+          ) : (
+            <ul className="mt-1 space-y-1 text-sm">
+              {categories.map(([category, amount]) => (
+                <li className="flex justify-between gap-3" key={category}>
+                  <span className="truncate">{category}</span>
+                  <span className="text-muted-foreground">
+                    {formatMoney(amount, fx.baseCurrency)}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+
+        <div>
+          <p className="text-xs uppercase text-muted-foreground">Holdings</p>
           <ul className="mt-1 space-y-1 text-sm">
-            {categories.map(([category, amount]) => (
-              <li className="flex justify-between gap-3" key={category}>
-                <span className="truncate">{category}</span>
+            {snapshot.entries.map((entry, index) => (
+              <li
+                className="flex justify-between gap-3"
+                key={`${entry.place}-${index}`}
+              >
+                <span className="truncate">{entry.place}</span>
                 <span className="text-muted-foreground">
-                  {formatMoney(amount, fx.baseCurrency)}
+                  {formatMoney(entry.amount, entry.currency)}
                 </span>
               </li>
             ))}
           </ul>
-        )}
-      </div>
-
-      <div>
-        <p className="text-xs uppercase text-muted-foreground">Holdings</p>
-        <ul className="mt-1 space-y-1 text-sm">
-          {snapshot.entries.map((entry, index) => (
-            <li
-              className="flex justify-between gap-3"
-              key={`${entry.place}-${index}`}
-            >
-              <span className="truncate">{entry.place}</span>
-              <span className="text-muted-foreground">
-                {formatMoney(entry.amount, entry.currency)}
-              </span>
-            </li>
-          ))}
-        </ul>
-      </div>
-
-      {snapshot.note && (
-        <div>
-          <p className="text-xs uppercase text-muted-foreground">Note</p>
-          <p className="mt-1 break-words text-sm">{snapshot.note}</p>
         </div>
-      )}
 
-      {onEdit && (
-        <Button onClick={onEdit} type="button" variant="outline">
-          <Pencil className="h-4 w-4" />
-          Edit
-        </Button>
-      )}
-    </div>
+        {snapshot.note && (
+          <DetailFieldSpan label="Note" value={snapshot.note} />
+        )}
+      </DetailFields>
+    </DetailModalBody>
   );
 }
 

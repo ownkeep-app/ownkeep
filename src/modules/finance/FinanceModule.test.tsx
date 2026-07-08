@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -66,6 +66,67 @@ describe("FinanceListView", () => {
     expect(screen.getAllByText(/USD 100\.00/).length).toBeGreaterThan(0);
   });
 
+  it("sorts rows by derived net worth", async () => {
+    const user = userEvent.setup();
+    render(
+      <FinanceListView
+        items={[
+          ...snapshots,
+          {
+            id: "s3",
+            date: "2026-05-01T00:00:00.000Z",
+            note: "may",
+            entries: [
+              {
+                place: "Wallet",
+                category: "cash",
+                amount: 50,
+                currency: "USD",
+              },
+            ],
+            updatedAt: "2026-05-01T00:00:00.000Z",
+          },
+        ]}
+      />,
+    );
+
+    await user.click(
+      screen.getByRole("button", { name: /sort net worth ascending/i }),
+    );
+    expect(financeRowDates()).toEqual([
+      "May 1, 2026",
+      "Jun 1, 2026",
+      "Jul 1, 2026",
+    ]);
+
+    await user.click(
+      screen.getByRole("button", { name: /sort net worth descending/i }),
+    );
+    expect(financeRowDates()).toEqual([
+      "Jul 1, 2026",
+      "Jun 1, 2026",
+      "May 1, 2026",
+    ]);
+
+    await user.click(
+      screen.getByRole("button", { name: /sort date ascending/i }),
+    );
+    expect(financeRowDates()).toEqual([
+      "May 1, 2026",
+      "Jun 1, 2026",
+      "Jul 1, 2026",
+    ]);
+
+    await user.click(
+      screen.getByRole("button", { name: /sort places ascending/i }),
+    );
+    expect(financeRowDates()).toEqual([
+      "Jun 1, 2026",
+      "May 1, 2026",
+      "Jul 1, 2026",
+    ]);
+  });
+
   it("adds a snapshot through the form", async () => {
     const user = userEvent.setup();
     render(<FinanceListView items={snapshots} />);
@@ -119,10 +180,14 @@ describe("FinanceListView", () => {
     ];
     render(<FinanceListView items={withEur} />);
 
-    expect(screen.getByText(/no fx rate for eur/i)).toBeInTheDocument();
-    expect(screen.getByText("aug note")).toBeInTheDocument();
+    await user.click(
+      screen.getByRole("button", { name: /view snapshot aug 1, 2026/i }),
+    );
+    const dialog = screen.getByRole("dialog", { name: /aug 1, 2026/i });
+    expect(within(dialog).getByText(/no fx rate for eur/i)).toBeInTheDocument();
+    expect(within(dialog).getByText("aug note")).toBeInTheDocument();
 
-    await user.click(screen.getByRole("button", { name: "Edit" }));
+    await user.click(within(dialog).getByRole("button", { name: "Edit" }));
     expect(
       screen.getByRole("heading", { name: /edit snapshot/i }),
     ).toBeInTheDocument();
@@ -200,3 +265,10 @@ describe("FinanceListView", () => {
     ).toBeInTheDocument();
   });
 });
+
+function financeRowDates(): string[] {
+  return screen
+    .getAllByRole("row")
+    .slice(1)
+    .map((row) => within(row).getAllByRole("cell")[0].textContent ?? "");
+}

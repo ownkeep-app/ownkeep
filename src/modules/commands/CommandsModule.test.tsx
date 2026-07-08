@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -180,8 +180,9 @@ describe("CommandsListView", () => {
         ]}
       />,
     );
-    await user.click(screen.getByRole("button", { name: "Rebase" }));
-    await user.click(screen.getByRole("button", { name: "Copy" }));
+    await user.click(screen.getByRole("button", { name: /view rebase/i }));
+    const dialog = screen.getByRole("dialog", { name: "Rebase" });
+    await user.click(within(dialog).getByRole("button", { name: "Copy" }));
     expect(clip).toHaveBeenCalledWith("git rebase");
   });
 

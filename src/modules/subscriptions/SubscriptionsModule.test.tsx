@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -86,6 +86,61 @@ describe("SubscriptionsListView", () => {
     );
 
     expect(screen.getByText(/no matches/i)).toBeVisible();
+  });
+
+  it("sorts rows by clicked table headers", async () => {
+    const user = userEvent.setup();
+    render(
+      <SubscriptionsListView
+        items={[
+          item,
+          {
+            ...item,
+            id: "sub-2",
+            service: "Figma",
+            amount: 12,
+            cycle: "weekly",
+            nextDueDate: "2026-07-05T00:00:00.000Z",
+            autoRenew: false,
+            notes: "design",
+          },
+          {
+            ...item,
+            id: "sub-3",
+            service: "Apple",
+            amount: 30,
+            cycle: "yearly",
+            nextDueDate: "2026-08-01T00:00:00.000Z",
+            notes: "music",
+          },
+        ]}
+      />,
+    );
+
+    await user.click(
+      screen.getByRole("button", { name: /sort amount ascending/i }),
+    );
+    expect(subscriptionRowServices()).toEqual(["Figma", "Linode", "Apple"]);
+
+    await user.click(
+      screen.getByRole("button", { name: /sort amount descending/i }),
+    );
+    expect(subscriptionRowServices()).toEqual(["Apple", "Linode", "Figma"]);
+
+    await user.click(
+      screen.getByRole("button", { name: /sort cycle ascending/i }),
+    );
+    expect(subscriptionRowServices()).toEqual(["Figma", "Linode", "Apple"]);
+
+    await user.click(
+      screen.getByRole("button", { name: /sort next due ascending/i }),
+    );
+    expect(subscriptionRowServices()).toEqual(["Figma", "Linode", "Apple"]);
+
+    await user.click(
+      screen.getByRole("button", { name: /sort renew ascending/i }),
+    );
+    expect(subscriptionRowServices()).toEqual(["Linode", "Apple", "Figma"]);
   });
 
   it("shows converted summary totals when finance FX settings are enabled", () => {
@@ -221,10 +276,7 @@ describe("SubscriptionsListView", () => {
     expect(deleteSubscription).toHaveBeenCalledWith("sub-1");
   });
 
-  it("renders detail actions", async () => {
-    const user = userEvent.setup();
-    const onAdvance = vi.fn();
-    const onEdit = vi.fn();
+  it("renders detail fields", () => {
     render(
       <SubscriptionDetailView
         item={{
@@ -233,19 +285,18 @@ describe("SubscriptionsListView", () => {
           cycle: "custom",
           customIntervalDays: 45,
         }}
-        onAdvance={onAdvance}
-        onEdit={onEdit}
       />,
     );
 
     expect(screen.getByRole("heading", { name: "Linode" })).toBeVisible();
     expect(screen.getByText("Manual")).toBeVisible();
     expect(screen.getByText("Every 45 days")).toBeVisible();
-
-    await user.click(screen.getByRole("button", { name: /advance due/i }));
-    await user.click(screen.getByRole("button", { name: /edit/i }));
-
-    expect(onAdvance).toHaveBeenCalledTimes(1);
-    expect(onEdit).toHaveBeenCalledTimes(1);
   });
 });
+
+function subscriptionRowServices(): string[] {
+  return screen
+    .getAllByRole("row")
+    .slice(1)
+    .map((row) => within(row).getAllByRole("cell")[0].textContent ?? "");
+}

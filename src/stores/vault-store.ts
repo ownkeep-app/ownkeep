@@ -671,13 +671,12 @@ export const useVaultStore = create<VaultState>((set, get) => ({
     const nextItems = current.map((item) =>
       item.id === id ? toggleTodoDoneState(item, now()) : item,
     );
-    await saveThenReloadProjection(
-      {
-        ...model,
-        modules: { ...model.modules, [TODOS_MODULE_ID]: nextItems },
-      },
-      set,
-    );
+    // Persist the toggled slice directly (no getVault round-trip) so the Dashboard checkbox
+    // updates immediately; todos have no secret fields that need a redacted reload.
+    await get().save({
+      ...model,
+      modules: { ...model.modules, [TODOS_MODULE_ID]: nextItems },
+    });
   },
 
   saveSubscription: async (entry) => {

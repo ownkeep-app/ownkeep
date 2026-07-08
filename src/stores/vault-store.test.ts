@@ -929,6 +929,23 @@ describe("vault store", () => {
     expect(saved.modules.todos).toEqual([]);
   });
 
+  it("toggleTodoDone updates the in-memory model without reloading getVault", async () => {
+    api.getVault.mockResolvedValue("{}");
+    useVaultStore.setState({
+      model: {
+        ...createDefaultModel("2026-07-07T00:00:00.000Z"),
+        modules: { todos: [todoFixture] },
+      },
+    });
+
+    await useVaultStore.getState().toggleTodoDone("todo-1");
+
+    expect(api.getVault).not.toHaveBeenCalled();
+    expect(useVaultStore.getState().model?.modules.todos).toEqual([
+      expect.objectContaining({ id: "todo-1", done: true }),
+    ]);
+  });
+
   it("todo actions are no-ops without a model", async () => {
     useVaultStore.setState({ model: null });
     await useVaultStore.getState().saveTodo(todoFixture);

@@ -4,6 +4,7 @@ import {
   CalendarDays,
   CreditCard,
   ExternalLink,
+  Eye,
   Pencil,
   Plus,
   Search,
@@ -11,13 +12,39 @@ import {
   X,
 } from "lucide-react";
 
+import { DetailModal } from "@/components/DetailModal";
+import {
+  DetailField,
+  DetailFields,
+  DetailFieldSpan,
+  DetailModalBody,
+  DetailModalHero,
+} from "@/components/detail-fields";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
+import {
+  ActionsTableHead,
+  SortableTableHead,
+} from "@/components/ui/sortable-table-head";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { EmptyState } from "@/components/EmptyState";
+import {
+  nextSortState,
+  stableSortBy,
+  type SortState,
+  type SortValue,
+} from "@/lib/table-sort";
 import type { ListViewProps } from "@/modules/types";
 import { useVaultStore } from "@/stores/vault-store";
+import { cn } from "@/lib/utils";
 import { defaultSettings } from "@/vault/model";
 import {
   advanceNextDueDate,
@@ -45,10 +72,12 @@ export function SubscriptionsListView({
   const saveSubscription = useVaultStore((s) => s.saveSubscription);
   const deleteSubscription = useVaultStore((s) => s.deleteSubscription);
   const [query, setQuery] = useState("");
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [viewing, setViewing] = useState<SubscriptionEntry | null>(null);
   const [editing, setEditing] = useState<
     SubscriptionEntry | null | undefined
   >();
+  const [sortState, setSortState] =
+    useState<SortState<SubscriptionSortColumn> | null>(null);
 
   const subscriptions = useMemo(() => subscriptionEntries(items), [items]);
   const summary = useMemo(
@@ -62,28 +91,32 @@ export function SubscriptionsListView({
   const filtered = useMemo(() => {
     const term = query.trim().toLowerCase();
     const sorted = sortSubscriptions(subscriptions);
-    if (!term) return sorted;
-    return sorted.filter((item) =>
-      [item.service, item.url, item.currency, item.cycle, item.notes]
-        .join(" ")
-        .toLowerCase()
-        .includes(term),
-    );
-  }, [subscriptions, query]);
-  const selected =
-    subscriptions.find((item) => item.id === selectedId) ?? filtered[0] ?? null;
+    const visible = term
+      ? sorted.filter((item) =>
+          [item.service, item.url, item.currency, item.cycle, item.notes]
+            .join(" ")
+            .toLowerCase()
+            .includes(term),
+        )
+      : sorted;
+    return sortState
+      ? stableSortBy(visible, sortState, subscriptionSortValue)
+      : visible;
+  }, [subscriptions, query, sortState]);
+  const handleSort = (column: SubscriptionSortColumn) =>
+    setSortState((current) => nextSortState(current, column));
 
   const startCreate = () => setEditing(null);
 
   async function handleSave(entry: SubscriptionEntry) {
     await saveSubscription(entry);
-    setSelectedId(entry.id);
+    setViewing(null);
     setEditing(undefined);
   }
 
   async function handleDelete(id: string) {
     await deleteSubscription(id);
-    if (selectedId === id) setSelectedId(null);
+    if (viewing?.id === id) setViewing(null);
   }
 
   async function handleAdvance(item: SubscriptionEntry) {
@@ -98,7 +131,11 @@ export function SubscriptionsListView({
       nextDueDate,
       updatedAt: new Date().toISOString(),
     });
-    setSelectedId(item.id);
+    setViewing((current) =>
+      current?.id === item.id
+        ? { ...item, nextDueDate, updatedAt: new Date().toISOString() }
+        : current,
+    );
   }
 
   if (editing !== undefined) {
@@ -130,164 +167,217 @@ export function SubscriptionsListView({
         <SummaryStrip summary={summary} />
       </header>
 
-      <div className="flex min-h-0 flex-1">
-        <div className="flex min-w-0 flex-1 flex-col">
-          <div className="border-b border-border p-4">
-            <label className="relative block">
-              <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input
-                aria-label="Filter subscriptions"
-                className="pl-9"
-                onChange={(event) => setQuery(event.target.value)}
-                placeholder="Filter subscriptions"
-                value={query}
-              />
-            </label>
-          </div>
-
-          {filtered.length === 0 ? (
-            query.trim() ? (
-              <EmptyState
-                title="No matches"
-                description={`Nothing matches “${query.trim()}”.`}
-              />
-            ) : (
-              <EmptyState
-                title="No subscriptions yet"
-                description="Track a recurring service to get renewal reminders."
-                action={
-                  <Button onClick={startCreate}>
-                    <Plus className="h-4 w-4" />
-                    New subscription
-                  </Button>
-                }
-              />
-            )
-          ) : (
-            <div className="min-h-0 flex-1 overflow-auto">
-              <table className="w-full table-fixed text-sm">
-                <thead className="sticky top-0 bg-background text-left text-xs uppercase text-muted-foreground">
-                  <tr className="border-b border-border">
-                    <th className="w-4/12 px-4 py-2 font-medium" scope="col">
-                      Service
-                    </th>
-                    <th className="w-2/12 px-4 py-2 font-medium" scope="col">
-                      Amount
-                    </th>
-                    <th className="w-2/12 px-4 py-2 font-medium" scope="col">
-                      Cycle
-                    </th>
-                    <th className="w-2/12 px-4 py-2 font-medium" scope="col">
-                      Next due
-                    </th>
-                    <th className="w-24 px-4 py-2 font-medium" scope="col">
-                      Renew
-                    </th>
-                    <th className="w-32 px-4 py-2 font-medium" scope="col">
-                      Actions
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filtered.map((item) => (
-                    <tr
-                      className={
-                        selected?.id === item.id
-                          ? "border-b border-border bg-accent/60"
-                          : "border-b border-border hover:bg-accent/40"
-                      }
-                      key={item.id}
-                    >
-                      <td className="truncate px-4 py-3">
-                        <button
-                          className="max-w-full truncate text-left font-medium"
-                          onClick={() => setSelectedId(item.id)}
-                          type="button"
-                        >
-                          {item.service}
-                        </button>
-                      </td>
-                      <td className="truncate px-4 py-3 text-muted-foreground">
-                        {formatCurrencyAmount(item.amount, item.currency)}
-                      </td>
-                      <td className="px-4 py-3">
-                        <CyclePill cycle={item.cycle} />
-                      </td>
-                      <td className="truncate px-4 py-3 text-muted-foreground">
-                        {formatDate(item.nextDueDate)}
-                      </td>
-                      <td className="px-4 py-3 text-muted-foreground">
-                        {item.autoRenew ? "Auto" : "Manual"}
-                      </td>
-                      <td className="px-4 py-2">
-                        <div className="flex justify-end gap-1">
-                          <Button
-                            aria-label={`Advance ${item.service}`}
-                            onClick={() => void handleAdvance(item)}
-                            size="icon"
-                            type="button"
-                            variant="ghost"
-                          >
-                            <CalendarDays className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            aria-label={`Edit ${item.service}`}
-                            onClick={() => setEditing(item)}
-                            size="icon"
-                            type="button"
-                            variant="ghost"
-                          >
-                            <Pencil className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            aria-label={`Delete ${item.service}`}
-                            onClick={() => void handleDelete(item.id)}
-                            size="icon"
-                            type="button"
-                            variant="ghost"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
+      <div className="flex min-h-0 flex-1 flex-col">
+        <div className="border-b border-border p-4">
+          <label className="relative block">
+            <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Input
+              aria-label="Filter subscriptions"
+              className="pl-9"
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="Filter subscriptions"
+              value={query}
+            />
+          </label>
         </div>
 
-        <aside className="w-80 border-l border-border">
-          {selected ? (
-            <SubscriptionDetailView
-              item={selected}
-              onAdvance={() => void handleAdvance(selected)}
-              onEdit={() => setEditing(selected)}
+        {filtered.length === 0 ? (
+          query.trim() ? (
+            <EmptyState
+              title="No matches"
+              description={`Nothing matches “${query.trim()}”.`}
             />
           ) : (
-            <div className="p-6 text-sm text-muted-foreground">
-              Select a subscription to inspect it.
-            </div>
-          )}
-        </aside>
+            <EmptyState
+              title="No subscriptions yet"
+              description="Track a recurring service to get renewal reminders."
+              action={
+                <Button onClick={startCreate}>
+                  <Plus className="h-4 w-4" />
+                  New subscription
+                </Button>
+              }
+            />
+          )
+        ) : (
+          <Table className="table-fixed" wrapperClassName="min-h-0 flex-1">
+            <TableHeader className="sticky top-0 bg-background text-xs uppercase text-muted-foreground">
+              <TableRow>
+                <SortableTableHead
+                  className="w-[22%] px-4"
+                  column="service"
+                  label="Service"
+                  onSort={handleSort}
+                  sort={sortState}
+                />
+                <SortableTableHead
+                  className="w-[14%] px-4"
+                  column="amount"
+                  label="Amount"
+                  onSort={handleSort}
+                  sort={sortState}
+                />
+                <SortableTableHead
+                  className="w-[12%] px-4"
+                  column="cycle"
+                  label="Cycle"
+                  onSort={handleSort}
+                  sort={sortState}
+                />
+                <SortableTableHead
+                  className="w-[18%] px-4"
+                  column="nextDue"
+                  label="Next due"
+                  onSort={handleSort}
+                  sort={sortState}
+                />
+                <SortableTableHead
+                  className="w-[12%] px-4"
+                  column="renew"
+                  label="Renew"
+                  onSort={handleSort}
+                  sort={sortState}
+                />
+                <ActionsTableHead className="w-40 px-4" />
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filtered.map((item) => (
+                <TableRow
+                  className="border-b border-border hover:bg-accent/40"
+                  key={item.id}
+                >
+                  <TableCell className="truncate px-4 py-3 font-medium">
+                    {item.service}
+                  </TableCell>
+                  <TableCell className="truncate px-4 py-3 text-muted-foreground">
+                    {formatCurrencyAmount(item.amount, item.currency)}
+                  </TableCell>
+                  <TableCell className="px-4 py-3">
+                    <CyclePill cycle={item.cycle} />
+                  </TableCell>
+                  <TableCell className="truncate px-4 py-3 text-muted-foreground">
+                    {formatDate(item.nextDueDate)}
+                  </TableCell>
+                  <TableCell className="px-4 py-3 text-muted-foreground">
+                    {item.autoRenew ? "Auto" : "Manual"}
+                  </TableCell>
+                  <TableCell className="px-4 py-2">
+                    <div className="flex justify-end gap-1">
+                      <Button
+                        aria-label={`View ${item.service}`}
+                        onClick={() => setViewing(item)}
+                        size="icon"
+                        type="button"
+                        variant="ghost"
+                      >
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        aria-label={`Advance ${item.service}`}
+                        onClick={() => void handleAdvance(item)}
+                        size="icon"
+                        type="button"
+                        variant="ghost"
+                      >
+                        <CalendarDays className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        aria-label={`Edit ${item.service}`}
+                        onClick={() => setEditing(item)}
+                        size="icon"
+                        type="button"
+                        variant="ghost"
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        aria-label={`Delete ${item.service}`}
+                        onClick={() => void handleDelete(item.id)}
+                        size="icon"
+                        type="button"
+                        variant="ghost"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        )}
+
+        <DetailModal
+          actions={
+            viewing && (
+              <>
+                <Button
+                  onClick={() => void handleAdvance(viewing)}
+                  type="button"
+                  variant="outline"
+                >
+                  <CalendarDays className="h-4 w-4" />
+                  Advance due date
+                </Button>
+                <Button
+                  onClick={() => {
+                    setViewing(null);
+                    setEditing(viewing);
+                  }}
+                  type="button"
+                  variant="outline"
+                >
+                  <Pencil className="h-4 w-4" />
+                  Edit
+                </Button>
+                <Button
+                  onClick={() => void handleDelete(viewing.id)}
+                  type="button"
+                  variant="outline"
+                >
+                  <Trash2 className="h-4 w-4" />
+                  Delete
+                </Button>
+              </>
+            )
+          }
+          onClose={() => setViewing(null)}
+          open={viewing !== null}
+          title={viewing?.service ?? ""}
+        >
+          {viewing && <SubscriptionDetailView item={viewing} />}
+        </DetailModal>
       </div>
     </div>
   );
 }
 
-export function SubscriptionDetailView({
-  item,
-  onAdvance,
-  onEdit,
-}: {
-  item: SubscriptionEntry;
-  onAdvance?: () => void;
-  onEdit?: () => void;
-}) {
+type SubscriptionSortColumn =
+  "service" | "amount" | "cycle" | "nextDue" | "renew";
+
+function subscriptionSortValue(
+  item: SubscriptionEntry,
+  column: SubscriptionSortColumn,
+): SortValue {
+  if (column === "service") return item.service;
+  if (column === "amount") return item.amount;
+  if (column === "cycle") return subscriptionCycleRank[item.cycle];
+  if (column === "nextDue") return Date.parse(item.nextDueDate);
+  return item.autoRenew ? "Auto" : "Manual";
+}
+
+const subscriptionCycleRank: Record<SubscriptionEntry["cycle"], number> = {
+  weekly: 0,
+  monthly: 1,
+  yearly: 2,
+  custom: 3,
+};
+
+export function SubscriptionDetailView({ item }: { item: SubscriptionEntry }) {
   return (
-    <div className="space-y-5 p-6">
-      <div>
+    <DetailModalBody>
+      <DetailModalHero>
         <p className="text-xs uppercase text-muted-foreground">Subscription</p>
         <div className="mt-1 flex items-start gap-2">
           <CreditCard className="mt-1 h-4 w-4 text-primary" />
@@ -295,39 +385,30 @@ export function SubscriptionDetailView({
             {item.service}
           </h2>
         </div>
-      </div>
-      <DetailRow
-        label="Amount"
-        value={formatCurrencyAmount(item.amount, item.currency)}
-      />
-      <DetailRow label="Cycle" value={formatCycleDetail(item)} />
-      <DetailRow label="Next due" value={formatDate(item.nextDueDate)} />
-      <DetailRow
-        label="Reminder"
-        value={`${item.notifyLeadDays} days before due`}
-      />
-      <DetailRow label="Renewal" value={item.autoRenew ? "Auto" : "Manual"} />
-      <DetailRow label="Billing URL" value={item.url || "-"} />
-      <DetailRow label="Notes" value={item.notes || "-"} />
-      <DetailRow
-        label="Updated"
-        value={new Date(item.updatedAt).toLocaleString()}
-      />
-      <div className="flex flex-wrap gap-2">
-        {onAdvance && (
-          <Button onClick={onAdvance} type="button" variant="secondary">
-            <CalendarDays className="h-4 w-4" />
-            Advance due
-          </Button>
-        )}
-        {onEdit && (
-          <Button onClick={onEdit} type="button" variant="outline">
-            <Pencil className="h-4 w-4" />
-            Edit
-          </Button>
-        )}
-      </div>
-    </div>
+      </DetailModalHero>
+      <DetailFields>
+        <DetailField
+          label="Amount"
+          value={formatCurrencyAmount(item.amount, item.currency)}
+        />
+        <DetailField label="Cycle" value={formatCycleDetail(item)} />
+        <DetailField label="Next due" value={formatDate(item.nextDueDate)} />
+        <DetailField
+          label="Reminder"
+          value={`${item.notifyLeadDays} days before due`}
+        />
+        <DetailField
+          label="Renewal"
+          value={item.autoRenew ? "Auto" : "Manual"}
+        />
+        <DetailField label="Billing URL" value={item.url || "-"} />
+        <DetailField
+          label="Updated"
+          value={new Date(item.updatedAt).toLocaleString()}
+        />
+        <DetailFieldSpan label="Notes" value={item.notes || "-"} />
+      </DetailFields>
+    </DetailModalBody>
   );
 }
 
@@ -546,19 +627,38 @@ function SummaryStrip({
       : null;
 
   return (
-    <div className="mt-4 grid gap-3 text-sm md:grid-cols-3">
+    <div className="mt-4 grid gap-3 text-sm md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,2fr)]">
       <SummaryMetric label="Monthly" value={rawMonthly} />
       <SummaryMetric label="Annual" value={rawAnnual} />
-      <SummaryMetric label="Converted" value={converted ?? "No FX base"} />
+      <SummaryMetric
+        label="Converted"
+        value={converted ?? "No FX base"}
+        wide
+      />
     </div>
   );
 }
 
-function SummaryMetric({ label, value }: { label: string; value: string }) {
+function SummaryMetric({
+  label,
+  value,
+  wide = false,
+}: {
+  label: string;
+  value: string;
+  wide?: boolean;
+}) {
   return (
     <div className="min-w-0 border-l border-border pl-3">
       <p className="text-xs uppercase text-muted-foreground">{label}</p>
-      <p className="mt-1 truncate font-medium">{value}</p>
+      <p
+        className={cn(
+          "mt-1 font-medium",
+          wide ? "break-words whitespace-normal" : "truncate",
+        )}
+      >
+        {value}
+      </p>
     </div>
   );
 }
@@ -569,15 +669,6 @@ function CyclePill({ cycle }: { cycle: SubscriptionEntry["cycle"] }) {
     <span className="inline-flex rounded-sm border border-border px-2 py-0.5 text-xs text-muted-foreground">
       {label}
     </span>
-  );
-}
-
-function DetailRow({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <p className="text-xs uppercase text-muted-foreground">{label}</p>
-      <p className="mt-1 break-words text-sm">{value}</p>
-    </div>
   );
 }
 

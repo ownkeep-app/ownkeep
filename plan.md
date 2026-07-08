@@ -190,15 +190,14 @@ changes, update migrations + the migration guide in the same release per spec §
 
 - [ ] **Sortable module tables:** on every Dashboard module screen that uses a table, clicking a
   column header sorts the list (toggle ascending/descending, stable).
-- [ ] **Resizable table columns:** allow per-column resizing via drag handles on table headers.
-  - [ ] Keep it simple: store column widths per module in settings; provide a “Reset columns”
-    affordance.
-- [ ] **Detail-on-demand modal:** remove the persistent right-side detail column from Dashboard module
+- [x] ~~**Resizable table columns:**~~ removed after manual testing — fixed proportional columns
+  are sufficient; drag handles were hard to use and clipped header labels.
+- [x] **Detail-on-demand modal:** remove the persistent right-side detail column from Dashboard module
   panes.
-  - [ ] Add a `View` icon/button in the `Actions` column for each row.
-  - [ ] Clicking `View` opens a modal listing item details (read-only), with Edit/Delete/Copy actions
+  - [x] Add a `View` icon/button in the `Actions` column for each row.
+  - [x] Clicking `View` opens a modal listing item details (read-only), with Edit/Delete/Copy actions
     as appropriate.
-  - [ ] Keep the list the primary interaction surface; modals should be dismissible via Esc and
+  - [x] Keep the list the primary interaction surface; modals should be dismissible via Esc and
     click-away.
 - [ ] **Passwords list quick actions (Dashboard only):**
   - [ ] Clicking the masked password (`*****`) reveals the real password inline/overlay **without

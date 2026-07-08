@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -65,14 +65,78 @@ describe("TodosListView", () => {
     expect(screen.getByText(/no matches/i)).toBeVisible();
   });
 
+  it("sorts rows by clicked table headers", async () => {
+    const user = userEvent.setup();
+    render(
+      <TodosListView
+        items={[
+          item,
+          {
+            ...item,
+            id: "todo-2",
+            title: "Buy tea",
+            dueAt: null,
+            priority: "low",
+            tags: [],
+          },
+          {
+            ...item,
+            id: "todo-3",
+            title: "Call bank",
+            done: true,
+            dueAt: "2026-07-07T12:30:00.000Z",
+            priority: "normal",
+            tags: ["finance"],
+          },
+        ]}
+      />,
+    );
+
+    await user.click(
+      screen.getByRole("button", { name: /sort title ascending/i }),
+    );
+    expect(todoRowTitles()).toEqual(["Buy tea", "Call bank", "Renew passport"]);
+
+    await user.click(
+      screen.getByRole("button", { name: /sort title descending/i }),
+    );
+    expect(todoRowTitles()).toEqual(["Renew passport", "Call bank", "Buy tea"]);
+
+    await user.click(
+      screen.getByRole("button", { name: /sort done ascending/i }),
+    );
+    expect(todoRowTitles()).toEqual(["Renew passport", "Buy tea", "Call bank"]);
+
+    await user.click(
+      screen.getByRole("button", { name: /sort due ascending/i }),
+    );
+    expect(todoRowTitles()).toEqual(["Call bank", "Renew passport", "Buy tea"]);
+
+    await user.click(
+      screen.getByRole("button", { name: /sort priority ascending/i }),
+    );
+    expect(todoRowTitles()).toEqual(["Renew passport", "Call bank", "Buy tea"]);
+
+    await user.click(
+      screen.getByRole("button", { name: /sort tags ascending/i }),
+    );
+    expect(todoRowTitles()).toEqual(["Buy tea", "Call bank", "Renew passport"]);
+  });
+
   it("renders completed todos and detail actions", async () => {
     const user = userEvent.setup();
     render(<TodosListView items={[{ ...item, done: true }]} />);
 
     expect(screen.getByLabelText("Toggle Renew passport")).toBeChecked();
-    expect(screen.getByRole("button", { name: "Reopen" })).toBeVisible();
+    await user.click(
+      screen.getByRole("button", { name: /view renew passport/i }),
+    );
+    const dialog = screen.getByRole("dialog", { name: "Renew passport" });
+    expect(
+      within(dialog).getByRole("button", { name: "Mark open" }),
+    ).toBeVisible();
 
-    await user.click(screen.getByRole("button", { name: "Reopen" }));
+    await user.click(within(dialog).getByRole("button", { name: "Mark open" }));
     expect(toggleTodoDone).toHaveBeenCalledWith("todo-1");
 
     render(<TodoDetailView item={{ ...item, done: true }} />);
@@ -141,3 +205,10 @@ describe("TodosListView", () => {
     expect(deleteTodo).toHaveBeenCalledWith("todo-1");
   });
 });
+
+function todoRowTitles(): string[] {
+  return screen
+    .getAllByRole("row")
+    .slice(1)
+    .map((row) => within(row).getAllByRole("cell")[1].textContent ?? "");
+}

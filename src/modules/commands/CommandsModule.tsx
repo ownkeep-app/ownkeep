@@ -1,6 +1,15 @@
 import { type FormEvent, type ReactNode, useMemo, useState } from "react";
 
-import { Copy, Pencil, Plus, Trash2, X } from "lucide-react";
+import { Copy, Eye, Pencil, Plus, Trash2, X } from "lucide-react";
+
+import { DetailModal } from "@/components/DetailModal";
+import {
+  DetailField,
+  DetailFields,
+  DetailFieldSpan,
+  DetailModalBody,
+  DetailModalHero,
+} from "@/components/detail-fields";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -27,7 +36,7 @@ export function CommandsListView({ items }: ListViewProps<CommandEntry>) {
   const saveCommand = useVaultStore((s) => s.saveCommand);
   const deleteCommand = useVaultStore((s) => s.deleteCommand);
   const [query, setQuery] = useState("");
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [viewing, setViewing] = useState<CommandEntry | null>(null);
   const [editing, setEditing] = useState<CommandEntry | null | undefined>();
   const [copying, setCopying] = useState<CommandEntry | null>(null);
 
@@ -43,20 +52,18 @@ export function CommandsListView({ items }: ListViewProps<CommandEntry>) {
     );
   }, [commands, query]);
   const groups = useMemo(() => groupByCategory(filtered), [filtered]);
-  const selected =
-    commands.find((item) => item.id === selectedId) ?? filtered[0] ?? null;
 
   const startCreate = () => setEditing(null);
 
   async function handleSave(entry: CommandEntry) {
     await saveCommand(entry);
-    setSelectedId(entry.id);
+    setViewing(null);
     setEditing(undefined);
   }
 
   async function handleDelete(id: string) {
     await deleteCommand(id);
-    if (selectedId === id) setSelectedId(null);
+    if (viewing?.id === id) setViewing(null);
   }
 
   async function copyText(text: string, note: string) {
@@ -65,7 +72,6 @@ export function CommandsListView({ items }: ListViewProps<CommandEntry>) {
   }
 
   function startCopy(command: CommandEntry) {
-    setSelectedId(command.id);
     if (parsePlaceholders(command.primaryCopyTemplate).length > 0) {
       setCopying(command);
     } else {
@@ -99,97 +105,141 @@ export function CommandsListView({ items }: ListViewProps<CommandEntry>) {
         </Button>
       </header>
 
-      <div className="flex min-h-0 flex-1">
-        <div className="flex min-w-0 flex-1 flex-col">
-          <div className="border-b border-border p-4">
-            <Input
-              aria-label="Filter commands"
-              onChange={(event) => setQuery(event.target.value)}
-              placeholder="Filter commands"
-              value={query}
-            />
-          </div>
-
-          {groups.length === 0 ? (
-            query.trim() ? (
-              <EmptyState
-                title="No matches"
-                description={`Nothing matches “${query.trim()}”.`}
-              />
-            ) : (
-              <EmptyState
-                title="No commands yet"
-                description="Save a snippet with {{ }} placeholders to reuse it fast."
-                action={
-                  <Button onClick={startCreate}>
-                    <Plus className="h-4 w-4" />
-                    New command
-                  </Button>
-                }
-              />
-            )
-          ) : (
-            <div className="min-h-0 flex-1 overflow-auto p-2">
-              {groups.map((group) => (
-                <section key={group.category} className="mb-3">
-                  <h2 className="px-2 py-1 text-xs font-medium uppercase text-muted-foreground">
-                    {group.category}
-                  </h2>
-                  <ul>
-                    {group.commands.map((command) => (
-                      <li
-                        className={
-                          selected?.id === command.id
-                            ? "flex items-center gap-2 rounded-md bg-accent/60 px-2 py-1.5"
-                            : "flex items-center gap-2 rounded-md px-2 py-1.5 hover:bg-accent/40"
-                        }
-                        key={command.id}
-                      >
-                        <button
-                          className="min-w-0 flex-1 truncate text-left text-sm"
-                          onClick={() => setSelectedId(command.id)}
-                          type="button"
-                        >
-                          {command.title}
-                        </button>
-                        <Button
-                          aria-label={`Copy ${command.title}`}
-                          onClick={() => startCopy(command)}
-                          size="icon"
-                          type="button"
-                          variant="ghost"
-                        >
-                          <Copy className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          aria-label={`Edit ${command.title}`}
-                          onClick={() => setEditing(command)}
-                          size="icon"
-                          type="button"
-                          variant="ghost"
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          aria-label={`Delete ${command.title}`}
-                          onClick={() => void handleDelete(command.id)}
-                          size="icon"
-                          type="button"
-                          variant="ghost"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </li>
-                    ))}
-                  </ul>
-                </section>
-              ))}
-            </div>
-          )}
+      <div className="flex min-h-0 flex-1 flex-col">
+        <div className="border-b border-border p-4">
+          <Input
+            aria-label="Filter commands"
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="Filter commands"
+            value={query}
+          />
         </div>
 
-        <aside className="w-96 border-l border-border">
-          {copying ? (
+        {groups.length === 0 ? (
+          query.trim() ? (
+            <EmptyState
+              title="No matches"
+              description={`Nothing matches “${query.trim()}”.`}
+            />
+          ) : (
+            <EmptyState
+              title="No commands yet"
+              description="Save a snippet with {{ }} placeholders to reuse it fast."
+              action={
+                <Button onClick={startCreate}>
+                  <Plus className="h-4 w-4" />
+                  New command
+                </Button>
+              }
+            />
+          )
+        ) : (
+          <div className="min-h-0 flex-1 overflow-auto p-2">
+            {groups.map((group) => (
+              <section key={group.category} className="mb-3">
+                <h2 className="px-2 py-1 text-xs font-medium uppercase text-muted-foreground">
+                  {group.category}
+                </h2>
+                <ul>
+                  {group.commands.map((command) => (
+                    <li
+                      className="flex items-center gap-2 rounded-md px-2 py-1.5 hover:bg-accent/40"
+                      key={command.id}
+                    >
+                      <span className="min-w-0 flex-1 truncate text-sm">
+                        {command.title}
+                      </span>
+                      <Button
+                        aria-label={`View ${command.title}`}
+                        onClick={() => setViewing(command)}
+                        size="icon"
+                        type="button"
+                        variant="ghost"
+                      >
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        aria-label={`Copy ${command.title}`}
+                        onClick={() => startCopy(command)}
+                        size="icon"
+                        type="button"
+                        variant="ghost"
+                      >
+                        <Copy className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        aria-label={`Edit ${command.title}`}
+                        onClick={() => setEditing(command)}
+                        size="icon"
+                        type="button"
+                        variant="ghost"
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        aria-label={`Delete ${command.title}`}
+                        onClick={() => void handleDelete(command.id)}
+                        size="icon"
+                        type="button"
+                        variant="ghost"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            ))}
+          </div>
+        )}
+
+        <DetailModal
+          actions={
+            viewing && (
+              <>
+                <Button
+                  onClick={() => startCopy(viewing)}
+                  type="button"
+                  variant="outline"
+                >
+                  <Copy className="h-4 w-4" />
+                  Copy
+                </Button>
+                <Button
+                  onClick={() => {
+                    setViewing(null);
+                    setEditing(viewing);
+                  }}
+                  type="button"
+                  variant="outline"
+                >
+                  <Pencil className="h-4 w-4" />
+                  Edit
+                </Button>
+                <Button
+                  onClick={() => void handleDelete(viewing.id)}
+                  type="button"
+                  variant="outline"
+                >
+                  <Trash2 className="h-4 w-4" />
+                  Delete
+                </Button>
+              </>
+            )
+          }
+          onClose={() => setViewing(null)}
+          open={viewing !== null}
+          title={viewing?.title ?? ""}
+        >
+          {viewing && <CommandDetailView item={viewing} />}
+        </DetailModal>
+
+        <DetailModal
+          onClose={() => setCopying(null)}
+          open={copying !== null}
+          title={copying ? `Copy ${copying.title}` : ""}
+        >
+          {copying && (
             <FillInForm
               command={copying}
               onCancel={() => setCopying(null)}
@@ -205,33 +255,18 @@ export function CommandsListView({ items }: ListViewProps<CommandEntry>) {
                 );
               }}
             />
-          ) : selected ? (
-            <CommandDetailView
-              item={selected}
-              onCopy={() => startCopy(selected)}
-            />
-          ) : (
-            <div className="p-6 text-sm text-muted-foreground">
-              Select a command to inspect it.
-            </div>
           )}
-        </aside>
+        </DetailModal>
       </div>
     </div>
   );
 }
 
-export function CommandDetailView({
-  item,
-  onCopy,
-}: {
-  item: CommandEntry;
-  onCopy?: () => void;
-}) {
+export function CommandDetailView({ item }: { item: CommandEntry }) {
   const snippet = item.snippets[0];
   return (
-    <div className="space-y-4 p-6">
-      <div>
+    <DetailModalBody>
+      <DetailModalHero>
         <p className="text-xs uppercase text-muted-foreground">
           {item.category}
         </p>
@@ -241,20 +276,22 @@ export function CommandDetailView({
             {item.description}
           </p>
         )}
-      </div>
-      {snippet && (
-        <SnippetView code={snippet.code} language={snippet.language} />
-      )}
-      {item.tags.length > 0 && (
-        <p className="text-xs text-muted-foreground">{item.tags.join(", ")}</p>
-      )}
-      {onCopy && (
-        <Button onClick={onCopy} type="button">
-          <Copy className="h-4 w-4" />
-          Copy
-        </Button>
-      )}
-    </div>
+      </DetailModalHero>
+      <DetailFields>
+        {item.tags.length > 0 && (
+          <DetailField label="Tags" value={item.tags.join(", ")} />
+        )}
+        {snippet && (
+          <DetailFieldSpan
+            label={`Snippet${snippet.language ? ` (${snippet.language})` : ""}`}
+          >
+            <div className="mt-1">
+              <SnippetView code={snippet.code} language={snippet.language} />
+            </div>
+          </DetailFieldSpan>
+        )}
+      </DetailFields>
+    </DetailModalBody>
   );
 }
 
