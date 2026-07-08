@@ -12,7 +12,9 @@ import {
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
 import { EmptyState } from "@/components/EmptyState";
 import type { ListViewProps } from "@/modules/types";
 import { useVaultStore } from "@/stores/vault-store";
@@ -430,9 +432,8 @@ export function SubscriptionEditView({
         </label>
         <label className="space-y-1 text-sm font-medium">
           Cycle
-          <select
+          <Select
             aria-label="Subscription cycle"
-            className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
             onChange={(event) =>
               update(
                 "cycle",
@@ -446,7 +447,7 @@ export function SubscriptionEditView({
                 {cycle}
               </option>
             ))}
-          </select>
+          </Select>
         </label>
         <label className="space-y-1 text-sm font-medium">
           Custom days
@@ -485,12 +486,10 @@ export function SubscriptionEditView({
           />
         </label>
         <label className="flex items-center gap-2 text-sm font-medium">
-          <input
+          <Checkbox
             aria-label="Subscription auto renew"
             checked={form.autoRenew}
-            className="h-4 w-4 accent-primary"
-            onChange={(event) => update("autoRenew", event.target.checked)}
-            type="checkbox"
+            onCheckedChange={(checked) => update("autoRenew", checked)}
           />
           Auto renew
         </label>

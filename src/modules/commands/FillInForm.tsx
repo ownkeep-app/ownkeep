@@ -2,6 +2,7 @@ import { type FormEvent, type KeyboardEvent, useMemo, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
 import { fillTemplate, parsePlaceholders } from "./logic";
 import type { CommandEntry } from "./types";
 
@@ -73,10 +74,9 @@ export function FillInForm({
           <label className="grid gap-1 text-sm" key={name}>
             <span className="font-medium">{name}</span>
             {isEnum ? (
-              <select
+              <Select
                 aria-label={name}
                 autoFocus={index === 0}
-                className="rounded-md border border-input bg-transparent px-2 py-1 text-sm"
                 onChange={(event) => setValue(name, event.target.value)}
                 value={values[name]}
               >
@@ -86,7 +86,7 @@ export function FillInForm({
                     {option}
                   </option>
                 ))}
-              </select>
+              </Select>
             ) : (
               <Input
                 aria-label={name}

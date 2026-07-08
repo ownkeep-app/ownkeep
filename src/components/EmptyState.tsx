@@ -1,4 +1,7 @@
 import type { ReactNode } from "react";
+import { motion, useReducedMotion } from "motion/react";
+
+import { fadeTransition, motionOrUndefined } from "@/lib/motion";
 
 /**
  * Shared friendly empty state for the Dashboard module panes (spec §7.5: "every module ships a
@@ -15,13 +18,21 @@ export function EmptyState({
   description: string;
   action?: ReactNode;
 }) {
+  const reduce = useReducedMotion();
+
   return (
-    <div className="flex flex-1 items-center justify-center p-8 text-center text-sm text-muted-foreground">
+    <motion.div
+      className="flex flex-1 items-center justify-center p-8 text-center text-sm text-muted-foreground"
+      // Never render hidden at mount; keep Motion polish subtle.
+      initial={false}
+      animate={motionOrUndefined(reduce, { y: 0 }) ?? undefined}
+      transition={fadeTransition}
+    >
       <div className="flex flex-col items-center gap-3">
         <p className="font-medium text-foreground">{title}</p>
         <p className="max-w-xs">{description}</p>
         {action}
       </div>
-    </div>
+    </motion.div>
   );
 }

@@ -9,7 +9,9 @@ import {
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { MODULES } from "@/modules/registry";
 import { useVaultStore } from "@/stores/vault-store";
@@ -113,22 +115,22 @@ export function SettingsPanel() {
           <div className="flex flex-col divide-y divide-border rounded-md border border-border">
             <label className="flex items-center gap-3 px-3 py-2.5">
               <span className="flex-1 text-sm">Auto-lock</span>
-              <select
+              <Select
                 aria-label="Auto-lock timeout"
                 value={autoLockMinutes}
                 onChange={(e) => void setAutoLock(Number(e.target.value))}
-                className="rounded-md border border-border bg-background px-2 py-1 text-sm"
+                className="w-auto"
               >
                 {AUTO_LOCK_OPTIONS.map((o) => (
                   <option key={o.minutes} value={o.minutes}>
                     {o.label}
                   </option>
                 ))}
-              </select>
+              </Select>
             </label>
             <label className="flex items-center gap-3 px-3 py-2.5">
               <span className="flex-1 text-sm">Clipboard clear</span>
-              <select
+              <Select
                 aria-label="Clipboard clear seconds"
                 value={settings.clipboardClearSeconds}
                 onChange={(e) =>
@@ -136,14 +138,14 @@ export function SettingsPanel() {
                     clipboardClearSeconds: Number(e.target.value),
                   })
                 }
-                className="rounded-md border border-border bg-background px-2 py-1 text-sm"
+                className="w-auto"
               >
                 {CLIPBOARD_CLEAR_OPTIONS.map((seconds) => (
                   <option key={seconds} value={seconds}>
                     {seconds}s
                   </option>
                 ))}
-              </select>
+              </Select>
             </label>
           </div>
           {autoLockMinutes === 0 && (
@@ -187,18 +189,18 @@ export function SettingsPanel() {
           <div className="flex flex-col divide-y divide-border rounded-md border border-border">
             <label className="flex items-center gap-3 px-3 py-2.5">
               <span className="flex-1 text-sm">Theme</span>
-              <select
+              <Select
                 aria-label="Theme"
                 value={settings.theme}
                 onChange={(e) =>
                   void updateSettings({ theme: e.target.value as Theme })
                 }
-                className="rounded-md border border-border bg-background px-2 py-1 text-sm"
+                className="w-auto"
               >
                 <option value="system">System</option>
                 <option value="light">Light</option>
                 <option value="dark">Dark</option>
-              </select>
+              </Select>
             </label>
             <label className="flex items-center gap-3 px-3 py-2.5">
               <span className="flex-1 text-sm">Accent</span>
@@ -214,20 +216,20 @@ export function SettingsPanel() {
             </label>
             <label className="flex items-center gap-3 px-3 py-2.5">
               <span className="flex-1 text-sm">Result limit</span>
-              <select
+              <Select
                 aria-label="Result limit"
                 value={settings.resultLimit}
                 onChange={(e) =>
                   void updateSettings({ resultLimit: Number(e.target.value) })
                 }
-                className="rounded-md border border-border bg-background px-2 py-1 text-sm"
+                className="w-auto"
               >
                 {RESULT_LIMIT_OPTIONS.map((limit) => (
                   <option key={limit} value={limit}>
                     {limit}
                   </option>
                 ))}
-              </select>
+              </Select>
             </label>
           </div>
         </section>
@@ -248,17 +250,17 @@ export function SettingsPanel() {
             </Button>
             <form className="flex flex-col gap-2" onSubmit={onRestore}>
               <div className="flex gap-2">
-                <select
+                <Select
                   aria-label="Restore credential type"
                   value={restoreMode}
                   onChange={(e) =>
                     setRestoreMode(e.target.value as RestoreMode)
                   }
-                  className="rounded-md border border-border bg-background px-2 py-1 text-sm"
+                  className="w-auto"
                 >
                   <option value="password">Master password</option>
                   <option value="recovery">Recovery code</option>
-                </select>
+                </Select>
                 <Input
                   type={restoreMode === "password" ? "password" : "text"}
                   value={restoreSecret}
@@ -316,10 +318,10 @@ export function SettingsPanel() {
                   {pendingKit.recovery_code}
                 </code>
                 <label className="flex items-center gap-2 text-sm">
-                  <input
-                    type="checkbox"
+                  <Checkbox
                     checked={kitSaved}
-                    onChange={(e) => setKitSaved(e.target.checked)}
+                    onCheckedChange={setKitSaved}
+                    aria-label="I've saved this recovery code"
                   />
                   I've saved this recovery code
                 </label>

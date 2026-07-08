@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
@@ -27,14 +27,16 @@ describe("KeyboardHelp", () => {
     expect(screen.getByText("Summon the command bar")).toBeInTheDocument();
   });
 
-  it("toggles with Cmd+/", () => {
+  it("toggles with Cmd+/", async () => {
     render(<KeyboardHelp groups={[DASHBOARD_SHORTCUTS]} />);
 
     fireEvent.keyDown(window, { key: "/", metaKey: true });
     expect(screen.getByRole("dialog")).toBeInTheDocument();
 
     fireEvent.keyDown(window, { key: "/", metaKey: true });
-    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    await waitFor(() =>
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
+    );
   });
 
   it("can be opened via Ctrl+/ even without a trigger button", () => {
@@ -58,7 +60,9 @@ describe("KeyboardHelp", () => {
     );
     fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape" });
 
-    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    await waitFor(() =>
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
+    );
     expect(onWindowKey).not.toHaveBeenCalled();
     window.removeEventListener("keydown", onWindowKey);
   });
@@ -86,7 +90,9 @@ describe("KeyboardHelp", () => {
       screen.getByRole("button", { name: "Dismiss keyboard shortcuts" }),
     );
 
-    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    await waitFor(() =>
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
+    );
   });
 
   it("closes from the header close button", async () => {
@@ -100,6 +106,8 @@ describe("KeyboardHelp", () => {
       screen.getByRole("button", { name: "Close keyboard shortcuts" }),
     );
 
-    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    await waitFor(() =>
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
+    );
   });
 });

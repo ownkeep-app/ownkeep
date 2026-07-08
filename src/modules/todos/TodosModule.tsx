@@ -12,7 +12,9 @@ import {
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
 import { EmptyState } from "@/components/EmptyState";
 import type { ListViewProps } from "@/modules/types";
 import { useVaultStore } from "@/stores/vault-store";
@@ -174,12 +176,10 @@ export function TodosListView({ items }: ListViewProps<TodoEntry>) {
                       key={item.id}
                     >
                       <td className="px-4 py-3">
-                        <input
+                        <Checkbox
                           aria-label={`Toggle ${item.title}`}
                           checked={item.done}
-                          className="h-4 w-4 accent-primary"
-                          onChange={() => void handleToggle(item.id)}
-                          type="checkbox"
+                          onCheckedChange={() => void handleToggle(item.id)}
                         />
                       </td>
                       <td className="truncate px-4 py-3">
@@ -411,9 +411,8 @@ export function TodoEditView({
         </label>
         <label className="space-y-1 text-sm font-medium">
           Priority
-          <select
+          <Select
             aria-label="Todo priority"
-            className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
             onChange={(event) =>
               update(
                 "priority",
@@ -427,13 +426,12 @@ export function TodoEditView({
                 {priority}
               </option>
             ))}
-          </select>
+          </Select>
         </label>
         <label className="space-y-1 text-sm font-medium">
           Recurrence
-          <select
+          <Select
             aria-label="Todo recurrence"
-            className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
             onChange={(event) =>
               update(
                 "recurrence",
@@ -447,7 +445,7 @@ export function TodoEditView({
                 {recurrence}
               </option>
             ))}
-          </select>
+          </Select>
         </label>
         <label className="space-y-1 text-sm font-medium md:col-span-2">
           Tags

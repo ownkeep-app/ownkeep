@@ -652,7 +652,7 @@ modules round-trip their data to JS freely.
 
 - **Tauri plugins:** `global-shortcut`, `notification`, `fs`, `dialog`, `single-instance` (official, v2). Plus a small custom Rust command for concealed-clipboard writes.
 - **Rust crates:** `argon2`, `chacha20poly1305`, `hkdf`, `sha2`, `getrandom`, `zeroize`, `bip39` (12-word recovery), `base64`, `serde` / `serde_json`; `objc2` (clipboard shim, Phase 3). *(`getrandom` is used directly for keys/nonces/salts instead of `rand`; auto-lock uses a std background thread, so no direct `tokio`.)*
-- **Frontend:** `react`, `typescript`, `tailwindcss`, `zustand`, `fuse.js`, `shiki`, `lucide-react`, **shadcn/ui** (`cmdk`, `@radix-ui/*`, `class-variance-authority`, `clsx`, `tailwind-merge`, `tailwindcss-animate`, `sonner`); `uplot` (Finance module only).
+- **Frontend:** `react`, `typescript`, `tailwindcss`, `zustand`, `fuse.js`, `shiki`, `lucide-react`, **shadcn/ui** (`cmdk`, `@radix-ui/*`, `class-variance-authority`, `clsx`, `tailwind-merge`, `tailwindcss-animate`, `sonner`); **`motion`** (Motion/React — calm press/presence animations, respects `prefers-reduced-motion`); `uplot` (Finance module only).
 - **Testing:** `vitest`, `@testing-library/react`, `@testing-library/user-event`, `jsdom` (frontend); `cargo test` + `proptest` (Rust). *(Future E2E: `tauri-driver` + `webdriverio`.)*
 - **Dropped from v1 (re-add with a Notes module):** `codemirror`/`milkdown`, `react-markdown`, `remark-gfm`, `rehype-sanitize`.
 

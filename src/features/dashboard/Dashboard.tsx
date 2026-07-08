@@ -1,4 +1,5 @@
 import { type ReactNode, useEffect, useMemo, useState } from "react";
+import { motion, useReducedMotion } from "motion/react";
 
 import { Lock, Settings as SettingsIcon } from "lucide-react";
 
@@ -7,6 +8,7 @@ import {
   DASHBOARD_SHORTCUTS,
   GLOBAL_SHORTCUTS,
 } from "@/components/keyboard-shortcuts";
+import { TAP_SCALE, motionOrUndefined, tapTransition } from "@/lib/motion";
 import { cn } from "@/lib/utils";
 import { MODULES } from "@/modules/registry";
 import { useVaultStore } from "@/stores/vault-store";
@@ -138,8 +140,10 @@ function SidebarRow({
   active?: boolean;
   onClick: () => void;
 }) {
+  const reduce = useReducedMotion();
+
   return (
-    <button
+    <motion.button
       type="button"
       aria-current={active ? "page" : undefined}
       onClick={onClick}
@@ -149,12 +153,14 @@ function SidebarRow({
           ? "bg-accent text-accent-foreground"
           : "text-foreground hover:bg-accent/50",
       )}
+      transition={tapTransition}
+      whileTap={motionOrUndefined(reduce, { scale: TAP_SCALE })}
     >
       {icon}
       <span className="flex-1 text-left">{label}</span>
       {shortcut && (
         <span className="text-xs text-muted-foreground">{shortcut}</span>
       )}
-    </button>
+    </motion.button>
   );
 }

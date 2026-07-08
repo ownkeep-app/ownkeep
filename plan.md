@@ -36,6 +36,7 @@ layering optional modules on the stable core.
 | **9** | 🔁 Subscriptions module (M2) | Track + reschedule; lead-window reminders; monthly/annual summary | 1–2 d | W8 · 08-24 |
 | **10** | 📈 Finance module (M3) | Snapshots, by-category stats, uPlot trend, manual FX table | 2–3 d | W8–W9 · 08-24 |
 | **11** | ✨ Polish + ship | Theming, a11y, sign + notarize, packaging, README | 2–4 d | W9–W10 · 08-31 |
+| **12** | 🧹 UI wrap up + bugfixes | Dashboard list UX improvements (sorting, column resize, detail modals, password quick actions, commands category layout) ship polished | 2–5 d | W10+ · 2026-09 |
 | **━━ v1.0 ━━** | **Signed, notarized release** | — | — | **~W10 · 2026-09-07** |
 
 ---
@@ -175,10 +176,50 @@ with a **browsable Dashboard** (sidebar + content pane) and a safe upgrade path 
 ### Phase 11 — ✨ Polish + ship · 2–4 d
 - [x] Theming pass (light/dark/accent), empty states, error toasts, keyboard-map help. *(Theming was wired earlier; this pass added per-module truly-empty vs filtered empty states with an in-panel New action + a CommandBar no-results state, sonner toast feedback for copy/clipboard/secret actions, and a `⌘/` keyboard-shortcut cheat sheet on both surfaces.)*
 - [ ] Accessibility check; performance check (<300 ms to bar, <30 ms keystroke). *(In progress: added `nav`/`aria-current` on the Dashboard sidebar, `scope="col"` on module tables, `role="status"`/`aria-live` feedback via toasts + the no-results region, and `aria-busy`/`role="alert"` on onboarding. Performance measurement still pending.)*
+- [x] Motion UI polish: calm press/presence animations on shared primitives (`button`, `input`, `switch`, `select`, `checkbox`), EmptyState / KeyboardHelp overlays, CommandBar result stagger, and Dashboard sidebar taps — all reduced-motion aware via `useReducedMotion` ([Motion](https://motion.dev/)).
 - [ ] **Developer ID sign + notarize**; DMG/`.app` packaging; README + Emergency-Kit docs + migration-guide docs. *(Docs done: README now has a "Using keystash" section covering the Emergency Kit / recovery code, keyboard shortcuts, theme, and the upgrade/migration-guide flow. Signing, notarization, and DMG packaging still pending.)*
 - [ ] **Release bookkeeping:** tag shipped commits as `v<main>.<minor>`; immediately after a shipped tag, bump the working app version in `package.json` to the next release version (`main.minor`), run `node scripts/sync-version.mjs` to derive SemVer-only package metadata, and keep those derived fields from becoming a second app-version source.
 - **Exit:** Gatekeeper opens it clean on a second Mac; permissions prompt correctly; the shipped `.dmg` includes the migration guide for every schema step since the previous `v*` tag. **← v1.0.**
 - **Deps:** all prior.
+
+### Phase 12 — 🧹 UI wrap up + bugfixes (Dashboard-first UX) · 2–5 d
+*Post-v1.0 ergonomic improvements discovered during manual testing. Scope is intentionally UI-only:
+no changes to the crypto core or vault format unless explicitly required (and if the data shape
+changes, update migrations + the migration guide in the same release per spec §11.2 and the Phase
+2.1 contract).*
+
+- [ ] **Sortable module tables:** on every Dashboard module screen that uses a table, clicking a
+  column header sorts the list (toggle ascending/descending, stable).
+- [ ] **Resizable table columns:** allow per-column resizing via drag handles on table headers.
+  - [ ] Keep it simple: store column widths per module in settings; provide a “Reset columns”
+    affordance.
+- [ ] **Detail-on-demand modal:** remove the persistent right-side detail column from Dashboard module
+  panes.
+  - [ ] Add a `View` icon/button in the `Actions` column for each row.
+  - [ ] Clicking `View` opens a modal listing item details (read-only), with Edit/Delete/Copy actions
+    as appropriate.
+  - [ ] Keep the list the primary interaction surface; modals should be dismissible via Esc and
+    click-away.
+- [ ] **Passwords list quick actions (Dashboard only):**
+  - [ ] Clicking the masked password (`*****`) reveals the real password inline/overlay **without
+    closing the Dashboard**.
+  - [ ] Add a `Copy` icon/button next to the masked password that copies immediately to the
+    concealed clipboard.
+  - [ ] Ensure secrets still never enter the WebView by default — reveal/copy must keep using the
+    Rust `reveal_secret` / `copy_secret` path (spec §4.5).
+- [ ] **Commands list layout (Dashboard):** replace the Commands table with a category-grouped
+  layout:
+  - [ ] Sections per category (e.g. “Git”, “MongoDB”) and within each section, render each command
+    as: title + description, then syntax-highlighted snippet below.
+  - [ ] Keep the existing filter box and “New” affordance.
+- [ ] **Help in the Dashboard sidebar:** remove the floating bottom-right keyboard-help icon on the
+  Dashboard. Add a **Help** row to the left sidebar’s bottom menu (with Settings and Lock), styled
+  like other sidebar rows: `[Keyboard icon] Help` plus the shortcut label **`⌘/`** on the right.
+  Clicking the row opens the same Hotkey Help modal; `⌘/` continues to toggle it globally.
+- **Exit:** manual test pass confirms the Dashboard is list-first and fast to scan; common actions
+  (view/copy/edit) are reachable with fewer clicks; no regression in secrets exposure rules; `pnpm
+  check` stays green.
+- **Deps:** Phase 11 (polish baseline).
 
 ---
 

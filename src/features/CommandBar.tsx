@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { motion, useReducedMotion } from "motion/react";
 
 import {
   Command,
@@ -12,6 +13,7 @@ import {
   GLOBAL_SHORTCUTS,
 } from "@/components/keyboard-shortcuts";
 import { writeClipboard } from "@/lib/clipboard";
+import { listItem, listStagger, motionOrUndefined } from "@/lib/motion";
 import { runQuery, type RankedResult } from "@/lib/search";
 import { toastClipboard, toastError, toastSecretCopied } from "@/lib/toast";
 import { hideWindow } from "@/lib/window";
@@ -53,6 +55,7 @@ export function CommandBar({
     (state) => state.model?.settings.clipboardClearSeconds ?? 30,
   );
   const [filling, setFilling] = useState<CommandEntry | null>(null);
+  const reduce = useReducedMotion();
 
   const results = useMemo(
     () => (model ? runQuery(model, modules, query) : []),
@@ -224,30 +227,42 @@ export function CommandBar({
           />
           {results.length > 0 && (
             <CommandList>
-              {results.map((result, index) => (
-                <CommandItem
-                  key={result.entry.id}
-                  value={result.entry.id}
-                  onSelect={() => void runPrimaryAction(result)}
-                  className="gap-3"
-                >
-                  <span className="w-5 text-center text-xs text-muted-foreground">
-                    {index < 9 ? index + 1 : ""}
-                  </span>
-                  <span className="flex-1 truncate">
-                    {result.entry.displayLine}
-                  </span>
-                </CommandItem>
-              ))}
+              <motion.div
+                initial="initial"
+                animate="animate"
+                variants={motionOrUndefined(reduce, listStagger)}
+              >
+                {results.map((result, index) => (
+                  <motion.div
+                    key={result.entry.id}
+                    variants={motionOrUndefined(reduce, listItem)}
+                  >
+                    <CommandItem
+                      value={result.entry.id}
+                      onSelect={() => void runPrimaryAction(result)}
+                      className="gap-3"
+                    >
+                      <span className="w-5 text-center text-xs text-muted-foreground">
+                        {index < 9 ? index + 1 : ""}
+                      </span>
+                      <span className="flex-1 truncate">
+                        {result.entry.displayLine}
+                      </span>
+                    </CommandItem>
+                  </motion.div>
+                ))}
+              </motion.div>
             </CommandList>
           )}
           {query.trim() !== "" && results.length === 0 && (
-            <div
+            <motion.div
               className="px-5 py-6 text-center text-sm text-muted-foreground"
               role="status"
+              initial={motionOrUndefined(reduce, { opacity: 0 })}
+              animate={{ opacity: 1 }}
             >
               No matches for “{query.trim()}”.
-            </div>
+            </motion.div>
           )}
         </Command>
       </section>

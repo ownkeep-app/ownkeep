@@ -1,3 +1,6 @@
+import { motion, useReducedMotion } from "motion/react";
+
+import { motionOrUndefined, switchThumbTransition } from "@/lib/motion";
 import { cn } from "@/lib/utils";
 
 interface SwitchProps {
@@ -8,6 +11,8 @@ interface SwitchProps {
 
 /** A minimal accessible toggle (role="switch") — avoids pulling in a Radix dependency. */
 export function Switch({ checked, onCheckedChange, ...rest }: SwitchProps) {
+  const reduce = useReducedMotion();
+
   return (
     <button
       type="button"
@@ -20,11 +25,14 @@ export function Switch({ checked, onCheckedChange, ...rest }: SwitchProps) {
       )}
       {...rest}
     >
-      <span
-        className={cn(
-          "inline-block h-4 w-4 transform rounded-full bg-background transition-transform",
-          checked ? "translate-x-4" : "translate-x-0.5",
-        )}
+      <motion.span
+        className="inline-block h-4 w-4 rounded-full bg-background"
+        animate={{ x: checked ? 16 : 2 }}
+        transition={
+          motionOrUndefined(reduce, switchThumbTransition) ?? {
+            duration: 0,
+          }
+        }
       />
     </button>
   );

@@ -2,6 +2,7 @@ import { useState } from "react";
 
 import { Screen } from "@/components/screen";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useVaultStore } from "@/stores/vault-store";
 
 /** Shows the one-time recovery code (§4.6). The user must confirm they've saved it to continue. */
@@ -33,10 +34,10 @@ export function EmergencyKitScreen() {
         {copied ? "Copied" : "Copy code"}
       </Button>
       <label className="flex items-center gap-2 text-sm text-muted-foreground">
-        <input
-          type="checkbox"
+        <Checkbox
           checked={saved}
-          onChange={(e) => setSaved(e.target.checked)}
+          onCheckedChange={setSaved}
+          aria-label="I've saved my recovery code somewhere safe"
         />
         I've saved my recovery code somewhere safe
       </label>
