@@ -50,6 +50,10 @@ export const vaultApi = {
     invoke<string>("backup_vault", { fileName }),
   backupVaultToChosenLocation: (fileName: string) =>
     invoke<string | null>("backup_vault_to_chosen_location", { fileName }),
+  requestNotificationPermission: () =>
+    invoke<string>("request_notification_permission"),
+  sendNotification: (title: string, body?: string) =>
+    invoke<void>("send_notification", { title, body }),
   restoreVaultFromChosenLocationWithPassword: (
     password: string,
     preRestoreFileName: string,

@@ -1,0 +1,465 @@
+import { type FormEvent, useMemo, useState } from "react";
+
+import {
+  CalendarClock,
+  CheckCircle2,
+  Circle,
+  Pencil,
+  Plus,
+  Search,
+  Trash2,
+  X,
+} from "lucide-react";
+
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import type { ListViewProps } from "@/modules/types";
+import { useVaultStore } from "@/stores/vault-store";
+import {
+  createTodoEntry,
+  emptyTodoForm,
+  formatDateTime,
+  formFromTodo,
+  sortTodos,
+  todoEntries,
+  updateTodoEntry,
+  validateTodoInput,
+} from "./logic";
+import {
+  TODO_PRIORITIES,
+  TODO_RECURRENCES,
+  type TodoEntry,
+  type TodoFormInput,
+} from "./types";
+
+export function TodosListView({ items }: ListViewProps<TodoEntry>) {
+  const saveTodo = useVaultStore((s) => s.saveTodo);
+  const deleteTodo = useVaultStore((s) => s.deleteTodo);
+  const toggleTodoDone = useVaultStore((s) => s.toggleTodoDone);
+  const [query, setQuery] = useState("");
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [editing, setEditing] = useState<TodoEntry | null | undefined>();
+
+  const todos = useMemo(() => todoEntries(items), [items]);
+  const filtered = useMemo(() => {
+    const term = query.trim().toLowerCase();
+    const sorted = sortTodos(todos);
+    if (!term) return sorted;
+    return sorted.filter((item) =>
+      [
+        item.title,
+        item.notes,
+        item.priority,
+        item.recurrence,
+        item.tags.join(" "),
+      ]
+        .join(" ")
+        .toLowerCase()
+        .includes(term),
+    );
+  }, [todos, query]);
+  const selected =
+    todos.find((item) => item.id === selectedId) ?? filtered[0] ?? null;
+  const openCount = todos.filter((item) => !item.done).length;
+
+  async function handleSave(entry: TodoEntry) {
+    await saveTodo(entry);
+    setSelectedId(entry.id);
+    setEditing(undefined);
+  }
+
+  async function handleDelete(id: string) {
+    await deleteTodo(id);
+    if (selectedId === id) setSelectedId(null);
+  }
+
+  async function handleToggle(id: string) {
+    await toggleTodoDone(id);
+  }
+
+  if (editing !== undefined) {
+    return (
+      <TodoEditView
+        item={editing ?? undefined}
+        onCancel={() => setEditing(undefined)}
+        onSave={(entry) => void handleSave(entry)}
+      />
+    );
+  }
+
+  return (
+    <div className="flex h-full flex-col">
+      <header className="flex items-center gap-3 border-b border-border px-6 py-4">
+        <div className="min-w-0 flex-1">
+          <h1 className="text-lg font-semibold">Todos</h1>
+          <p className="text-sm text-muted-foreground">
+            {openCount} open of {todos.length}
+          </p>
+        </div>
+        <Button onClick={() => setEditing(null)}>
+          <Plus className="h-4 w-4" />
+          New
+        </Button>
+      </header>
+
+      <div className="flex min-h-0 flex-1">
+        <div className="flex min-w-0 flex-1 flex-col">
+          <div className="border-b border-border p-4">
+            <label className="relative block">
+              <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input
+                aria-label="Filter todos"
+                className="pl-9"
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder="Filter todos"
+                value={query}
+              />
+            </label>
+          </div>
+
+          {filtered.length === 0 ? (
+            <div className="flex flex-1 items-center justify-center p-8 text-center text-sm text-muted-foreground">
+              <div>
+                <p className="font-medium text-foreground">No todos found</p>
+                <p>Add one or adjust the filter.</p>
+              </div>
+            </div>
+          ) : (
+            <div className="min-h-0 flex-1 overflow-auto">
+              <table className="w-full table-fixed text-sm">
+                <thead className="sticky top-0 bg-background text-left text-xs uppercase text-muted-foreground">
+                  <tr className="border-b border-border">
+                    <th className="w-14 px-4 py-2 font-medium">Done</th>
+                    <th className="w-4/12 px-4 py-2 font-medium">Title</th>
+                    <th className="w-3/12 px-4 py-2 font-medium">Due</th>
+                    <th className="w-2/12 px-4 py-2 font-medium">Priority</th>
+                    <th className="w-2/12 px-4 py-2 font-medium">Tags</th>
+                    <th className="w-28 px-4 py-2 font-medium">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filtered.map((item) => (
+                    <tr
+                      className={
+                        selected?.id === item.id
+                          ? "border-b border-border bg-accent/60"
+                          : "border-b border-border hover:bg-accent/40"
+                      }
+                      key={item.id}
+                    >
+                      <td className="px-4 py-3">
+                        <input
+                          aria-label={`Toggle ${item.title}`}
+                          checked={item.done}
+                          className="h-4 w-4 accent-primary"
+                          onChange={() => void handleToggle(item.id)}
+                          type="checkbox"
+                        />
+                      </td>
+                      <td className="truncate px-4 py-3">
+                        <button
+                          className={
+                            item.done
+                              ? "max-w-full truncate text-left text-muted-foreground line-through"
+                              : "max-w-full truncate text-left font-medium"
+                          }
+                          onClick={() => setSelectedId(item.id)}
+                          type="button"
+                        >
+                          {item.title}
+                        </button>
+                      </td>
+                      <td className="truncate px-4 py-3 text-muted-foreground">
+                        {formatDateTime(item.dueAt)}
+                      </td>
+                      <td className="px-4 py-3">
+                        <PriorityPill priority={item.priority} />
+                      </td>
+                      <td className="truncate px-4 py-3 text-muted-foreground">
+                        {item.tags.join(", ") || "-"}
+                      </td>
+                      <td className="px-4 py-2">
+                        <div className="flex justify-end gap-1">
+                          <Button
+                            aria-label={`Edit ${item.title}`}
+                            onClick={() => setEditing(item)}
+                            size="icon"
+                            type="button"
+                            variant="ghost"
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            aria-label={`Delete ${item.title}`}
+                            onClick={() => void handleDelete(item.id)}
+                            size="icon"
+                            type="button"
+                            variant="ghost"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+
+        <aside className="w-80 border-l border-border">
+          {selected ? (
+            <TodoDetailView
+              item={selected}
+              onEdit={() => setEditing(selected)}
+              onToggle={() => void handleToggle(selected.id)}
+            />
+          ) : (
+            <div className="p-6 text-sm text-muted-foreground">
+              Select a todo to inspect it.
+            </div>
+          )}
+        </aside>
+      </div>
+    </div>
+  );
+}
+
+export function TodoDetailView({
+  item,
+  onEdit,
+  onToggle,
+}: {
+  item: TodoEntry;
+  onEdit?: () => void;
+  onToggle?: () => void;
+}) {
+  return (
+    <div className="space-y-5 p-6">
+      <div>
+        <p className="text-xs uppercase text-muted-foreground">Todo</p>
+        <div className="mt-1 flex items-start gap-2">
+          {item.done ? (
+            <CheckCircle2 className="mt-1 h-4 w-4 text-primary" />
+          ) : (
+            <Circle className="mt-1 h-4 w-4 text-muted-foreground" />
+          )}
+          <h2 className="min-w-0 flex-1 text-lg font-semibold">{item.title}</h2>
+        </div>
+      </div>
+      <DetailRow label="Status" value={item.done ? "Done" : "Open"} />
+      <DetailRow label="Due" value={formatDateTime(item.dueAt)} />
+      <DetailRow
+        label="Reminder"
+        value={`${item.notifyLeadMinutes} minutes before due`}
+      />
+      <DetailRow label="Priority" value={item.priority} />
+      <DetailRow label="Recurrence" value={item.recurrence} />
+      <DetailRow label="Notes" value={item.notes || "-"} />
+      <DetailRow label="Tags" value={item.tags.join(", ") || "-"} />
+      <DetailRow
+        label="Updated"
+        value={new Date(item.updatedAt).toLocaleString()}
+      />
+      <div className="flex gap-2">
+        {onToggle && (
+          <Button onClick={onToggle} type="button" variant="secondary">
+            {item.done ? (
+              <Circle className="h-4 w-4" />
+            ) : (
+              <CheckCircle2 className="h-4 w-4" />
+            )}
+            {item.done ? "Reopen" : "Complete"}
+          </Button>
+        )}
+        {onEdit && (
+          <Button onClick={onEdit} type="button" variant="outline">
+            <Pencil className="h-4 w-4" />
+            Edit
+          </Button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+export function TodoEditView({
+  item,
+  onSave,
+  onCancel,
+}: {
+  item?: TodoEntry;
+  onSave: (item: TodoEntry) => void;
+  onCancel: () => void;
+}) {
+  const [form, setForm] = useState<TodoFormInput>(
+    item ? formFromTodo(item) : emptyTodoForm(),
+  );
+  const [error, setError] = useState<string | null>(null);
+
+  function update<K extends keyof TodoFormInput>(
+    key: K,
+    value: TodoFormInput[K],
+  ) {
+    setForm((current) => ({ ...current, [key]: value }));
+  }
+
+  function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const validation = validateTodoInput(form);
+    if (validation) {
+      setError(validation);
+      return;
+    }
+    const now = new Date().toISOString();
+    onSave(
+      item ? updateTodoEntry(item, form, now) : createTodoEntry(form, now),
+    );
+  }
+
+  return (
+    <form className="flex h-full flex-col" onSubmit={submit}>
+      <header className="flex items-center gap-3 border-b border-border px-6 py-4">
+        <div className="min-w-0 flex-1">
+          <h1 className="text-lg font-semibold">
+            {item ? "Edit todo" : "New todo"}
+          </h1>
+          <p className="text-sm text-muted-foreground">
+            Add a due time to receive scheduler reminders.
+          </p>
+        </div>
+        <Button
+          aria-label="Cancel"
+          onClick={onCancel}
+          size="icon"
+          type="button"
+          variant="ghost"
+        >
+          <X className="h-4 w-4" />
+        </Button>
+      </header>
+
+      <div className="grid flex-1 gap-4 overflow-auto p-6 md:grid-cols-2">
+        <label className="space-y-1 text-sm font-medium md:col-span-2">
+          Title
+          <Input
+            aria-label="Todo title"
+            onChange={(event) => update("title", event.target.value)}
+            value={form.title}
+          />
+        </label>
+        <label className="space-y-1 text-sm font-medium md:col-span-2">
+          Notes
+          <textarea
+            aria-label="Todo notes"
+            className="min-h-24 w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            onChange={(event) => update("notes", event.target.value)}
+            value={form.notes}
+          />
+        </label>
+        <label className="space-y-1 text-sm font-medium">
+          Due
+          <div className="relative">
+            <CalendarClock className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Input
+              aria-label="Todo due"
+              className="pl-9"
+              onChange={(event) => update("dueAt", event.target.value)}
+              type="datetime-local"
+              value={form.dueAt}
+            />
+          </div>
+        </label>
+        <label className="space-y-1 text-sm font-medium">
+          Reminder lead
+          <Input
+            aria-label="Todo reminder lead minutes"
+            min={0}
+            onChange={(event) =>
+              update("notifyLeadMinutes", event.target.value)
+            }
+            type="number"
+            value={form.notifyLeadMinutes}
+          />
+        </label>
+        <label className="space-y-1 text-sm font-medium">
+          Priority
+          <select
+            aria-label="Todo priority"
+            className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            onChange={(event) =>
+              update(
+                "priority",
+                event.target.value as TodoFormInput["priority"],
+              )
+            }
+            value={form.priority}
+          >
+            {TODO_PRIORITIES.map((priority) => (
+              <option key={priority} value={priority}>
+                {priority}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="space-y-1 text-sm font-medium">
+          Recurrence
+          <select
+            aria-label="Todo recurrence"
+            className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            onChange={(event) =>
+              update(
+                "recurrence",
+                event.target.value as TodoFormInput["recurrence"],
+              )
+            }
+            value={form.recurrence}
+          >
+            {TODO_RECURRENCES.map((recurrence) => (
+              <option key={recurrence} value={recurrence}>
+                {recurrence}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="space-y-1 text-sm font-medium md:col-span-2">
+          Tags
+          <Input
+            aria-label="Todo tags"
+            onChange={(event) => update("tags", event.target.value)}
+            value={form.tags}
+          />
+        </label>
+        {error && (
+          <p className="text-sm text-destructive md:col-span-2">{error}</p>
+        )}
+      </div>
+
+      <footer className="flex justify-end gap-2 border-t border-border px-6 py-4">
+        <Button onClick={onCancel} type="button" variant="outline">
+          Cancel
+        </Button>
+        <Button type="submit">Save</Button>
+      </footer>
+    </form>
+  );
+}
+
+function PriorityPill({ priority }: { priority: TodoEntry["priority"] }) {
+  const label = priority[0].toUpperCase() + priority.slice(1);
+  return (
+    <span className="inline-flex rounded-sm border border-border px-2 py-0.5 text-xs text-muted-foreground">
+      {label}
+    </span>
+  );
+}
+
+function DetailRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <p className="text-xs uppercase text-muted-foreground">{label}</p>
+      <p className="mt-1 break-words text-sm">{value}</p>
+    </div>
+  );
+}

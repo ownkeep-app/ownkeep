@@ -8,8 +8,10 @@
 use std::path::PathBuf;
 use std::sync::Mutex;
 
+use tauri::plugin::PermissionState;
 use tauri::{AppHandle, Manager, State};
 use tauri_plugin_dialog::{DialogExt, MessageDialogKind};
+use tauri_plugin_notification::NotificationExt;
 
 use crate::crypto::Argon2Params;
 use crate::recovery::EmergencyKit;
@@ -247,6 +249,38 @@ pub async fn backup_vault_to_chosen_location(
     let backup_path =
         storage::backup_vault_to_path(&path, &backup_path).map_err(|e| e.to_string())?;
     Ok(Some(backup_path.display().to_string()))
+}
+
+/// Request native notification permission for the reminder scheduler (§8).
+#[tauri::command]
+pub fn request_notification_permission(app: AppHandle) -> Result<String, String> {
+    app.notification()
+        .request_permission()
+        .map(permission_state_label)
+        .map_err(|e| e.to_string())
+}
+
+/// Send a native reminder notification. The scheduler decides de-dupe; Rust only talks to macOS.
+#[tauri::command]
+pub fn send_notification(
+    app: AppHandle,
+    title: String,
+    body: Option<String>,
+) -> Result<(), String> {
+    let mut builder = app.notification().builder().title(title);
+    if let Some(body) = body {
+        builder = builder.body(body);
+    }
+    builder.show().map_err(|e| e.to_string())
+}
+
+fn permission_state_label(state: PermissionState) -> String {
+    match state {
+        PermissionState::Granted => "granted",
+        PermissionState::Denied => "denied",
+        PermissionState::Prompt | PermissionState::PromptWithRationale => "prompt",
+    }
+    .to_string()
 }
 
 /// Pick and restore an encrypted backup after validating it with the backup's master password.

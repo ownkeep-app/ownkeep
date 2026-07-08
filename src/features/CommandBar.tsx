@@ -15,6 +15,12 @@ import {
   COMMANDS_MODULE_ID,
   type CommandEntry,
 } from "@/modules/commands/types";
+import { subscriptionEntries } from "@/modules/subscriptions/logic";
+import {
+  SUBSCRIPTIONS_MODULE_ID,
+  type SubscriptionEntry,
+} from "@/modules/subscriptions/types";
+import { TODOS_MODULE_ID } from "@/modules/todos/types";
 import { MODULES } from "@/modules/registry";
 import type { FeatureModule } from "@/modules/types";
 import { useShellStore } from "@/stores/shell-store";
@@ -22,9 +28,9 @@ import { useVaultStore } from "@/stores/vault-store";
 
 /**
  * The launcher surface (spec §7): a search input over the unified index, results ranked by fuzzy ×
- * frecency (§7.2), numbered 1–9. A result's primary action runs via Cmd+<n> or Enter/click —
- * password → concealed-clipboard copy from Rust (§4.5); command with no placeholders → copy; command
- * with `{{ }}` placeholders → inline fill-in (§7.3). Opt+Cmd+<n> copies a command's raw template.
+ * frecency (§7.2), numbered 1–9. A result's primary action runs via Cmd+<n> or Enter/click:
+ * password → concealed-clipboard copy from Rust (§4.5); command → copy or inline fill-in (§7.3);
+ * todo → toggle done; subscription → copy billing URL. Opt+Cmd+<n> copies a command's raw template.
  */
 export function CommandBar({
   modules = MODULES,
@@ -36,6 +42,7 @@ export function CommandBar({
   const model = useVaultStore((state) => state.model);
   const copySecret = useVaultStore((state) => state.copySecret);
   const recordUse = useVaultStore((state) => state.recordUse);
+  const toggleTodoDone = useVaultStore((state) => state.toggleTodoDone);
   const [filling, setFilling] = useState<CommandEntry | null>(null);
 
   const results = useMemo(
@@ -57,6 +64,16 @@ export function CommandBar({
       const slice = model?.modules[COMMANDS_MODULE_ID];
       return commandEntries(Array.isArray(slice) ? slice : []).find(
         (command) => command.id === id,
+      );
+    },
+    [model],
+  );
+
+  const findSubscription = useCallback(
+    (id: string): SubscriptionEntry | undefined => {
+      const slice = model?.modules[SUBSCRIPTIONS_MODULE_ID];
+      return subscriptionEntries(Array.isArray(slice) ? slice : []).find(
+        (subscription) => subscription.id === id,
       );
     },
     [model],
@@ -84,9 +101,32 @@ export function CommandBar({
           return;
         }
       }
+      if (entry.type === "todo" && entry.moduleId === TODOS_MODULE_ID) {
+        await toggleTodoDone(entry.id);
+        await finishAction(entry.id);
+        return;
+      }
+      if (
+        entry.type === "subscription" &&
+        entry.moduleId === SUBSCRIPTIONS_MODULE_ID
+      ) {
+        const subscription = findSubscription(entry.id);
+        if (subscription?.url) {
+          await writeClipboard(subscription.url);
+        }
+        await finishAction(entry.id);
+        return;
+      }
       await finishAction(entry.id);
     },
-    [modules, copySecret, finishAction, findCommand],
+    [
+      modules,
+      copySecret,
+      finishAction,
+      findCommand,
+      findSubscription,
+      toggleTodoDone,
+    ],
   );
 
   const copyRaw = useCallback(

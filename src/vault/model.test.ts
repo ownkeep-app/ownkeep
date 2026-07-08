@@ -26,7 +26,7 @@ const stubModules: ModuleDefaults[] = [
 ];
 
 describe("createDefaultModel", () => {
-  it("has schema v2 and empty settings/modules", () => {
+  it("has the current schema and empty settings/modules", () => {
     const model = createDefaultModel(NOW);
     expect(model.meta.schemaVersion).toBe(SCHEMA_VERSION);
     expect(model.meta.createdAt).toBe(NOW);

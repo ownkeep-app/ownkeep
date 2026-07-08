@@ -11,6 +11,7 @@
  */
 
 import type { FC, ReactNode } from "react";
+import type { VaultSettings } from "@/vault/model";
 
 /** One searchable entry a module contributes to the unified command-bar index (§7.2). */
 export interface IndexEntry {
@@ -27,6 +28,13 @@ export interface IndexEntry {
 
 export interface ListViewProps<T> {
   items: T[];
+}
+
+export interface ReminderEvent {
+  /** Stable per-module reminder id, usually the item id plus reminder kind. */
+  id: string;
+  title: string;
+  body?: string;
 }
 
 export interface FeatureModule<T = unknown> {
@@ -49,4 +57,9 @@ export interface FeatureModule<T = unknown> {
   DetailView?: FC<{ item: T }>;
   EditView?: FC<{ item?: T; onSave: (item: T) => void; onCancel: () => void }>;
   SettingsPanel?: FC;
+  collectReminders?: (
+    items: T[],
+    now: Date,
+    settings: VaultSettings,
+  ) => ReminderEvent[];
 }

@@ -144,23 +144,23 @@ with a **browsable Dashboard** (sidebar + content pane) and a safe upgrade path 
 - **Deps:** P5. **← MVP / v0.9 ends here.**
 
 ### Phase 7 — 🔔 Scheduler infra (§8) · 1–2 d
-- [ ] Tray-alive interval task + wake-from-sleep; calls each enabled module's `collectReminders`.
-- [ ] De-dupe (last-notified per item); request notification permission; native notify.
-- [ ] **Tests:** last-notified windowing / de-dupe logic (Vitest, or `cargo test` if the scheduler lives in Rust).
+- [x] Tray-alive interval task + wake-from-sleep; calls each enabled module's `collectReminders`.
+- [x] De-dupe (last-notified per item); request notification permission; native notify.
+- [x] **Tests:** last-notified windowing / de-dupe logic (Vitest, or `cargo test` if the scheduler lives in Rust).
 - **Exit:** a dummy reminder fires once; app notifies while the window is hidden.
 - **Deps:** P6.
 
 ### Phase 8 — ✅ Todos module (M1) · 1–2 d
-- [ ] `todosModule`: title/notes/done/dueAt/priority/tags; `none|daily|weekly` recurrence; `collectReminders`; `ListView` (checklist).
-- [ ] Bar actions: toggle done; recurring rolls forward on completion.
-- [ ] **Tests:** recurrence rollover (daily/weekly) + `collectReminders` windowing/de-dupe (Vitest).
+- [x] `todosModule`: title/notes/done/dueAt/priority/tags; `none|daily|weekly` recurrence; `collectReminders`; `ListView` (checklist).
+- [x] Bar actions: toggle done; recurring rolls forward on completion.
+- [x] **Tests:** recurrence rollover (daily/weekly) + `collectReminders` windowing/de-dupe (Vitest).
 - **Exit:** overdue todo notifies once per window; completing a weekly todo reschedules.
 - **Deps:** P7.
 
 ### Phase 9 — 🔁 Subscriptions module (M2) · 1–2 d
-- [ ] `subscriptionsModule`: service/url/amount/currency/cycle/nextDueDate/autoRenew/lead/notes; `collectReminders`; `ListView` (table + monthly/annual summary header).
-- [ ] Editing cycle/due reschedules; monthly total + annualized summary view.
-- [ ] **Tests:** next-due recompute per cycle (weekly/monthly/yearly/custom) + annualized summary math (Vitest).
+- [x] `subscriptionsModule`: service/url/amount/currency/cycle/nextDueDate/autoRenew/lead/notes; `collectReminders`; `ListView` (table + monthly/annual summary header).
+- [x] Editing cycle/due reschedules; monthly total + annualized summary view.
+- [x] **Tests:** next-due recompute per cycle (weekly/monthly/yearly/custom) + annualized summary math (Vitest).
 - **Exit:** lead-window reminder fires; summary totals correctly (via finance FX if enabled).
 - **Deps:** P7 (independent of P8 — can swap order).
 

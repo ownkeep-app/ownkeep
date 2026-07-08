@@ -32,6 +32,8 @@ describe("vaultApi", () => {
     await vaultApi.vaultIncompatibility();
     await vaultApi.backupVault("keystash.dat");
     await vaultApi.backupVaultToChosenLocation("keystash.dat");
+    await vaultApi.requestNotificationPermission();
+    await vaultApi.sendNotification("Due", "Body");
     await vaultApi.restoreVaultFromChosenLocationWithPassword(
       "backup master",
       "pre-restore.dat",
@@ -64,6 +66,8 @@ describe("vaultApi", () => {
       ["vault_incompatibility"],
       ["backup_vault", { fileName: "keystash.dat" }],
       ["backup_vault_to_chosen_location", { fileName: "keystash.dat" }],
+      ["request_notification_permission"],
+      ["send_notification", { title: "Due", body: "Body" }],
       [
         "restore_vault_from_chosen_location_with_password",
         { password: "backup master", preRestoreFileName: "pre-restore.dat" },

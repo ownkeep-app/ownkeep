@@ -68,6 +68,8 @@ describe("migration registry", () => {
     expect(pendingMigrations(1).map((m) => [m.from, m.to])).toEqual([
       [1, 2],
       [2, 3],
+      [3, 4],
+      [4, 5],
     ]);
   });
 
@@ -84,6 +86,10 @@ describe("migration registry", () => {
     );
     expect(plan?.changes.map((c) => c.path)).toContain(
       "modules.passwords[].password",
+    );
+    expect(plan?.changes.map((c) => c.path)).toContain("modules.todos[].title");
+    expect(plan?.changes.map((c) => c.path)).toContain(
+      "modules.subscriptions[].service",
     );
     expect(plan?.migratedModel.meta.schemaVersion).toBe(SCHEMA_VERSION);
     expect(plan?.migratedModel.settings.dashboardHotkey).toBe("Cmd+Shift+D");
@@ -165,6 +171,171 @@ describe("migration registry", () => {
     const migrated = prepared.model.modules.passwords as { id: string }[];
     expect(migrated[0].id).toBe("legacy-password-1");
     expect(migrated[1].id).toBe("legacy-password-2");
+  });
+
+  it("normalizes old todo records during the v3 to v4 migration", () => {
+    const model = {
+      ...createDefaultModel(NOW),
+      meta: {
+        schemaVersion: 3,
+        appVersion: "0.0",
+        createdAt: NOW,
+        updatedAt: NOW,
+      },
+      modules: {
+        todos: [
+          {
+            id: "todo-1",
+            title: "Renew passport",
+            done: true,
+            dueAt: "2026-07-08T12:00:00.000Z",
+            priority: "high",
+            recurrence: null,
+            tags: ["life", 5],
+          },
+          {
+            title: "Legacy reminder",
+            notes: "old",
+            notifyLeadMinutes: 5,
+            priority: "low",
+            recurrence: "weekly",
+            updatedAt: "2026-07-08T00:00:00.000Z",
+          },
+          "not an object",
+        ],
+      },
+    };
+
+    const prepared = prepareVaultModel(model, modules);
+
+    expect(prepared.migration?.changes.map((c) => c.path)).toContain(
+      "modules.todos[].notifyLeadMinutes",
+    );
+    expect(prepared.model.modules.todos).toEqual([
+      {
+        id: "todo-1",
+        title: "Renew passport",
+        notes: "",
+        done: true,
+        dueAt: "2026-07-08T12:00:00.000Z",
+        notifyLeadMinutes: 30,
+        priority: "high",
+        tags: ["life"],
+        recurrence: "none",
+        updatedAt: NOW,
+      },
+      {
+        id: "legacy-todo-2",
+        title: "Legacy reminder",
+        notes: "old",
+        done: false,
+        dueAt: null,
+        notifyLeadMinutes: 5,
+        priority: "low",
+        tags: [],
+        recurrence: "weekly",
+        updatedAt: "2026-07-08T00:00:00.000Z",
+      },
+      {
+        id: "legacy-todo-3",
+        title: "",
+        notes: "",
+        done: false,
+        dueAt: null,
+        notifyLeadMinutes: 30,
+        priority: "normal",
+        tags: [],
+        recurrence: "none",
+        updatedAt: NOW,
+      },
+    ]);
+  });
+
+  it("normalizes old subscription records during the v4 to v5 migration", () => {
+    const model = {
+      ...createDefaultModel(NOW),
+      meta: {
+        schemaVersion: 4,
+        appVersion: "0.0",
+        createdAt: NOW,
+        updatedAt: NOW,
+      },
+      modules: {
+        subscriptions: [
+          {
+            id: "sub-1",
+            service: "Linode",
+            url: "https://cloud.linode.com/account/billing",
+            amount: 20,
+            currency: "usd",
+            cycle: "custom",
+            customIntervalDays: 45,
+            nextDueDate: "2026-07-10T00:00:00.000Z",
+            autoRenew: false,
+            notifyLeadDays: 7,
+            notes: "VPS",
+          },
+          {
+            service: "Legacy",
+            amount: -1,
+            currency: "",
+            cycle: "bad",
+            customIntervalDays: 0,
+          },
+          "not an object",
+        ],
+      },
+    };
+
+    const prepared = prepareVaultModel(model, modules);
+
+    expect(prepared.migration?.changes.map((c) => c.path)).toContain(
+      "modules.subscriptions[].notifyLeadDays",
+    );
+    expect(prepared.model.modules.subscriptions).toEqual([
+      {
+        id: "sub-1",
+        service: "Linode",
+        url: "https://cloud.linode.com/account/billing",
+        amount: 20,
+        currency: "USD",
+        cycle: "custom",
+        customIntervalDays: 45,
+        nextDueDate: "2026-07-10T00:00:00.000Z",
+        autoRenew: false,
+        notifyLeadDays: 7,
+        notes: "VPS",
+        updatedAt: NOW,
+      },
+      {
+        id: "legacy-subscription-2",
+        service: "Legacy",
+        url: "",
+        amount: 0,
+        currency: "USD",
+        cycle: "monthly",
+        customIntervalDays: null,
+        nextDueDate: NOW,
+        autoRenew: true,
+        notifyLeadDays: 3,
+        notes: "",
+        updatedAt: NOW,
+      },
+      {
+        id: "legacy-subscription-3",
+        service: "",
+        url: "",
+        amount: 0,
+        currency: "USD",
+        cycle: "monthly",
+        customIntervalDays: null,
+        nextDueDate: NOW,
+        autoRenew: true,
+        notifyLeadDays: 3,
+        notes: "",
+        updatedAt: NOW,
+      },
+    ]);
   });
 
   it("returns no migration for current-schema vaults", () => {

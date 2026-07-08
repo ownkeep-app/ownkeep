@@ -10,6 +10,7 @@ import {
   IncompatibleVaultScreen,
   MigrationGuideScreen,
 } from "@/features/migration/MigrationGuideScreen";
+import { ReminderScheduler } from "@/features/ReminderScheduler";
 import {
   currentWindowLabel,
   mainWindowMode,
@@ -33,6 +34,7 @@ function Loading() {
  */
 function App() {
   const status = useVaultStore((s) => s.status);
+  const model = useVaultStore((s) => s.model);
   const pendingKit = useVaultStore((s) => s.pendingKit);
   const theme = useVaultStore((s) => s.model?.settings.theme ?? "system");
   const accent = useVaultStore((s) => s.model?.settings.accent ?? "#4F7CFF");
@@ -67,6 +69,13 @@ function App() {
     return <Dashboard />;
   }
 
+  const scheduler = (
+    <ReminderScheduler
+      enabled={label === "main" && status === "unlocked" && !pendingKit}
+      model={model}
+    />
+  );
+
   switch (status) {
     case "onboarding":
       return <OnboardingScreen />;
@@ -79,7 +88,12 @@ function App() {
     case "incompatible":
       return <IncompatibleVaultScreen />;
     case "unlocked":
-      return pendingKit ? <EmergencyKitScreen /> : <CommandBar />;
+      return (
+        <>
+          {scheduler}
+          {pendingKit ? <EmergencyKitScreen /> : <CommandBar />}
+        </>
+      );
     default:
       return <Loading />;
   }

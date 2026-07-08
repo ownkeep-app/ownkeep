@@ -176,6 +176,8 @@ pub fn run() {
             commands::reveal_secret,
             commands::backup_vault,
             commands::backup_vault_to_chosen_location,
+            commands::request_notification_permission,
+            commands::send_notification,
             commands::restore_vault_from_chosen_location_with_password,
             commands::restore_vault_from_chosen_location_with_recovery,
             commands::erase_vault,

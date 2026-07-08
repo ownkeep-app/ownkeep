@@ -70,7 +70,7 @@ describe("Dashboard", () => {
     ).toBeInTheDocument();
 
     fireEvent.keyDown(window, { key: "ArrowDown" });
-    expect(screen.getByText(/phase 8/i)).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Todos" })).toBeInTheDocument();
 
     fireEvent.keyDown(window, { key: "ArrowUp" });
     expect(

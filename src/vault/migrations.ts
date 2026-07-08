@@ -1,5 +1,17 @@
 import { MODULES } from "@/modules/registry";
 import {
+  DEFAULT_SUBSCRIPTION_LEAD_DAYS,
+  SUBSCRIPTION_CYCLES,
+  type SubscriptionCycle,
+} from "@/modules/subscriptions/types";
+import {
+  DEFAULT_TODO_LEAD_MINUTES,
+  TODO_PRIORITIES,
+  TODO_RECURRENCES,
+  type TodoPriority,
+  type TodoRecurrence,
+} from "@/modules/todos/types";
+import {
   APP_VERSION,
   defaultSettings,
   ensureModuleDefaults,
@@ -127,7 +139,86 @@ const schemaTwoToThree: Migration = {
   },
 };
 
-export const MIGRATIONS: Migration[] = [schemaOneToTwo, schemaTwoToThree];
+const todoFields = [
+  "id",
+  "title",
+  "notes",
+  "done",
+  "dueAt",
+  "notifyLeadMinutes",
+  "priority",
+  "tags",
+  "recurrence",
+  "updatedAt",
+] as const;
+
+const schemaThreeToFour: Migration = {
+  from: 3,
+  to: 4,
+  summary: "Add the real todos checklist entry shape.",
+  changes: todoFields.map((field): SchemaChange => ({
+    kind: "added",
+    path: `modules.todos[].${field}`,
+    note: "Adds the todo fields used by the checklist, recurrence, command-bar toggle, and reminder scheduler.",
+  })),
+  apply: (model) => {
+    const todos = Array.isArray(model.modules.todos)
+      ? model.modules.todos.map((item, index) =>
+          normalizeTodoMigrationItem(item, model.meta.updatedAt, index),
+        )
+      : [];
+    return {
+      ...model,
+      meta: { ...model.meta, schemaVersion: 4 },
+      modules: { ...model.modules, todos },
+    };
+  },
+};
+
+const subscriptionFields = [
+  "id",
+  "service",
+  "url",
+  "amount",
+  "currency",
+  "cycle",
+  "customIntervalDays",
+  "nextDueDate",
+  "autoRenew",
+  "notifyLeadDays",
+  "notes",
+  "updatedAt",
+] as const;
+
+const schemaFourToFive: Migration = {
+  from: 4,
+  to: 5,
+  summary: "Add the real subscriptions renewal entry shape.",
+  changes: subscriptionFields.map((field): SchemaChange => ({
+    kind: "added",
+    path: `modules.subscriptions[].${field}`,
+    note: "Adds the subscription fields used by billing summaries, due reminders, command-bar URL copy, and renewal tracking.",
+  })),
+  apply: (model) => {
+    const subscriptions = Array.isArray(model.modules.subscriptions)
+      ? model.modules.subscriptions.map((item, index) =>
+          normalizeSubscriptionMigrationItem(item, model.meta.updatedAt, index),
+        )
+      : [];
+    return {
+      ...model,
+      meta: { ...model.meta, schemaVersion: 5 },
+      modules: { ...model.modules, subscriptions },
+    };
+  },
+};
+
+export const MIGRATIONS: Migration[] = [
+  schemaOneToTwo,
+  schemaTwoToThree,
+  schemaThreeToFour,
+  schemaFourToFive,
+];
 
 function normalizePasswordMigrationItem(
   item: unknown,
@@ -153,6 +244,94 @@ function normalizePasswordMigrationItem(
     tags: Array.isArray(object.tags)
       ? object.tags.filter((tag): tag is string => typeof tag === "string")
       : [],
+    updatedAt:
+      typeof object.updatedAt === "string" ? object.updatedAt : updatedAt,
+  };
+}
+
+function normalizeTodoMigrationItem(
+  item: unknown,
+  updatedAt: string,
+  index: number,
+): Record<string, unknown> {
+  const object =
+    item && typeof item === "object" && !Array.isArray(item)
+      ? (item as Record<string, unknown>)
+      : {};
+  return {
+    id: typeof object.id === "string" ? object.id : `legacy-todo-${index + 1}`,
+    title: typeof object.title === "string" ? object.title : "",
+    notes: typeof object.notes === "string" ? object.notes : "",
+    done: typeof object.done === "boolean" ? object.done : false,
+    dueAt: typeof object.dueAt === "string" ? object.dueAt : null,
+    notifyLeadMinutes:
+      typeof object.notifyLeadMinutes === "number" &&
+      Number.isFinite(object.notifyLeadMinutes) &&
+      object.notifyLeadMinutes >= 0
+        ? object.notifyLeadMinutes
+        : DEFAULT_TODO_LEAD_MINUTES,
+    priority: TODO_PRIORITIES.includes(object.priority as TodoPriority)
+      ? object.priority
+      : "normal",
+    tags: Array.isArray(object.tags)
+      ? object.tags.filter((tag): tag is string => typeof tag === "string")
+      : [],
+    recurrence: TODO_RECURRENCES.includes(object.recurrence as TodoRecurrence)
+      ? object.recurrence
+      : "none",
+    updatedAt:
+      typeof object.updatedAt === "string" ? object.updatedAt : updatedAt,
+  };
+}
+
+function normalizeSubscriptionMigrationItem(
+  item: unknown,
+  updatedAt: string,
+  index: number,
+): Record<string, unknown> {
+  const object =
+    item && typeof item === "object" && !Array.isArray(item)
+      ? (item as Record<string, unknown>)
+      : {};
+  const cycle = SUBSCRIPTION_CYCLES.includes(object.cycle as SubscriptionCycle)
+    ? object.cycle
+    : "monthly";
+  const customIntervalDays =
+    typeof object.customIntervalDays === "number" &&
+    Number.isInteger(object.customIntervalDays) &&
+    object.customIntervalDays > 0
+      ? object.customIntervalDays
+      : null;
+  const amount =
+    typeof object.amount === "number" &&
+    Number.isFinite(object.amount) &&
+    object.amount >= 0
+      ? object.amount
+      : 0;
+  return {
+    id:
+      typeof object.id === "string"
+        ? object.id
+        : `legacy-subscription-${index + 1}`,
+    service: typeof object.service === "string" ? object.service : "",
+    url: typeof object.url === "string" ? object.url : "",
+    amount,
+    currency:
+      typeof object.currency === "string" && object.currency.trim()
+        ? object.currency.trim().toUpperCase()
+        : "USD",
+    cycle,
+    customIntervalDays: cycle === "custom" ? customIntervalDays : null,
+    nextDueDate:
+      typeof object.nextDueDate === "string" ? object.nextDueDate : updatedAt,
+    autoRenew: typeof object.autoRenew === "boolean" ? object.autoRenew : true,
+    notifyLeadDays:
+      typeof object.notifyLeadDays === "number" &&
+      Number.isInteger(object.notifyLeadDays) &&
+      object.notifyLeadDays >= 0
+        ? object.notifyLeadDays
+        : DEFAULT_SUBSCRIPTION_LEAD_DAYS,
+    notes: typeof object.notes === "string" ? object.notes : "",
     updatedAt:
       typeof object.updatedAt === "string" ? object.updatedAt : updatedAt,
   };

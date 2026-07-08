@@ -5,7 +5,7 @@
  * (so Rust stays module-agnostic per §3.4). Everything here is pure and unit-tested — no Tauri.
  */
 
-export const SCHEMA_VERSION = 3;
+export const SCHEMA_VERSION = 5;
 export const APP_VERSION = __KEYSTASH_APP_VERSION__;
 
 export type Theme = "system" | "light" | "dark";

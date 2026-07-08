@@ -19,6 +19,13 @@ import {
   PASSWORDS_MODULE_ID,
   type PasswordEntry,
 } from "@/modules/passwords/types";
+import { subscriptionEntries } from "@/modules/subscriptions/logic";
+import {
+  SUBSCRIPTIONS_MODULE_ID,
+  type SubscriptionEntry,
+} from "@/modules/subscriptions/types";
+import { todoEntries, toggleTodoDoneState } from "@/modules/todos/logic";
+import { TODOS_MODULE_ID, type TodoEntry } from "@/modules/todos/types";
 import { type EmergencyKit, vaultApi } from "@/vault/api";
 import {
   preMigrationBackupName,
@@ -83,6 +90,11 @@ interface VaultState {
   deletePassword: (id: string) => Promise<void>;
   saveCommand: (entry: CommandEntry) => Promise<void>;
   deleteCommand: (id: string) => Promise<void>;
+  saveTodo: (entry: TodoEntry) => Promise<void>;
+  deleteTodo: (id: string) => Promise<void>;
+  toggleTodoDone: (id: string) => Promise<void>;
+  saveSubscription: (entry: SubscriptionEntry) => Promise<void>;
+  deleteSubscription: (id: string) => Promise<void>;
   copySecret: (id: string, field: string) => Promise<void>;
   revealSecret: (id: string, field: string) => Promise<void>;
   regenerateRecovery: () => Promise<EmergencyKit>;
@@ -592,6 +604,108 @@ export const useVaultStore = create<VaultState>((set, get) => ({
         modules: {
           ...model.modules,
           [COMMANDS_MODULE_ID]: current.filter((item) => item.id !== id),
+        },
+      },
+      set,
+    );
+  },
+
+  saveTodo: async (entry) => {
+    const model = get().model;
+    if (!model) return;
+    const current = todoEntries(
+      Array.isArray(model.modules[TODOS_MODULE_ID])
+        ? model.modules[TODOS_MODULE_ID]
+        : [],
+    );
+    const exists = current.some((item) => item.id === entry.id);
+    const nextItems = exists
+      ? current.map((item) => (item.id === entry.id ? entry : item))
+      : [...current, entry];
+    await saveThenReloadProjection(
+      {
+        ...model,
+        modules: { ...model.modules, [TODOS_MODULE_ID]: nextItems },
+      },
+      set,
+    );
+  },
+
+  deleteTodo: async (id) => {
+    const model = get().model;
+    if (!model) return;
+    const current = todoEntries(
+      Array.isArray(model.modules[TODOS_MODULE_ID])
+        ? model.modules[TODOS_MODULE_ID]
+        : [],
+    );
+    await saveThenReloadProjection(
+      {
+        ...model,
+        modules: {
+          ...model.modules,
+          [TODOS_MODULE_ID]: current.filter((item) => item.id !== id),
+        },
+      },
+      set,
+    );
+  },
+
+  toggleTodoDone: async (id) => {
+    const model = get().model;
+    if (!model) return;
+    const current = todoEntries(
+      Array.isArray(model.modules[TODOS_MODULE_ID])
+        ? model.modules[TODOS_MODULE_ID]
+        : [],
+    );
+    const nextItems = current.map((item) =>
+      item.id === id ? toggleTodoDoneState(item, now()) : item,
+    );
+    await saveThenReloadProjection(
+      {
+        ...model,
+        modules: { ...model.modules, [TODOS_MODULE_ID]: nextItems },
+      },
+      set,
+    );
+  },
+
+  saveSubscription: async (entry) => {
+    const model = get().model;
+    if (!model) return;
+    const current = subscriptionEntries(
+      Array.isArray(model.modules[SUBSCRIPTIONS_MODULE_ID])
+        ? model.modules[SUBSCRIPTIONS_MODULE_ID]
+        : [],
+    );
+    const exists = current.some((item) => item.id === entry.id);
+    const nextItems = exists
+      ? current.map((item) => (item.id === entry.id ? entry : item))
+      : [...current, entry];
+    await saveThenReloadProjection(
+      {
+        ...model,
+        modules: { ...model.modules, [SUBSCRIPTIONS_MODULE_ID]: nextItems },
+      },
+      set,
+    );
+  },
+
+  deleteSubscription: async (id) => {
+    const model = get().model;
+    if (!model) return;
+    const current = subscriptionEntries(
+      Array.isArray(model.modules[SUBSCRIPTIONS_MODULE_ID])
+        ? model.modules[SUBSCRIPTIONS_MODULE_ID]
+        : [],
+    );
+    await saveThenReloadProjection(
+      {
+        ...model,
+        modules: {
+          ...model.modules,
+          [SUBSCRIPTIONS_MODULE_ID]: current.filter((item) => item.id !== id),
         },
       },
       set,

@@ -3,6 +3,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { vaultApi } from "@/vault/api";
 import { APP_VERSION, createDefaultModel, SCHEMA_VERSION } from "@/vault/model";
 import { useVaultStore } from "./vault-store";
+import type { SubscriptionEntry } from "@/modules/subscriptions/types";
+import type { TodoEntry } from "@/modules/todos/types";
 
 vi.mock("@/vault/api", () => ({
   vaultApi: {
@@ -670,6 +672,34 @@ describe("vault store", () => {
     updatedAt: "2026-07-07T00:00:00.000Z",
   };
 
+  const todoFixture: TodoEntry = {
+    id: "todo-1",
+    title: "Renew passport",
+    notes: "",
+    done: false,
+    dueAt: "2026-07-08T12:30:00.000Z",
+    notifyLeadMinutes: 30,
+    priority: "normal",
+    tags: [],
+    recurrence: "none",
+    updatedAt: "2026-07-07T00:00:00.000Z",
+  };
+
+  const subscriptionFixture: SubscriptionEntry = {
+    id: "sub-1",
+    service: "Linode",
+    url: "https://cloud.linode.com/account/billing",
+    amount: 20,
+    currency: "USD",
+    cycle: "monthly",
+    customIntervalDays: null,
+    nextDueDate: "2026-07-10T00:00:00.000Z",
+    autoRenew: true,
+    notifyLeadDays: 3,
+    notes: "",
+    updatedAt: "2026-07-07T00:00:00.000Z",
+  };
+
   it("saveCommand adds a command and persists it", async () => {
     api.getVault.mockResolvedValue("{}");
     useVaultStore.setState({
@@ -719,6 +749,143 @@ describe("vault store", () => {
     useVaultStore.setState({ model: null });
     await useVaultStore.getState().saveCommand(commandFixture);
     await useVaultStore.getState().deleteCommand("c1");
+    expect(api.saveVault).not.toHaveBeenCalled();
+  });
+
+  it("saveTodo adds and updates todos", async () => {
+    api.getVault.mockResolvedValue("{}");
+    useVaultStore.setState({
+      model: createDefaultModel("2026-07-07T00:00:00.000Z"),
+    });
+
+    await useVaultStore.getState().saveTodo(todoFixture);
+    let saved = JSON.parse(api.saveVault.mock.calls[0][0] as string);
+    expect(saved.modules.todos[0].title).toBe("Renew passport");
+
+    useVaultStore.setState({
+      model: {
+        ...createDefaultModel("2026-07-07T00:00:00.000Z"),
+        modules: { todos: [todoFixture] },
+      },
+    });
+    await useVaultStore
+      .getState()
+      .saveTodo({ ...todoFixture, title: "Renew passport soon" });
+    saved = JSON.parse(api.saveVault.mock.calls[1][0] as string);
+    expect(saved.modules.todos).toHaveLength(1);
+    expect(saved.modules.todos[0].title).toBe("Renew passport soon");
+  });
+
+  it("deleteTodo removes a todo and toggleTodoDone handles recurrence", async () => {
+    api.getVault.mockResolvedValue("{}");
+    useVaultStore.setState({
+      model: {
+        ...createDefaultModel("2026-07-07T00:00:00.000Z"),
+        modules: {
+          todos: [
+            {
+              ...todoFixture,
+              dueAt: "2026-07-01T13:00:00.000Z",
+              recurrence: "weekly",
+            },
+          ],
+        },
+      },
+    });
+
+    await useVaultStore.getState().toggleTodoDone("todo-1");
+    let saved = JSON.parse(api.saveVault.mock.calls[0][0] as string);
+    expect(saved.modules.todos[0].done).toBe(false);
+    expect(Date.parse(saved.modules.todos[0].dueAt)).toBeGreaterThan(
+      Date.parse("2026-07-01T13:00:00.000Z"),
+    );
+
+    useVaultStore.setState({
+      model: {
+        ...createDefaultModel("2026-07-07T00:00:00.000Z"),
+        modules: { todos: [todoFixture] },
+      },
+    });
+    await useVaultStore.getState().deleteTodo("todo-1");
+    saved = JSON.parse(api.saveVault.mock.calls[1][0] as string);
+    expect(saved.modules.todos).toEqual([]);
+  });
+
+  it("todo actions are no-ops without a model", async () => {
+    useVaultStore.setState({ model: null });
+    await useVaultStore.getState().saveTodo(todoFixture);
+    await useVaultStore.getState().deleteTodo("todo-1");
+    await useVaultStore.getState().toggleTodoDone("todo-1");
+    expect(api.saveVault).not.toHaveBeenCalled();
+  });
+
+  it("saveSubscription adds and updates subscriptions", async () => {
+    api.getVault.mockResolvedValue("{}");
+    useVaultStore.setState({
+      model: createDefaultModel("2026-07-07T00:00:00.000Z"),
+    });
+
+    await useVaultStore.getState().saveSubscription(subscriptionFixture);
+    let saved = JSON.parse(api.saveVault.mock.calls[0][0] as string);
+    expect(saved.modules.subscriptions[0].service).toBe("Linode");
+
+    useVaultStore.setState({
+      model: {
+        ...createDefaultModel("2026-07-07T00:00:00.000Z"),
+        modules: { subscriptions: [subscriptionFixture] },
+      },
+    });
+    await useVaultStore
+      .getState()
+      .saveSubscription({ ...subscriptionFixture, service: "Linode Pro" });
+    saved = JSON.parse(api.saveVault.mock.calls[1][0] as string);
+    expect(saved.modules.subscriptions).toHaveLength(1);
+    expect(saved.modules.subscriptions[0].service).toBe("Linode Pro");
+  });
+
+  it("deleteSubscription removes a subscription", async () => {
+    api.getVault.mockResolvedValue("{}");
+    useVaultStore.setState({
+      model: {
+        ...createDefaultModel("2026-07-07T00:00:00.000Z"),
+        modules: { subscriptions: [subscriptionFixture] },
+      },
+    });
+
+    await useVaultStore.getState().deleteSubscription("sub-1");
+
+    const saved = JSON.parse(api.saveVault.mock.calls[0][0] as string);
+    expect(saved.modules.subscriptions).toEqual([]);
+  });
+
+  it("subscription actions tolerate non-array slices", async () => {
+    api.getVault.mockResolvedValue("{}");
+    useVaultStore.setState({
+      model: {
+        ...createDefaultModel("2026-07-07T00:00:00.000Z"),
+        modules: { subscriptions: { not: "an array" } },
+      },
+    });
+
+    await useVaultStore.getState().saveSubscription(subscriptionFixture);
+    let saved = JSON.parse(api.saveVault.mock.calls[0][0] as string);
+    expect(saved.modules.subscriptions).toEqual([subscriptionFixture]);
+
+    useVaultStore.setState({
+      model: {
+        ...createDefaultModel("2026-07-07T00:00:00.000Z"),
+        modules: { subscriptions: { still: "not an array" } },
+      },
+    });
+    await useVaultStore.getState().deleteSubscription("sub-1");
+    saved = JSON.parse(api.saveVault.mock.calls[1][0] as string);
+    expect(saved.modules.subscriptions).toEqual([]);
+  });
+
+  it("subscription actions are no-ops without a model", async () => {
+    useVaultStore.setState({ model: null });
+    await useVaultStore.getState().saveSubscription(subscriptionFixture);
+    await useVaultStore.getState().deleteSubscription("sub-1");
     expect(api.saveVault).not.toHaveBeenCalled();
   });
 

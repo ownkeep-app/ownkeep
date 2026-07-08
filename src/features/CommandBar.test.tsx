@@ -12,6 +12,11 @@ import {
   PASSWORD_SECRET_FIELD,
   PASSWORDS_MODULE_ID,
 } from "@/modules/passwords/types";
+import {
+  SUBSCRIPTIONS_MODULE_ID,
+  type SubscriptionEntry,
+} from "@/modules/subscriptions/types";
+import { TODOS_MODULE_ID, type TodoEntry } from "@/modules/todos/types";
 import type { FeatureModule } from "@/modules/types";
 import { useShellStore } from "@/stores/shell-store";
 import { useVaultStore } from "@/stores/vault-store";
@@ -25,6 +30,7 @@ vi.mock("@/vault/api", () => ({
   vaultApi: {
     copySecret: vi.fn(async () => {}),
     saveVault: vi.fn(async () => {}),
+    getVault: vi.fn(async () => "{}"),
   },
 }));
 
@@ -77,6 +83,63 @@ function withCommands(items: CommandEntry[]): VaultModel {
     ...base,
     settings: { ...base.settings, modules: { commands: { enabled: true } } },
     modules: { [COMMANDS_MODULE_ID]: items },
+  };
+}
+
+function todo(overrides: Partial<TodoEntry> = {}): TodoEntry {
+  return {
+    id: "todo-1",
+    title: "Renew passport",
+    notes: "",
+    done: false,
+    dueAt: "2026-07-08T12:30:00.000Z",
+    notifyLeadMinutes: 30,
+    priority: "normal",
+    tags: [],
+    recurrence: "none",
+    updatedAt: NOW,
+    ...overrides,
+  };
+}
+
+function withTodos(items: TodoEntry[]): VaultModel {
+  const base = createDefaultModel(NOW);
+  return {
+    ...base,
+    settings: { ...base.settings, modules: { todos: { enabled: true } } },
+    modules: { [TODOS_MODULE_ID]: items },
+  };
+}
+
+function subscription(
+  overrides: Partial<SubscriptionEntry> = {},
+): SubscriptionEntry {
+  return {
+    id: "sub-1",
+    service: "Linode",
+    url: "https://cloud.linode.com/account/billing",
+    amount: 20,
+    currency: "USD",
+    cycle: "monthly",
+    customIntervalDays: null,
+    nextDueDate: "2026-07-10T00:00:00.000Z",
+    autoRenew: true,
+    notifyLeadDays: 3,
+    notes: "",
+    updatedAt: NOW,
+    ...overrides,
+  };
+}
+
+function withSubscriptions(items: SubscriptionEntry[]): VaultModel {
+  const base = createDefaultModel(NOW);
+  return {
+    ...base,
+    settings: {
+      ...base.settings,
+      modules: { subscriptions: { enabled: true } },
+    },
+    modules: { [SUBSCRIPTIONS_MODULE_ID]: items },
   };
 }
 
@@ -216,6 +279,44 @@ describe("CommandBar", () => {
 
     await waitFor(() => expect(clip).toHaveBeenCalledWith("git status"));
     expect(api.saveVault).toHaveBeenCalled(); // frecency recorded
+    expect(mockHideWindow).toHaveBeenCalled();
+  });
+
+  it("toggles a todo result as its primary action", async () => {
+    setModel(withTodos([todo()]));
+    render(<CommandBar />);
+
+    fireEvent.keyDown(window, { key: "1", metaKey: true });
+
+    await waitFor(() => expect(api.saveVault).toHaveBeenCalled());
+    const saved = JSON.parse(api.saveVault.mock.calls[0][0] as string);
+    expect(saved.modules.todos[0].done).toBe(true);
+    expect(mockHideWindow).toHaveBeenCalled();
+  });
+
+  it("copies a subscription billing URL as its primary action", async () => {
+    setModel(withSubscriptions([subscription()]));
+    render(<CommandBar />);
+
+    fireEvent.keyDown(window, { key: "1", metaKey: true });
+
+    await waitFor(() =>
+      expect(clip).toHaveBeenCalledWith(
+        "https://cloud.linode.com/account/billing",
+      ),
+    );
+    expect(api.saveVault).toHaveBeenCalled(); // frecency recorded
+    expect(mockHideWindow).toHaveBeenCalled();
+  });
+
+  it("records a subscription without a billing URL without copying", async () => {
+    setModel(withSubscriptions([subscription({ url: "" })]));
+    render(<CommandBar />);
+
+    fireEvent.keyDown(window, { key: "1", metaKey: true });
+
+    await waitFor(() => expect(api.saveVault).toHaveBeenCalled());
+    expect(clip).not.toHaveBeenCalled();
     expect(mockHideWindow).toHaveBeenCalled();
   });
 

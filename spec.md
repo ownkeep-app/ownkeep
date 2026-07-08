@@ -285,7 +285,7 @@ never migrates another module's slice.
 
 ```jsonc
 {
-  "meta": { "schemaVersion": 3, "appVersion": "0.1", "createdAt": "ISO", "updatedAt": "ISO" },
+  "meta": { "schemaVersion": 5, "appVersion": "0.1", "createdAt": "ISO", "updatedAt": "ISO" },
 
   "settings": {
     "globalHotkey": "Cmd+Shift+Space",       // activate/toggle the search window
