@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { writeClipboard } from "@/lib/clipboard";
+import { toastClipboard } from "@/lib/toast";
 import { useVaultStore } from "@/stores/vault-store";
 import { vaultApi } from "@/vault/api";
 import { createDefaultModel } from "@/vault/model";
@@ -17,6 +18,7 @@ vi.mock("shiki", () => ({
   codeToHtml: vi.fn(async () => "<pre><code>highlighted</code></pre>"),
 }));
 vi.mock("@/lib/clipboard", () => ({ writeClipboard: vi.fn(async () => true) }));
+vi.mock("@/lib/toast", () => ({ toastClipboard: vi.fn() }));
 vi.mock("@/vault/api", () => ({
   vaultApi: {
     saveVault: vi.fn(async () => {}),
@@ -25,6 +27,7 @@ vi.mock("@/vault/api", () => ({
 }));
 
 const clip = vi.mocked(writeClipboard);
+const toastClip = vi.mocked(toastClipboard);
 const api = vi.mocked(vaultApi);
 const NOW = "2026-07-07T00:00:00.000Z";
 
@@ -60,7 +63,7 @@ describe("CommandsListView", () => {
 
   it("shows an empty state and groups commands by category once present", () => {
     const { rerender } = render(<CommandsListView items={[]} />);
-    expect(screen.getByText(/no commands found/i)).toBeInTheDocument();
+    expect(screen.getByText(/no commands yet/i)).toBeInTheDocument();
 
     rerender(
       <CommandsListView
@@ -91,12 +94,21 @@ describe("CommandsListView", () => {
     ).not.toBeInTheDocument();
   });
 
+  it("shows a no-matches state when the filter excludes everything", async () => {
+    const user = userEvent.setup();
+    render(<CommandsListView items={[cmd()]} />);
+    await user.type(screen.getByLabelText("Filter commands"), "zzz-nomatch");
+    expect(screen.getByText(/no matches/i)).toBeInTheDocument();
+  });
+
   it("copies a placeholder-free command immediately", async () => {
     const user = userEvent.setup();
     render(<CommandsListView items={[cmd()]} />);
     await user.click(screen.getByRole("button", { name: /copy status/i }));
     expect(clip).toHaveBeenCalledWith("git status");
-    expect(await screen.findByText(/command copied/i)).toBeInTheDocument();
+    await waitFor(() =>
+      expect(toastClip).toHaveBeenCalledWith(true, "Command copied"),
+    );
   });
 
   it("opens the fill-in for a command with placeholders and copies the completed text", async () => {
@@ -133,7 +145,7 @@ describe("CommandsListView", () => {
   it("creates a command through the edit form", async () => {
     const user = userEvent.setup();
     render(<CommandsListView items={[]} />);
-    await user.click(screen.getByRole("button", { name: /new/i }));
+    await user.click(screen.getByRole("button", { name: "New" }));
 
     await user.type(screen.getByLabelText("Command title"), "List files");
     await user.type(screen.getByLabelText("Command category"), "shell");

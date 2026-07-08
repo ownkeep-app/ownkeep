@@ -2,9 +2,20 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { toastError, toastSecretCopied } from "@/lib/toast";
 import { useVaultStore } from "@/stores/vault-store";
 import { PasswordsListView } from "./PasswordsModule";
 import type { PasswordEntry } from "./types";
+
+vi.mock("@/lib/toast", () => ({
+  toastSecretCopied: vi.fn(),
+  toastError: vi.fn(),
+}));
+
+const toasts = {
+  toastSecretCopied: vi.mocked(toastSecretCopied),
+  toastError: vi.mocked(toastError),
+};
 
 const actions = {
   savePassword: useVaultStore.getState().savePassword,
@@ -79,6 +90,18 @@ describe("PasswordsListView", () => {
     expect(screen.queryByText("GitHub")).not.toBeInTheDocument();
   });
 
+  it("shows a no-matches state when the filter excludes everything", async () => {
+    const user = userEvent.setup();
+    render(<PasswordsListView items={[item]} />);
+
+    await user.type(screen.getByLabelText(/filter passwords/i), "zzz-nomatch");
+
+    expect(screen.getByText(/no matches/i)).toBeVisible();
+    expect(
+      screen.queryByRole("button", { name: "New password" }),
+    ).not.toBeInTheDocument();
+  });
+
   it("copies through the store without exposing the secret", async () => {
     const user = userEvent.setup();
     render(<PasswordsListView items={[item]} />);
@@ -89,7 +112,21 @@ describe("PasswordsListView", () => {
 
     expect(copySecret).toHaveBeenCalledWith("github", "password");
     expect(screen.queryByText("super-secret-value")).not.toBeInTheDocument();
-    expect(screen.getByText("Password copied.")).toBeVisible();
+    expect(toasts.toastSecretCopied).toHaveBeenCalled();
+  });
+
+  it("toasts an error when the copy fails", async () => {
+    const user = userEvent.setup();
+    copySecret.mockRejectedValueOnce(new Error("no clipboard"));
+    render(<PasswordsListView items={[item]} />);
+
+    await user.click(
+      screen.getAllByRole("button", { name: /copy password/i })[0],
+    );
+
+    expect(toasts.toastError).toHaveBeenCalledWith(
+      "Couldn't copy the password.",
+    );
   });
 
   it("reveals through the Rust-owned command without rendering the secret", async () => {
@@ -102,6 +139,20 @@ describe("PasswordsListView", () => {
 
     expect(revealSecret).toHaveBeenCalledWith("github", "password");
     expect(screen.queryByText("super-secret-value")).not.toBeInTheDocument();
+  });
+
+  it("toasts an error when reveal fails", async () => {
+    const user = userEvent.setup();
+    revealSecret.mockRejectedValueOnce(new Error("locked"));
+    render(<PasswordsListView items={[item]} />);
+
+    await user.click(
+      screen.getByRole("button", { name: /reveal password for github/i }),
+    );
+
+    expect(toasts.toastError).toHaveBeenCalledWith(
+      "Couldn't reveal the password.",
+    );
   });
 
   it("creates a password entry from the edit form", async () => {

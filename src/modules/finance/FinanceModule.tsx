@@ -12,6 +12,7 @@ import {
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { EmptyState } from "@/components/EmptyState";
 import type { ListViewProps } from "@/modules/types";
 import { useVaultStore } from "@/stores/vault-store";
 import { defaultSettings } from "@/vault/model";
@@ -72,6 +73,8 @@ export function FinanceListView({ items }: ListViewProps<Snapshot>) {
     filtered[0] ??
     null;
 
+  const startCreate = () => setEditing(null);
+
   async function handleSave(entry: Snapshot) {
     await saveSnapshot(entry);
     setSelectedId(entry.id);
@@ -117,7 +120,7 @@ export function FinanceListView({ items }: ListViewProps<Snapshot>) {
             <Coins className="h-4 w-4" />
             FX rates
           </Button>
-          <Button onClick={() => setEditing(null)} type="button">
+          <Button onClick={startCreate} type="button">
             <Plus className="h-4 w-4" />
             New snapshot
           </Button>
@@ -142,21 +145,40 @@ export function FinanceListView({ items }: ListViewProps<Snapshot>) {
           </div>
 
           {filtered.length === 0 ? (
-            <div className="flex flex-1 items-center justify-center p-8 text-center text-sm text-muted-foreground">
-              <div>
-                <p className="font-medium text-foreground">No snapshots yet</p>
-                <p>Add one to start tracking net worth.</p>
-              </div>
-            </div>
+            query.trim() ? (
+              <EmptyState
+                title="No matches"
+                description={`Nothing matches “${query.trim()}”.`}
+              />
+            ) : (
+              <EmptyState
+                title="No snapshots yet"
+                description="Add a snapshot to start tracking net worth over time."
+                action={
+                  <Button onClick={startCreate} type="button">
+                    <Plus className="h-4 w-4" />
+                    New snapshot
+                  </Button>
+                }
+              />
+            )
           ) : (
             <div className="min-h-0 flex-1 overflow-auto">
               <table className="w-full table-fixed text-sm">
                 <thead className="sticky top-0 bg-background text-left text-xs uppercase text-muted-foreground">
                   <tr className="border-b border-border">
-                    <th className="w-4/12 px-4 py-2 font-medium">Date</th>
-                    <th className="w-5/12 px-4 py-2 font-medium">Net worth</th>
-                    <th className="w-2/12 px-4 py-2 font-medium">Places</th>
-                    <th className="w-24 px-4 py-2 font-medium">Actions</th>
+                    <th className="w-4/12 px-4 py-2 font-medium" scope="col">
+                      Date
+                    </th>
+                    <th className="w-5/12 px-4 py-2 font-medium" scope="col">
+                      Net worth
+                    </th>
+                    <th className="w-2/12 px-4 py-2 font-medium" scope="col">
+                      Places
+                    </th>
+                    <th className="w-24 px-4 py-2 font-medium" scope="col">
+                      Actions
+                    </th>
                   </tr>
                 </thead>
                 <tbody>

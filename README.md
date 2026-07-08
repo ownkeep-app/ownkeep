@@ -8,9 +8,11 @@ configuration. No cloud, no database, no telemetry.
 - **Build order & status:** [`plan.md`](plan.md)
 - **Rules for humans & AI agents:** [`AGENTS.md`](AGENTS.md), [`.cursor/rules/`](.cursor/rules/)
 
-> Status: **Phase 2.2 (coverage gate)** — the encrypted vault core, app shell, Dashboard shell, and
-> migration framework are in place; the current work is locking unit-test coverage above 95% before
-> feature modules land (see `plan.md`).
+> Status: **Phase 11 (polish & ship)** — the encrypted vault core, all feature modules (passwords,
+> commands, todos, subscriptions, finance), command bar, Dashboard, backup/restore, scheduler, and
+> migration framework are in place. Current work is the polish pass — theming, empty states, toast
+> feedback, keyboard-shortcut help, accessibility — ahead of signing and the v1.0 release (see
+> `plan.md`).
 
 ## Stack
 
@@ -42,6 +44,60 @@ On first launch, macOS will ask you to grant **Accessibility** permission so the
 (`Cmd+Shift+Space`) works system-wide. The app runs in the **menu bar** (no Dock icon); use the tray
 icon's **Show / Quit** menu, or the hotkey to toggle the window. It hides on **Esc** or when it loses
 focus.
+
+## Using keystash
+
+### First run & the Emergency Kit
+
+On first run you set a **master password**. It encrypts the whole vault and is **never stored** — so
+if you forget it, the only other way in is the **recovery code** shown once during onboarding as your
+**Emergency Kit**.
+
+- The recovery code is a random 12-word phrase that unlocks the entire vault, so store it **offline**
+  (printed, or in a separate password manager) and **never beside the vault file**.
+- Unlocking with the recovery code forces you to set a **new master password** on the spot.
+- You can regenerate the Emergency Kit anytime from **Settings** (this re-wraps the recovery key; the
+  old code stops working).
+
+The vault lives at `~/Library/Application Support/com.shaojiang.keystash/vault.dat`
+(`vault-dev.dat` in dev builds), outside the app bundle — see `spec.md` §3.2 and §4.
+
+### Keyboard shortcuts
+
+keystash is keyboard-first. Press **`⌘/`** on either surface to open the in-app shortcut cheat
+sheet (also reachable from the ⌨ button in the Dashboard). The essentials:
+
+| Where | Keys | Action |
+|---|---|---|
+| Anywhere | `⌘⇧Space` | Summon the command bar |
+| Anywhere | `⌘⇧D` | Toggle the Dashboard window |
+| Command bar | `⌘1`–`⌘9` | Run a result's primary action (e.g. copy password) |
+| Command bar | `⌥⌘1`–`⌥⌘9` | Copy a command's raw template |
+| Command bar | `Esc` | Hide the launcher |
+| Dashboard | `⌘1`–`⌘9` / `↑ ↓` | Switch modules in the sidebar |
+
+Copy and clipboard actions confirm with a toast; secret copies note when the clipboard auto-clears.
+
+### Theme
+
+Light / dark / system and the accent color are set in **Settings → Appearance** and apply live.
+
+### Upgrading & the migration guide
+
+keystash upgrades by **manual replacement** — download a new `.dmg` and drag the new app over the old
+one. Your data is untouched because the vault lives outside the app bundle.
+
+When a new build introduces a data-shape change, opening your existing vault shows a **migration
+guide** before anything is written: it summarizes added fields, shows renamed paths (`old → new`), and
+lists removals **in red as data loss**. You then choose to:
+
+- **Accept & upgrade** — writes an automatic pre-migration backup, applies the migration, and
+  continues; or
+- **Reject** — **Back up & quit**, **Erase & start fresh** (danger, irreversible), or **Quit**
+  untouched.
+
+Migrations are forward-only, so an older app refuses a migrated vault — to roll back, restore the
+pre-migration backup with the older build. Full rules: `spec.md` §11.
 
 ## Test & quality
 
@@ -91,7 +147,7 @@ may warn on first open.
 ```
 keystash/
 ├── src/            # React + TypeScript front-end (UI only; no secrets)
-├── src-tauri/      # Rust core (shell now; crypto, storage, scheduler later)
+├── src-tauri/      # Rust core (crypto, storage, concealed clipboard, scheduler)
 ├── spec.md         # product & technical spec
 ├── plan.md         # phased development plan
 └── AGENTS.md       # AI-agent rules (also read by Codex, Claude, Cursor)

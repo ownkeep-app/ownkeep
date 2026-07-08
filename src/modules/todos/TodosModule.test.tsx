@@ -56,6 +56,15 @@ describe("TodosListView", () => {
     expect(screen.queryByText("Buy tea")).not.toBeInTheDocument();
   });
 
+  it("shows a no-matches state when the filter excludes everything", async () => {
+    const user = userEvent.setup();
+    render(<TodosListView items={[item]} />);
+
+    await user.type(screen.getByLabelText("Filter todos"), "zzz-nomatch");
+
+    expect(screen.getByText(/no matches/i)).toBeVisible();
+  });
+
   it("renders completed todos and detail actions", async () => {
     const user = userEvent.setup();
     render(<TodosListView items={[{ ...item, done: true }]} />);

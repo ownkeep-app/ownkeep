@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { writeClipboard } from "@/lib/clipboard";
+import { toastClipboard, toastError, toastSecretCopied } from "@/lib/toast";
 import { hideWindow } from "@/lib/window";
 import {
   COMMANDS_MODULE_ID,
@@ -26,6 +27,11 @@ import { CommandBar } from "./CommandBar";
 
 vi.mock("@/lib/window", () => ({ hideWindow: vi.fn(async () => {}) }));
 vi.mock("@/lib/clipboard", () => ({ writeClipboard: vi.fn(async () => true) }));
+vi.mock("@/lib/toast", () => ({
+  toastSecretCopied: vi.fn(),
+  toastError: vi.fn(),
+  toastClipboard: vi.fn(),
+}));
 vi.mock("@/vault/api", () => ({
   vaultApi: {
     copySecret: vi.fn(async () => {}),
@@ -36,6 +42,9 @@ vi.mock("@/vault/api", () => ({
 
 const mockHideWindow = vi.mocked(hideWindow);
 const clip = vi.mocked(writeClipboard);
+const secretToast = vi.mocked(toastSecretCopied);
+const errorToast = vi.mocked(toastError);
+const clipboardToast = vi.mocked(toastClipboard);
 const api = vi.mocked(vaultApi);
 const NOW = "2026-07-07T00:00:00.000Z";
 
@@ -213,8 +222,35 @@ describe("CommandBar", () => {
     await waitFor(() =>
       expect(api.copySecret).toHaveBeenCalledWith("gh", PASSWORD_SECRET_FIELD),
     );
+    expect(secretToast).toHaveBeenCalled();
     expect(api.saveVault).toHaveBeenCalled(); // frecency bump persisted
     expect(mockHideWindow).toHaveBeenCalled();
+  });
+
+  it("toasts an error when the secret copy fails but still hides", async () => {
+    api.copySecret.mockRejectedValueOnce(new Error("no pasteboard"));
+    setModel(withPasswords([passwordItem("gh", "GitHub", "shao")]));
+    render(<CommandBar />);
+
+    fireEvent.keyDown(window, { key: "1", metaKey: true });
+
+    await waitFor(() =>
+      expect(errorToast).toHaveBeenCalledWith("Couldn't copy the password."),
+    );
+    expect(mockHideWindow).toHaveBeenCalled();
+  });
+
+  it("shows a no-results message when the query matches nothing", async () => {
+    const user = userEvent.setup();
+    setModel(withPasswords([passwordItem("gh", "GitHub", "shao")]));
+    render(<CommandBar />);
+
+    await user.type(
+      screen.getByRole("combobox", { name: /search/i }),
+      "zzz-no-match",
+    );
+
+    expect(screen.getByRole("status")).toHaveTextContent(/no matches/i);
   });
 
   it("runs the primary action when a result is selected", async () => {
@@ -278,6 +314,7 @@ describe("CommandBar", () => {
     fireEvent.keyDown(window, { key: "1", metaKey: true });
 
     await waitFor(() => expect(clip).toHaveBeenCalledWith("git status"));
+    expect(clipboardToast).toHaveBeenCalledWith(true, "Command copied");
     expect(api.saveVault).toHaveBeenCalled(); // frecency recorded
     expect(mockHideWindow).toHaveBeenCalled();
   });

@@ -76,6 +76,18 @@ describe("SubscriptionsListView", () => {
     expect(screen.queryByText("Linode")).not.toBeInTheDocument();
   });
 
+  it("shows a no-matches state when the filter excludes everything", async () => {
+    const user = userEvent.setup();
+    render(<SubscriptionsListView items={[item]} />);
+
+    await user.type(
+      screen.getByLabelText("Filter subscriptions"),
+      "zzz-nomatch",
+    );
+
+    expect(screen.getByText(/no matches/i)).toBeVisible();
+  });
+
   it("shows converted summary totals when finance FX settings are enabled", () => {
     const base = createDefaultModel("2026-07-08T12:00:00.000Z");
     useVaultStore.setState({

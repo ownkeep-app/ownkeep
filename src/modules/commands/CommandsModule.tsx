@@ -4,7 +4,9 @@ import { Copy, Pencil, Plus, Trash2, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { EmptyState } from "@/components/EmptyState";
 import { writeClipboard } from "@/lib/clipboard";
+import { toastClipboard } from "@/lib/toast";
 import type { ListViewProps } from "@/modules/types";
 import { useVaultStore } from "@/stores/vault-store";
 import { FillInForm } from "./FillInForm";
@@ -28,7 +30,6 @@ export function CommandsListView({ items }: ListViewProps<CommandEntry>) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [editing, setEditing] = useState<CommandEntry | null | undefined>();
   const [copying, setCopying] = useState<CommandEntry | null>(null);
-  const [message, setMessage] = useState<string | null>(null);
 
   const commands = useMemo(() => commandEntries(items), [items]);
   const filtered = useMemo(() => {
@@ -45,6 +46,8 @@ export function CommandsListView({ items }: ListViewProps<CommandEntry>) {
   const selected =
     commands.find((item) => item.id === selectedId) ?? filtered[0] ?? null;
 
+  const startCreate = () => setEditing(null);
+
   async function handleSave(entry: CommandEntry) {
     await saveCommand(entry);
     setSelectedId(entry.id);
@@ -57,8 +60,8 @@ export function CommandsListView({ items }: ListViewProps<CommandEntry>) {
   }
 
   async function copyText(text: string, note: string) {
-    await writeClipboard(text);
-    setMessage(note);
+    const ok = await writeClipboard(text);
+    toastClipboard(ok, note);
   }
 
   function startCopy(command: CommandEntry) {
@@ -66,7 +69,7 @@ export function CommandsListView({ items }: ListViewProps<CommandEntry>) {
     if (parsePlaceholders(command.primaryCopyTemplate).length > 0) {
       setCopying(command);
     } else {
-      void copyText(command.primaryCopyTemplate, "Command copied.");
+      void copyText(command.primaryCopyTemplate, "Command copied");
     }
   }
 
@@ -90,7 +93,7 @@ export function CommandsListView({ items }: ListViewProps<CommandEntry>) {
             {commands.length === 1 ? "command" : "commands"}
           </p>
         </div>
-        <Button onClick={() => setEditing(null)}>
+        <Button onClick={startCreate}>
           <Plus className="h-4 w-4" />
           New
         </Button>
@@ -108,12 +111,23 @@ export function CommandsListView({ items }: ListViewProps<CommandEntry>) {
           </div>
 
           {groups.length === 0 ? (
-            <div className="flex flex-1 items-center justify-center p-8 text-center text-sm text-muted-foreground">
-              <div>
-                <p className="font-medium text-foreground">No commands found</p>
-                <p>Add one or adjust the filter.</p>
-              </div>
-            </div>
+            query.trim() ? (
+              <EmptyState
+                title="No matches"
+                description={`Nothing matches “${query.trim()}”.`}
+              />
+            ) : (
+              <EmptyState
+                title="No commands yet"
+                description="Save a snippet with {{ }} placeholders to reuse it fast."
+                action={
+                  <Button onClick={startCreate}>
+                    <Plus className="h-4 w-4" />
+                    New command
+                  </Button>
+                }
+              />
+            )
           ) : (
             <div className="min-h-0 flex-1 overflow-auto p-2">
               {groups.map((group) => (
@@ -181,13 +195,13 @@ export function CommandsListView({ items }: ListViewProps<CommandEntry>) {
               onCancel={() => setCopying(null)}
               onComplete={(filled) => {
                 setCopying(null);
-                void copyText(filled, "Command copied.");
+                void copyText(filled, "Command copied");
               }}
               onRaw={() => {
                 setCopying(null);
                 void copyText(
                   copying.primaryCopyTemplate,
-                  "Raw command copied.",
+                  "Raw command copied",
                 );
               }}
             />
@@ -200,11 +214,6 @@ export function CommandsListView({ items }: ListViewProps<CommandEntry>) {
             <div className="p-6 text-sm text-muted-foreground">
               Select a command to inspect it.
             </div>
-          )}
-          {message && (
-            <p className="border-t border-border px-6 py-3 text-sm text-muted-foreground">
-              {message}
-            </p>
           )}
         </aside>
       </div>

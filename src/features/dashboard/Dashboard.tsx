@@ -2,6 +2,11 @@ import { type ReactNode, useEffect, useMemo, useState } from "react";
 
 import { Lock, Settings as SettingsIcon } from "lucide-react";
 
+import { KeyboardHelp } from "@/components/KeyboardHelp";
+import {
+  DASHBOARD_SHORTCUTS,
+  GLOBAL_SHORTCUTS,
+} from "@/components/keyboard-shortcuts";
 import { cn } from "@/lib/utils";
 import { MODULES } from "@/modules/registry";
 import { useVaultStore } from "@/stores/vault-store";
@@ -63,7 +68,9 @@ export function Dashboard() {
   if (status !== "unlocked" || !model) {
     return (
       <main className="flex h-screen items-center justify-center bg-background p-6 text-center text-sm text-muted-foreground">
-        <p>keystash is locked. Unlock it from the main window (⌘⇧Space).</p>
+        <p role="status">
+          keystash is locked. Unlock it from the main window (⌘⇧Space).
+        </p>
       </main>
     );
   }
@@ -76,7 +83,10 @@ export function Dashboard() {
 
   return (
     <div className="flex h-screen bg-background text-foreground">
-      <nav className="flex w-56 flex-col gap-1 border-r border-border p-2">
+      <nav
+        aria-label="Modules"
+        className="flex w-56 flex-col gap-1 border-r border-border p-2"
+      >
         <p className="px-2 py-1 text-xs font-medium uppercase text-muted-foreground">
           Modules
         </p>
@@ -110,6 +120,7 @@ export function Dashboard() {
       <section className="flex-1 overflow-auto">
         {Pane ? <Pane items={items} /> : <SettingsPanel />}
       </section>
+      <KeyboardHelp groups={[DASHBOARD_SHORTCUTS, GLOBAL_SHORTCUTS]} />
     </div>
   );
 }
@@ -130,6 +141,7 @@ function SidebarRow({
   return (
     <button
       type="button"
+      aria-current={active ? "page" : undefined}
       onClick={onClick}
       className={cn(
         "flex items-center gap-2 rounded-md px-2 py-1.5 text-sm",

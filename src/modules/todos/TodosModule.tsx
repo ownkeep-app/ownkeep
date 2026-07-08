@@ -13,6 +13,7 @@ import {
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { EmptyState } from "@/components/EmptyState";
 import type { ListViewProps } from "@/modules/types";
 import { useVaultStore } from "@/stores/vault-store";
 import {
@@ -62,6 +63,8 @@ export function TodosListView({ items }: ListViewProps<TodoEntry>) {
     todos.find((item) => item.id === selectedId) ?? filtered[0] ?? null;
   const openCount = todos.filter((item) => !item.done).length;
 
+  const startCreate = () => setEditing(null);
+
   async function handleSave(entry: TodoEntry) {
     await saveTodo(entry);
     setSelectedId(entry.id);
@@ -96,7 +99,7 @@ export function TodosListView({ items }: ListViewProps<TodoEntry>) {
             {openCount} open of {todos.length}
           </p>
         </div>
-        <Button onClick={() => setEditing(null)}>
+        <Button onClick={startCreate}>
           <Plus className="h-4 w-4" />
           New
         </Button>
@@ -118,23 +121,46 @@ export function TodosListView({ items }: ListViewProps<TodoEntry>) {
           </div>
 
           {filtered.length === 0 ? (
-            <div className="flex flex-1 items-center justify-center p-8 text-center text-sm text-muted-foreground">
-              <div>
-                <p className="font-medium text-foreground">No todos found</p>
-                <p>Add one or adjust the filter.</p>
-              </div>
-            </div>
+            query.trim() ? (
+              <EmptyState
+                title="No matches"
+                description={`Nothing matches “${query.trim()}”.`}
+              />
+            ) : (
+              <EmptyState
+                title="No todos yet"
+                description="Add a task — set a due time to get reminders."
+                action={
+                  <Button onClick={startCreate}>
+                    <Plus className="h-4 w-4" />
+                    New todo
+                  </Button>
+                }
+              />
+            )
           ) : (
             <div className="min-h-0 flex-1 overflow-auto">
               <table className="w-full table-fixed text-sm">
                 <thead className="sticky top-0 bg-background text-left text-xs uppercase text-muted-foreground">
                   <tr className="border-b border-border">
-                    <th className="w-14 px-4 py-2 font-medium">Done</th>
-                    <th className="w-4/12 px-4 py-2 font-medium">Title</th>
-                    <th className="w-3/12 px-4 py-2 font-medium">Due</th>
-                    <th className="w-2/12 px-4 py-2 font-medium">Priority</th>
-                    <th className="w-2/12 px-4 py-2 font-medium">Tags</th>
-                    <th className="w-28 px-4 py-2 font-medium">Actions</th>
+                    <th className="w-14 px-4 py-2 font-medium" scope="col">
+                      Done
+                    </th>
+                    <th className="w-4/12 px-4 py-2 font-medium" scope="col">
+                      Title
+                    </th>
+                    <th className="w-3/12 px-4 py-2 font-medium" scope="col">
+                      Due
+                    </th>
+                    <th className="w-2/12 px-4 py-2 font-medium" scope="col">
+                      Priority
+                    </th>
+                    <th className="w-2/12 px-4 py-2 font-medium" scope="col">
+                      Tags
+                    </th>
+                    <th className="w-28 px-4 py-2 font-medium" scope="col">
+                      Actions
+                    </th>
                   </tr>
                 </thead>
                 <tbody>

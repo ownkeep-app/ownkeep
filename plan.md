@@ -173,9 +173,9 @@ with a **browsable Dashboard** (sidebar + content pane) and a safe upgrade path 
 - **Deps:** P2 (data), independent of P7–P9.
 
 ### Phase 11 — ✨ Polish + ship · 2–4 d
-- [ ] Theming pass (light/dark/accent), empty states, error toasts, keyboard-map help.
-- [ ] Accessibility check; performance check (<300 ms to bar, <30 ms keystroke).
-- [ ] **Developer ID sign + notarize**; DMG/`.app` packaging; README + Emergency-Kit docs + migration-guide docs.
+- [x] Theming pass (light/dark/accent), empty states, error toasts, keyboard-map help. *(Theming was wired earlier; this pass added per-module truly-empty vs filtered empty states with an in-panel New action + a CommandBar no-results state, sonner toast feedback for copy/clipboard/secret actions, and a `⌘/` keyboard-shortcut cheat sheet on both surfaces.)*
+- [ ] Accessibility check; performance check (<300 ms to bar, <30 ms keystroke). *(In progress: added `nav`/`aria-current` on the Dashboard sidebar, `scope="col"` on module tables, `role="status"`/`aria-live` feedback via toasts + the no-results region, and `aria-busy`/`role="alert"` on onboarding. Performance measurement still pending.)*
+- [ ] **Developer ID sign + notarize**; DMG/`.app` packaging; README + Emergency-Kit docs + migration-guide docs. *(Docs done: README now has a "Using keystash" section covering the Emergency Kit / recovery code, keyboard shortcuts, theme, and the upgrade/migration-guide flow. Signing, notarization, and DMG packaging still pending.)*
 - [ ] **Release bookkeeping:** tag shipped commits as `v<main>.<minor>`; immediately after a shipped tag, bump the working app version in `package.json` to the next release version (`main.minor`), run `node scripts/sync-version.mjs` to derive SemVer-only package metadata, and keep those derived fields from becoming a second app-version source.
 - **Exit:** Gatekeeper opens it clean on a second Mac; permissions prompt correctly; the shipped `.dmg` includes the migration guide for every schema step since the previous `v*` tag. **← v1.0.**
 - **Deps:** all prior.

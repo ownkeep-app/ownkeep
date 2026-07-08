@@ -189,7 +189,7 @@ describe("FinanceListView", () => {
     render(<FinanceListView items={snapshots} />);
 
     await user.type(screen.getByLabelText("Filter snapshots"), "nomatch-xyz");
-    expect(screen.getByText(/no snapshots yet/i)).toBeInTheDocument();
+    expect(screen.getByText(/no matches/i)).toBeInTheDocument();
 
     await user.clear(screen.getByLabelText("Filter snapshots"));
     await user.click(screen.getByRole("button", { name: /fx rates/i }));

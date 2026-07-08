@@ -13,6 +13,8 @@ import {
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { EmptyState } from "@/components/EmptyState";
+import { toastError, toastSecretCopied } from "@/lib/toast";
 import type { ListViewProps } from "@/modules/types";
 import { useVaultStore } from "@/stores/vault-store";
 import {
@@ -35,10 +37,12 @@ export function PasswordsListView({ items }: ListViewProps<PasswordEntry>) {
   const deletePassword = useVaultStore((s) => s.deletePassword);
   const copySecret = useVaultStore((s) => s.copySecret);
   const revealSecret = useVaultStore((s) => s.revealSecret);
+  const clearSeconds = useVaultStore(
+    (s) => s.model?.settings.clipboardClearSeconds ?? 30,
+  );
   const [query, setQuery] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [editing, setEditing] = useState<PasswordEntry | null | undefined>();
-  const [copyMessage, setCopyMessage] = useState<string | null>(null);
 
   const passwords = useMemo(() => passwordEntries(items), [items]);
   const filtered = useMemo(() => {
@@ -62,6 +66,8 @@ export function PasswordsListView({ items }: ListViewProps<PasswordEntry>) {
   const selected =
     passwords.find((item) => item.id === selectedId) ?? filtered[0] ?? null;
 
+  const startCreate = () => setEditing(null);
+
   async function handleSave(entry: PasswordEntry) {
     await savePassword(entry);
     setSelectedId(entry.id);
@@ -74,12 +80,20 @@ export function PasswordsListView({ items }: ListViewProps<PasswordEntry>) {
   }
 
   async function handleCopy(id: string) {
-    await copySecret(id, PASSWORD_SECRET_FIELD);
-    setCopyMessage("Password copied.");
+    try {
+      await copySecret(id, PASSWORD_SECRET_FIELD);
+      toastSecretCopied(clearSeconds);
+    } catch {
+      toastError("Couldn't copy the password.");
+    }
   }
 
   async function handleReveal(id: string) {
-    await revealSecret(id, PASSWORD_SECRET_FIELD);
+    try {
+      await revealSecret(id, PASSWORD_SECRET_FIELD);
+    } catch {
+      toastError("Couldn't reveal the password.");
+    }
   }
 
   if (editing !== undefined) {
@@ -102,7 +116,7 @@ export function PasswordsListView({ items }: ListViewProps<PasswordEntry>) {
             {passwords.length === 1 ? "login" : "logins"}
           </p>
         </div>
-        <Button onClick={() => setEditing(null)}>
+        <Button onClick={startCreate}>
           <Plus className="h-4 w-4" />
           New
         </Button>
@@ -124,24 +138,43 @@ export function PasswordsListView({ items }: ListViewProps<PasswordEntry>) {
           </div>
 
           {filtered.length === 0 ? (
-            <div className="flex flex-1 items-center justify-center p-8 text-center text-sm text-muted-foreground">
-              <div>
-                <p className="font-medium text-foreground">
-                  No passwords found
-                </p>
-                <p>Add one or adjust the filter.</p>
-              </div>
-            </div>
+            query.trim() ? (
+              <EmptyState
+                title="No matches"
+                description={`Nothing matches “${query.trim()}”.`}
+              />
+            ) : (
+              <EmptyState
+                title="No passwords yet"
+                description="Add your first login to start filling the vault."
+                action={
+                  <Button onClick={startCreate}>
+                    <Plus className="h-4 w-4" />
+                    New password
+                  </Button>
+                }
+              />
+            )
           ) : (
             <div className="min-h-0 flex-1 overflow-auto">
               <table className="w-full table-fixed text-sm">
                 <thead className="sticky top-0 bg-background text-left text-xs uppercase text-muted-foreground">
                   <tr className="border-b border-border">
-                    <th className="w-4/12 px-4 py-2 font-medium">Name</th>
-                    <th className="w-3/12 px-4 py-2 font-medium">Username</th>
-                    <th className="w-2/12 px-4 py-2 font-medium">Password</th>
-                    <th className="w-3/12 px-4 py-2 font-medium">Tags</th>
-                    <th className="w-32 px-4 py-2 font-medium">Actions</th>
+                    <th className="w-4/12 px-4 py-2 font-medium" scope="col">
+                      Name
+                    </th>
+                    <th className="w-3/12 px-4 py-2 font-medium" scope="col">
+                      Username
+                    </th>
+                    <th className="w-2/12 px-4 py-2 font-medium" scope="col">
+                      Password
+                    </th>
+                    <th className="w-3/12 px-4 py-2 font-medium" scope="col">
+                      Tags
+                    </th>
+                    <th className="w-32 px-4 py-2 font-medium" scope="col">
+                      Actions
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
@@ -222,11 +255,6 @@ export function PasswordsListView({ items }: ListViewProps<PasswordEntry>) {
             <div className="p-6 text-sm text-muted-foreground">
               Select a password to inspect its metadata.
             </div>
-          )}
-          {copyMessage && (
-            <p className="border-t border-border px-6 py-3 text-sm text-muted-foreground">
-              {copyMessage}
-            </p>
           )}
         </aside>
       </div>

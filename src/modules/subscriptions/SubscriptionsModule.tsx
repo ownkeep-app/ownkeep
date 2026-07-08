@@ -13,6 +13,7 @@ import {
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { EmptyState } from "@/components/EmptyState";
 import type { ListViewProps } from "@/modules/types";
 import { useVaultStore } from "@/stores/vault-store";
 import { defaultSettings } from "@/vault/model";
@@ -70,6 +71,8 @@ export function SubscriptionsListView({
   const selected =
     subscriptions.find((item) => item.id === selectedId) ?? filtered[0] ?? null;
 
+  const startCreate = () => setEditing(null);
+
   async function handleSave(entry: SubscriptionEntry) {
     await saveSubscription(entry);
     setSelectedId(entry.id);
@@ -117,7 +120,7 @@ export function SubscriptionsListView({
               {subscriptions.length === 1 ? "" : "s"}
             </p>
           </div>
-          <Button onClick={() => setEditing(null)}>
+          <Button onClick={startCreate}>
             <Plus className="h-4 w-4" />
             New
           </Button>
@@ -141,25 +144,46 @@ export function SubscriptionsListView({
           </div>
 
           {filtered.length === 0 ? (
-            <div className="flex flex-1 items-center justify-center p-8 text-center text-sm text-muted-foreground">
-              <div>
-                <p className="font-medium text-foreground">
-                  No subscriptions found
-                </p>
-                <p>Add one or adjust the filter.</p>
-              </div>
-            </div>
+            query.trim() ? (
+              <EmptyState
+                title="No matches"
+                description={`Nothing matches “${query.trim()}”.`}
+              />
+            ) : (
+              <EmptyState
+                title="No subscriptions yet"
+                description="Track a recurring service to get renewal reminders."
+                action={
+                  <Button onClick={startCreate}>
+                    <Plus className="h-4 w-4" />
+                    New subscription
+                  </Button>
+                }
+              />
+            )
           ) : (
             <div className="min-h-0 flex-1 overflow-auto">
               <table className="w-full table-fixed text-sm">
                 <thead className="sticky top-0 bg-background text-left text-xs uppercase text-muted-foreground">
                   <tr className="border-b border-border">
-                    <th className="w-4/12 px-4 py-2 font-medium">Service</th>
-                    <th className="w-2/12 px-4 py-2 font-medium">Amount</th>
-                    <th className="w-2/12 px-4 py-2 font-medium">Cycle</th>
-                    <th className="w-2/12 px-4 py-2 font-medium">Next due</th>
-                    <th className="w-24 px-4 py-2 font-medium">Renew</th>
-                    <th className="w-32 px-4 py-2 font-medium">Actions</th>
+                    <th className="w-4/12 px-4 py-2 font-medium" scope="col">
+                      Service
+                    </th>
+                    <th className="w-2/12 px-4 py-2 font-medium" scope="col">
+                      Amount
+                    </th>
+                    <th className="w-2/12 px-4 py-2 font-medium" scope="col">
+                      Cycle
+                    </th>
+                    <th className="w-2/12 px-4 py-2 font-medium" scope="col">
+                      Next due
+                    </th>
+                    <th className="w-24 px-4 py-2 font-medium" scope="col">
+                      Renew
+                    </th>
+                    <th className="w-32 px-4 py-2 font-medium" scope="col">
+                      Actions
+                    </th>
                   </tr>
                 </thead>
                 <tbody>

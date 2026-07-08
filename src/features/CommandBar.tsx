@@ -6,8 +6,14 @@ import {
   CommandItem,
   CommandList,
 } from "@/components/ui/command";
+import { KeyboardHelp } from "@/components/KeyboardHelp";
+import {
+  COMMAND_BAR_SHORTCUTS,
+  GLOBAL_SHORTCUTS,
+} from "@/components/keyboard-shortcuts";
 import { writeClipboard } from "@/lib/clipboard";
 import { runQuery, type RankedResult } from "@/lib/search";
+import { toastClipboard, toastError, toastSecretCopied } from "@/lib/toast";
 import { hideWindow } from "@/lib/window";
 import { FillInForm } from "@/modules/commands/FillInForm";
 import { commandEntries, parsePlaceholders } from "@/modules/commands/logic";
@@ -43,6 +49,9 @@ export function CommandBar({
   const copySecret = useVaultStore((state) => state.copySecret);
   const recordUse = useVaultStore((state) => state.recordUse);
   const toggleTodoDone = useVaultStore((state) => state.toggleTodoDone);
+  const clearSeconds = useVaultStore(
+    (state) => state.model?.settings.clipboardClearSeconds ?? 30,
+  );
   const [filling, setFilling] = useState<CommandEntry | null>(null);
 
   const results = useMemo(
@@ -85,7 +94,12 @@ export function CommandBar({
       const secretField = modules.find((m) => m.id === entry.moduleId)
         ?.secretFields?.[0];
       if (secretField) {
-        await copySecret(entry.id, secretField);
+        try {
+          await copySecret(entry.id, secretField);
+          toastSecretCopied(clearSeconds);
+        } catch {
+          toastError("Couldn't copy the password.");
+        }
         await finishAction(entry.id);
         return;
       }
@@ -96,7 +110,8 @@ export function CommandBar({
             setFilling(command); // open the inline fill-in; the copy happens on submit (§7.3)
             return;
           }
-          await writeClipboard(command.primaryCopyTemplate);
+          const ok = await writeClipboard(command.primaryCopyTemplate);
+          toastClipboard(ok, "Command copied");
           await finishAction(entry.id);
           return;
         }
@@ -112,7 +127,8 @@ export function CommandBar({
       ) {
         const subscription = findSubscription(entry.id);
         if (subscription?.url) {
-          await writeClipboard(subscription.url);
+          const ok = await writeClipboard(subscription.url);
+          toastClipboard(ok, "Billing URL copied");
         }
         await finishAction(entry.id);
         return;
@@ -122,6 +138,7 @@ export function CommandBar({
     [
       modules,
       copySecret,
+      clearSeconds,
       finishAction,
       findCommand,
       findSubscription,
@@ -133,7 +150,8 @@ export function CommandBar({
     async (result: RankedResult) => {
       const command = findCommand(result.entry.id);
       if (!command) return;
-      await writeClipboard(command.primaryCopyTemplate); // placeholders intact (§7.3)
+      const ok = await writeClipboard(command.primaryCopyTemplate); // placeholders intact (§7.3)
+      toastClipboard(ok, "Raw command copied");
       await finishAction(command.id);
     },
     [findCommand, finishAction],
@@ -170,13 +188,17 @@ export function CommandBar({
             onCancel={() => setFilling(null)}
             onComplete={(filled) => {
               setFilling(null);
-              void writeClipboard(filled).then(() => finishAction(command.id));
+              void writeClipboard(filled).then((ok) => {
+                toastClipboard(ok, "Command copied");
+                return finishAction(command.id);
+              });
             }}
             onRaw={() => {
               setFilling(null);
-              void writeClipboard(command.primaryCopyTemplate).then(() =>
-                finishAction(command.id),
-              );
+              void writeClipboard(command.primaryCopyTemplate).then((ok) => {
+                toastClipboard(ok, "Raw command copied");
+                return finishAction(command.id);
+              });
             }}
           />
         </section>
@@ -219,8 +241,20 @@ export function CommandBar({
               ))}
             </CommandList>
           )}
+          {query.trim() !== "" && results.length === 0 && (
+            <div
+              className="px-5 py-6 text-center text-sm text-muted-foreground"
+              role="status"
+            >
+              No matches for “{query.trim()}”.
+            </div>
+          )}
         </Command>
       </section>
+      <KeyboardHelp
+        groups={[COMMAND_BAR_SHORTCUTS, GLOBAL_SHORTCUTS]}
+        showTrigger={false}
+      />
     </main>
   );
 }

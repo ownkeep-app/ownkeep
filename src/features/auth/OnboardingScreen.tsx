@@ -61,8 +61,12 @@ export function OnboardingScreen() {
           value={confirm}
           onChange={(e) => setConfirm(e.target.value)}
         />
-        {error && <p className="text-sm text-destructive">{error}</p>}
-        <Button type="submit" disabled={busy}>
+        {error && (
+          <p className="text-sm text-destructive" role="alert">
+            {error}
+          </p>
+        )}
+        <Button type="submit" aria-busy={busy} disabled={busy}>
           {busy ? "Creating…" : "Create vault"}
         </Button>
       </form>
