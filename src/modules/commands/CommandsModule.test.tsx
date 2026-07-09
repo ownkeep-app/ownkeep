@@ -154,7 +154,10 @@ describe("CommandsListView", () => {
     await user.click(screen.getByRole("button", { name: "New" }));
 
     await user.type(screen.getByLabelText("Command title"), "List files");
-    await user.type(screen.getByLabelText("Command category"), "shell");
+    await user.selectOptions(
+      screen.getByLabelText("Command category"),
+      "Dev",
+    );
     await user.type(screen.getByLabelText("Command description"), "list all");
     await user.selectOptions(
       screen.getByLabelText("Snippet language"),
@@ -162,14 +165,18 @@ describe("CommandsListView", () => {
     );
     await user.type(screen.getByLabelText("Command code"), "ls -la");
     await user.type(screen.getByLabelText("Command arguments"), "path");
-    await user.type(screen.getByLabelText("Command tags"), "shell, fs");
+    await user.click(screen.getByRole("checkbox", { name: "Bash" }));
+    await user.click(screen.getByRole("checkbox", { name: "CSS" }));
     await user.click(screen.getByRole("button", { name: /save/i }));
 
     await waitFor(() => expect(api.saveVault).toHaveBeenCalled());
     const saved = JSON.parse(api.saveVault.mock.calls[0][0] as string);
     expect(saved.modules.commands[0].title).toBe("List files");
+    expect(saved.modules.commands[0].category).toBe("Dev");
     expect(saved.modules.commands[0].snippets[0].language).toBe("bash");
-    expect(saved.modules.commands[0].tags).toEqual(["shell", "fs"]);
+    expect(saved.modules.commands[0].tags).toEqual(
+      expect.arrayContaining(["React", "Bash", "CSS"]),
+    );
   });
 
   it("deletes a command", async () => {

@@ -285,7 +285,7 @@ never migrates another module's slice.
 
 ```jsonc
 {
-  "meta": { "schemaVersion": 5, "appVersion": "0.1", "createdAt": "ISO", "updatedAt": "ISO" },
+  "meta": { "schemaVersion": 6, "appVersion": "0.1", "createdAt": "ISO", "updatedAt": "ISO" },
 
   "settings": {
     "globalHotkey": "Cmd+Shift+Space",       // activate/toggle the search window
@@ -297,6 +297,8 @@ never migrates another module's slice.
     "theme": "system",                        // system | light | dark
     "accent": "#4F7CFF",
     "resultLimit": 9,
+    "categoryOptions": ["Work", "Personal", "Dev", "Finance", "Casual", "Misc"], // single-select labels; default Personal
+    "tagOptions": ["React", "Bash", "Git", "TypeScript", "AI", "MongoDB", "PostgreSQL", "CSS", "HTML", "JavaScript", "Network", "Crypto"], // multi-select labels; default React
     "modules": {                              // per-module enable flag + settings live here
       "passwords":     { "enabled": true },
       "commands":      { "enabled": true, "placeholderSyntax": "{{ }}", "defaultCopyMode": "fill" },
@@ -312,11 +314,11 @@ never migrates another module's slice.
     "passwords": [
       { "id": "uuid", "name": "GitHub", "username": "shao", "password": "secret",   // secretFields: ["password"]
         "loginUrl": "https://github.com/login", "recoveryUrl": "https://github.com/password_reset",
-        "notes": "", "tags": ["dev"], "updatedAt": "ISO" }
+        "notes": "", "category": "Personal", "tags": ["dev"], "updatedAt": "ISO" }
     ],
 
     "commands": [
-      { "id": "uuid", "category": "git", "title": "Delete a remote branch",
+      { "id": "uuid", "category": "Dev", "title": "Delete a remote branch",
         "description": "Delete a branch on origin",
         "snippets": [ { "language": "bash", "code": "git push origin --delete {{branch}}" } ],
         "primaryCopyTemplate": "git push origin --delete {{branch}}",
@@ -327,14 +329,14 @@ never migrates another module's slice.
     "todos": [
       { "id": "uuid", "title": "Renew passport", "notes": "", "done": false,
         "dueAt": "ISO|null", "notifyLeadMinutes": 30, "priority": "normal",  // low|normal|high
-        "tags": ["life"], "recurrence": null, "updatedAt": "ISO" }
+        "category": "Personal", "tags": ["life"], "recurrence": null, "updatedAt": "ISO" }
     ],
 
     "subscriptions": [
       { "id": "uuid", "service": "Linode", "url": "https://cloud.linode.com/account/billing",
         "amount": 20, "currency": "CNY", "cycle": "monthly",   // weekly|monthly|yearly|custom; form default CNY
         "customIntervalDays": null, "nextDueDate": "ISO", "autoRenew": true,
-        "notifyLeadDays": 3, "notes": "", "updatedAt": "ISO" }
+        "notifyLeadDays": 3, "notes": "", "category": "Personal", "tags": ["React"], "updatedAt": "ISO" }
     ],
 
     "finance": [
@@ -500,7 +502,8 @@ Layout: **left sidebar + right content pane.**
 All user-editable, stored inside the encrypted vault:
 global hotkey; dashboard hotkey; numbered-copy hotkey; auto-lock timeout (preset minutes/hours or
 never) + lock-on-blur; clipboard auto-clear
-seconds; theme + accent; result limit; **per-module enable toggles + scope prefixes + module
+seconds; theme + accent; result limit; **category/tag option lists** (editable in Settings — one
+label per line; used by item edit forms); **per-module enable toggles + scope prefixes + module
 settings** (command placeholder/copy mode; todo default lead; subscription default lead days;
 finance base currency + FX table); Emergency Kit regeneration.
 

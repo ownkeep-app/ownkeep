@@ -629,6 +629,7 @@ describe("vault store", () => {
               loginUrl: "",
               recoveryUrl: "",
               notes: "",
+              category: "Personal",
               tags: [],
               updatedAt: "2026-07-07T00:00:00.000Z",
             },
@@ -646,6 +647,7 @@ describe("vault store", () => {
       loginUrl: "",
       recoveryUrl: "",
       notes: "",
+      category: "Personal",
       tags: [],
       updatedAt: "2026-07-07T00:00:00.000Z",
     });
@@ -706,6 +708,7 @@ describe("vault store", () => {
       loginUrl: "",
       recoveryUrl: "",
       notes: "",
+      category: "Personal",
       tags: [],
       updatedAt: "2026-07-07T00:00:00.000Z",
     });
@@ -730,6 +733,7 @@ describe("vault store", () => {
               loginUrl: "",
               recoveryUrl: "",
               notes: "",
+              category: "Personal",
               tags: [],
               updatedAt: "2026-07-07T00:00:00.000Z",
             },
@@ -798,6 +802,7 @@ describe("vault store", () => {
     dueAt: "2026-07-08T12:30:00.000Z",
     notifyLeadMinutes: 30,
     priority: "normal",
+    category: "Personal",
     tags: [],
     recurrence: "none",
     updatedAt: "2026-07-07T00:00:00.000Z",
@@ -815,6 +820,8 @@ describe("vault store", () => {
     autoRenew: true,
     notifyLeadDays: 3,
     notes: "",
+    category: "Personal",
+    tags: [],
     updatedAt: "2026-07-07T00:00:00.000Z",
   };
 

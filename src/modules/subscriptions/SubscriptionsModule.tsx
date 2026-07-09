@@ -12,6 +12,8 @@ import {
   X,
 } from "lucide-react";
 
+import { CategorySelect } from "@/components/category-select";
+import { TagMultiSelect } from "@/components/tag-multi-select";
 import { DetailModal } from "@/components/DetailModal";
 import {
   DetailField,
@@ -43,6 +45,7 @@ import {
   type SortState,
   type SortValue,
 } from "@/lib/table-sort";
+import { useTaxonomySettings } from "@/hooks/use-taxonomy-settings";
 import type { ListViewProps } from "@/modules/types";
 import { useVaultStore } from "@/stores/vault-store";
 import { cn } from "@/lib/utils";
@@ -402,6 +405,8 @@ export function SubscriptionDetailView({ item }: { item: SubscriptionEntry }) {
           label="Renewal"
           value={item.autoRenew ? "Auto" : "Manual"}
         />
+        <DetailField label="Category" value={item.category} />
+        <DetailField label="Tags" value={item.tags.join(", ") || "-"} />
         <DetailField label="Billing URL" value={item.url || "-"} />
         <DetailField
           label="Updated"
@@ -422,8 +427,9 @@ export function SubscriptionEditView({
   onSave: (item: SubscriptionEntry) => void;
   onCancel: () => void;
 }) {
-  const [form, setForm] = useState<SubscriptionFormInput>(
-    item ? formFromSubscription(item) : emptySubscriptionForm(),
+  const { categoryOptions, tagOptions, taxonomy } = useTaxonomySettings();
+  const [form, setForm] = useState<SubscriptionFormInput>(() =>
+    item ? formFromSubscription(item) : emptySubscriptionForm(taxonomy),
   );
   const [error, setError] = useState<string | null>(null);
 
@@ -564,6 +570,24 @@ export function SubscriptionEditView({
             onChange={(event) => update("notifyLeadDays", event.target.value)}
             type="number"
             value={form.notifyLeadDays}
+          />
+        </label>
+        <label className="space-y-1 text-sm font-medium">
+          Category
+          <CategorySelect
+            aria-label="Subscription category"
+            onChange={(event) => update("category", event.target.value)}
+            options={categoryOptions}
+            value={form.category}
+          />
+        </label>
+        <label className="space-y-1 text-sm font-medium col-span-2">
+          Tags
+          <TagMultiSelect
+            aria-label="Subscription tags"
+            onChange={(tags) => update("tags", tags)}
+            options={tagOptions}
+            value={form.tags}
           />
         </label>
         <label className="flex items-center gap-2 text-sm font-medium col-span-2">

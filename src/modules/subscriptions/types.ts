@@ -22,6 +22,8 @@ export interface SubscriptionEntry {
   autoRenew: boolean;
   notifyLeadDays: number;
   notes: string;
+  category: string;
+  tags: string[];
   updatedAt: string;
 }
 
@@ -36,4 +38,6 @@ export interface SubscriptionFormInput {
   autoRenew: boolean;
   notifyLeadDays: string;
   notes: string;
+  category: string;
+  tags: string[];
 }

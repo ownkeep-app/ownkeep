@@ -20,6 +20,7 @@ const item: TodoEntry = {
   dueAt: "2026-07-08T12:30:00.000Z",
   notifyLeadMinutes: 30,
   priority: "high",
+  category: "Personal",
   tags: ["life"],
   recurrence: "weekly",
   updatedAt: "2026-07-08T12:00:00.000Z",
@@ -167,7 +168,8 @@ describe("TodosListView", () => {
       screen.getByLabelText("Todo recurrence"),
       "weekly",
     );
-    await user.type(screen.getByLabelText("Todo tags"), "home, bills");
+    await user.click(screen.getByRole("checkbox", { name: "MongoDB" }));
+    await user.click(screen.getByRole("checkbox", { name: "PostgreSQL" }));
     await user.click(screen.getByRole("button", { name: "Save" }));
 
     expect(saveTodo).toHaveBeenCalledWith(
@@ -178,7 +180,8 @@ describe("TodosListView", () => {
         notifyLeadMinutes: 15,
         priority: "high",
         recurrence: "weekly",
-        tags: ["home", "bills"],
+        category: "Personal",
+        tags: expect.arrayContaining(["React", "MongoDB", "PostgreSQL"]),
       }),
     );
   });

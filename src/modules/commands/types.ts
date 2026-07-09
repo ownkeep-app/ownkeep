@@ -40,5 +40,5 @@ export interface CommandFormInput {
   code: string;
   /** One argument per line: `name` (text) or `name = a, b, c` (enum). */
   argumentsText: string;
-  tags: string;
+  tags: string[];
 }

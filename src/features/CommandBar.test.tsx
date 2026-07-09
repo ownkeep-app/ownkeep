@@ -57,6 +57,7 @@ function passwordItem(id: string, name: string, username: string) {
     loginUrl: "",
     recoveryUrl: "",
     notes: "",
+    category: "Personal",
     tags: [] as string[],
     updatedAt: NOW,
   };
@@ -104,6 +105,7 @@ function todo(overrides: Partial<TodoEntry> = {}): TodoEntry {
     dueAt: "2026-07-08T12:30:00.000Z",
     notifyLeadMinutes: 30,
     priority: "normal",
+    category: "Personal",
     tags: [],
     recurrence: "none",
     updatedAt: NOW,
@@ -135,6 +137,8 @@ function subscription(
     autoRenew: true,
     notifyLeadDays: 3,
     notes: "",
+    category: "Personal",
+    tags: [],
     updatedAt: NOW,
     ...overrides,
   };

@@ -27,6 +27,8 @@ const item: SubscriptionEntry = {
   autoRenew: true,
   notifyLeadDays: 3,
   notes: "VPS",
+  category: "Personal",
+  tags: [],
   updatedAt: "2026-07-08T12:00:00.000Z",
 };
 

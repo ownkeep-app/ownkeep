@@ -41,9 +41,12 @@ export function MigrationGuideScreen() {
 
   if (!migration) return null;
 
+  // The scroll container must be block-level with the bottom padding on the section: a flex
+  // main stretches the section to screen height so content (and any padding after it) escapes
+  // the box, and an overflow container's own padding-bottom is never rendered past overflow.
   return (
-    <main className="flex h-screen overflow-auto bg-background p-6 text-foreground">
-      <section className="mx-auto flex w-full max-w-2xl flex-col gap-5">
+    <main className="h-screen overflow-auto bg-background px-6 pt-6 text-foreground">
+      <section className="mx-auto flex w-full max-w-2xl flex-col gap-5 pb-6">
         <header className="flex items-start gap-3">
           <Shield className="mt-1 h-5 w-5 text-primary" aria-hidden />
           <div>

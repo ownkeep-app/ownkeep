@@ -70,6 +70,7 @@ describe("migration registry", () => {
       [2, 3],
       [3, 4],
       [4, 5],
+      [5, 6],
     ]);
   });
 
@@ -103,6 +104,7 @@ describe("migration registry", () => {
         loginUrl: "",
         recoveryUrl: "",
         notes: "",
+        category: "Personal",
         tags: [],
         updatedAt: NOW,
       },
@@ -146,6 +148,7 @@ describe("migration registry", () => {
         loginUrl: "",
         recoveryUrl: "",
         notes: "",
+        category: "Personal",
         tags: ["dev"],
         updatedAt: NOW,
       },
@@ -220,6 +223,7 @@ describe("migration registry", () => {
         dueAt: "2026-07-08T12:00:00.000Z",
         notifyLeadMinutes: 30,
         priority: "high",
+        category: "Personal",
         tags: ["life"],
         recurrence: "none",
         updatedAt: NOW,
@@ -232,6 +236,7 @@ describe("migration registry", () => {
         dueAt: null,
         notifyLeadMinutes: 5,
         priority: "low",
+        category: "Personal",
         tags: [],
         recurrence: "weekly",
         updatedAt: "2026-07-08T00:00:00.000Z",
@@ -244,6 +249,7 @@ describe("migration registry", () => {
         dueAt: null,
         notifyLeadMinutes: 30,
         priority: "normal",
+        category: "Personal",
         tags: [],
         recurrence: "none",
         updatedAt: NOW,
@@ -305,6 +311,8 @@ describe("migration registry", () => {
         autoRenew: false,
         notifyLeadDays: 7,
         notes: "VPS",
+        category: "Personal",
+        tags: [],
         updatedAt: NOW,
       },
       {
@@ -319,6 +327,8 @@ describe("migration registry", () => {
         autoRenew: true,
         notifyLeadDays: 3,
         notes: "",
+        category: "Personal",
+        tags: [],
         updatedAt: NOW,
       },
       {
@@ -333,6 +343,8 @@ describe("migration registry", () => {
         autoRenew: true,
         notifyLeadDays: 3,
         notes: "",
+        category: "Personal",
+        tags: [],
         updatedAt: NOW,
       },
     ]);

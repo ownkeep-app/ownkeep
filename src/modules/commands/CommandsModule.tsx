@@ -2,6 +2,8 @@ import { type FormEvent, type ReactNode, useMemo, useState } from "react";
 
 import { Copy, Eye, Pencil, Plus, Trash2, X } from "lucide-react";
 
+import { CategorySelect } from "@/components/category-select";
+import { TagMultiSelect } from "@/components/tag-multi-select";
 import { DetailModal } from "@/components/DetailModal";
 import {
   DetailField,
@@ -21,6 +23,7 @@ import { EmptyState } from "@/components/EmptyState";
 import { writeClipboard } from "@/lib/clipboard";
 import { toastClipboard } from "@/lib/toast";
 import { cn } from "@/lib/utils";
+import { useTaxonomySettings } from "@/hooks/use-taxonomy-settings";
 import type { ListViewProps } from "@/modules/types";
 import { useVaultStore } from "@/stores/vault-store";
 import { FillInForm } from "./FillInForm";
@@ -331,8 +334,9 @@ export function CommandEditView({
   onSave: (item: CommandEntry) => void;
   onCancel: () => void;
 }) {
-  const [form, setForm] = useState<CommandFormInput>(
-    item ? formFromCommand(item) : emptyCommandForm(),
+  const { categoryOptions, tagOptions, taxonomy } = useTaxonomySettings();
+  const [form, setForm] = useState<CommandFormInput>(() =>
+    item ? formFromCommand(item) : emptyCommandForm(taxonomy),
   );
   const [error, setError] = useState<string | null>(null);
 
@@ -385,9 +389,10 @@ export function CommandEditView({
           />
         </Field>
         <Field label="Category">
-          <Input
+          <CategorySelect
             aria-label="Command category"
             onChange={(event) => update("category", event.target.value)}
+            options={categoryOptions}
             value={form.category}
           />
         </Field>
@@ -406,10 +411,10 @@ export function CommandEditView({
           />
         </Field>
         <Field label="Tags">
-          <Input
+          <TagMultiSelect
             aria-label="Command tags"
-            onChange={(event) => update("tags", event.target.value)}
-            placeholder="git, vcs"
+            onChange={(tags) => update("tags", tags)}
+            options={tagOptions}
             value={form.tags}
           />
         </Field>

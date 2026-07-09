@@ -1,6 +1,12 @@
 import { DEFAULT_SNIPPET_LANGUAGE } from "@/components/language-select";
 import type { IndexEntry } from "@/modules/types";
 import {
+  defaultCategory,
+  defaultTags,
+  normalizeTags,
+  type TaxonomySettings,
+} from "@/vault/taxonomy";
+import {
   COMMANDS_MODULE_ID,
   type CommandArgument,
   type CommandEntry,
@@ -135,26 +141,19 @@ export function argumentsToText(args: CommandArgument[]): string {
     .join("\n");
 }
 
-function parseTags(value: string): string[] {
-  return Array.from(
-    new Set(
-      value
-        .split(",")
-        .map((tag) => tag.trim())
-        .filter(Boolean),
-    ),
-  );
+function parseTags(tags: readonly string[]): string[] {
+  return normalizeTags(tags);
 }
 
-export function emptyCommandForm(): CommandFormInput {
+export function emptyCommandForm(settings?: TaxonomySettings): CommandFormInput {
   return {
-    category: "",
+    category: defaultCategory(settings),
     title: "",
     description: "",
     language: DEFAULT_SNIPPET_LANGUAGE,
     code: "",
     argumentsText: "",
-    tags: "",
+    tags: defaultTags(settings),
   };
 }
 
@@ -167,7 +166,7 @@ export function formFromCommand(item: CommandEntry): CommandFormInput {
     language: snippet?.language ?? DEFAULT_SNIPPET_LANGUAGE,
     code: snippet?.code ?? item.primaryCopyTemplate,
     argumentsText: argumentsToText(item.arguments),
-    tags: item.tags.join(", "),
+    tags: [...item.tags],
   };
 }
 

@@ -1,6 +1,12 @@
 import type { IndexEntry, ReminderEvent } from "@/modules/types";
 import type { VaultSettings } from "@/vault/model";
 import {
+  defaultCategory,
+  defaultTags,
+  normalizeTags,
+  type TaxonomySettings,
+} from "@/vault/taxonomy";
+import {
   DEFAULT_SUBSCRIPTION_LEAD_DAYS,
   SUBSCRIPTION_CYCLES,
   SUBSCRIPTIONS_MODULE_ID,
@@ -53,6 +59,9 @@ export function isSubscriptionEntry(
     typeof entry.autoRenew === "boolean" &&
     typeof entry.notifyLeadDays === "number" &&
     typeof entry.notes === "string" &&
+    typeof entry.category === "string" &&
+    Array.isArray(entry.tags) &&
+    entry.tags.every((tag) => typeof tag === "string") &&
     typeof entry.updatedAt === "string"
   );
 }
@@ -75,6 +84,8 @@ export function buildSubscriptionIndex(
       item.cycle,
       item.nextDueDate,
       item.notes,
+      item.category,
+      item.tags.join(" "),
     ]
       .filter(Boolean)
       .join(" "),
@@ -85,7 +96,9 @@ export function buildSubscriptionIndex(
   }));
 }
 
-export function emptySubscriptionForm(): SubscriptionFormInput {
+export function emptySubscriptionForm(
+  settings?: TaxonomySettings,
+): SubscriptionFormInput {
   return {
     service: "",
     url: "",
@@ -97,6 +110,8 @@ export function emptySubscriptionForm(): SubscriptionFormInput {
     autoRenew: true,
     notifyLeadDays: String(DEFAULT_SUBSCRIPTION_LEAD_DAYS),
     notes: "",
+    category: defaultCategory(settings),
+    tags: defaultTags(settings),
   };
 }
 
@@ -115,6 +130,8 @@ export function formFromSubscription(
     autoRenew: item.autoRenew,
     notifyLeadDays: String(item.notifyLeadDays),
     notes: item.notes,
+    category: item.category,
+    tags: [...item.tags],
   };
 }
 
@@ -139,6 +156,8 @@ export function createSubscriptionEntry(
       autoRenew: input.autoRenew,
       notifyLeadDays: parseLeadDays(input.notifyLeadDays),
       notes: input.notes,
+      category: input.category.trim(),
+      tags: normalizeTags(input.tags),
       updatedAt: now,
     },
     now,
@@ -166,6 +185,8 @@ export function updateSubscriptionEntry(
       autoRenew: input.autoRenew,
       notifyLeadDays: parseLeadDays(input.notifyLeadDays),
       notes: input.notes,
+      category: input.category.trim(),
+      tags: normalizeTags(input.tags),
       updatedAt: now,
     },
     now,
@@ -176,6 +197,7 @@ export function validateSubscriptionInput(
   input: SubscriptionFormInput,
 ): string | null {
   if (!input.service.trim()) return "Service is required.";
+  if (!input.category.trim()) return "Category is required.";
   const amount = Number(input.amount);
   if (!Number.isFinite(amount) || amount < 0) {
     return "Amount must be zero or greater.";
@@ -362,6 +384,8 @@ function normalizeSubscriptionEntry(
     autoRenew: item.autoRenew,
     notifyLeadDays: item.notifyLeadDays,
     notes: item.notes.trim(),
+    category: item.category.trim(),
+    tags: normalizeTags(item.tags),
     updatedAt: item.updatedAt || fallbackUpdatedAt,
   };
 }

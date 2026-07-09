@@ -16,6 +16,7 @@ import { Switch } from "@/components/ui/switch";
 import { MODULES } from "@/modules/registry";
 import { useVaultStore } from "@/stores/vault-store";
 import type { Theme } from "@/vault/model";
+import { parseOptionLines } from "@/vault/taxonomy";
 
 /** Auto-lock presets (spec §4.3/§9). `0` = never — the vault stays open until locked manually. */
 const AUTO_LOCK_OPTIONS: { label: string; minutes: number }[] = [
@@ -56,11 +57,15 @@ export function SettingsPanel() {
   const [restoreSecret, setRestoreSecret] = useState("");
   const [kitSaved, setKitSaved] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const [categoryOptionsText, setCategoryOptionsText] = useState("");
+  const [tagOptionsText, setTagOptionsText] = useState("");
 
   useEffect(() => {
     if (!model) return;
     setGlobalHotkey(model.settings.globalHotkey);
     setDashboardHotkey(model.settings.dashboardHotkey);
+    setCategoryOptionsText(model.settings.categoryOptions.join("\n"));
+    setTagOptionsText(model.settings.tagOptions.join("\n"));
   }, [model]);
 
   if (!model) return null;
@@ -81,6 +86,24 @@ export function SettingsPanel() {
         globalHotkey: global,
         dashboardHotkey: dashboard,
       });
+    }
+  }
+
+  async function persistTaxonomy() {
+    const categoryOptions = parseOptionLines(categoryOptionsText);
+    const tagOptions = parseOptionLines(tagOptionsText);
+    if (categoryOptions.length === 0 || tagOptions.length === 0) {
+      setMessage("Category and tag option lists cannot be empty.");
+      return;
+    }
+    setCategoryOptionsText(categoryOptions.join("\n"));
+    setTagOptionsText(tagOptions.join("\n"));
+    if (
+      categoryOptions.join("\n") !== settings.categoryOptions.join("\n") ||
+      tagOptions.join("\n") !== settings.tagOptions.join("\n")
+    ) {
+      await updateSettings({ categoryOptions, tagOptions });
+      setMessage("Category and tag options saved.");
     }
   }
 
@@ -230,6 +253,42 @@ export function SettingsPanel() {
                   </option>
                 ))}
               </Select>
+            </label>
+          </div>
+        </section>
+
+        <section>
+          <h2 className="mb-3 text-sm font-medium text-muted-foreground">
+            Categories & tags
+          </h2>
+          <div className="flex flex-col gap-3 rounded-md border border-border p-3">
+            <label className="grid gap-1 text-sm">
+              <span className="font-medium">Category options</span>
+              <span className="text-xs text-muted-foreground">
+                One label per line. Used as single-select choices when editing
+                items.
+              </span>
+              <textarea
+                aria-label="Category options"
+                className="min-h-28 rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                onBlur={() => void persistTaxonomy()}
+                onChange={(event) => setCategoryOptionsText(event.target.value)}
+                value={categoryOptionsText}
+              />
+            </label>
+            <label className="grid gap-1 text-sm">
+              <span className="font-medium">Tag options</span>
+              <span className="text-xs text-muted-foreground">
+                One label per line. Used as multi-select choices when editing
+                items.
+              </span>
+              <textarea
+                aria-label="Tag options"
+                className="min-h-36 rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                onBlur={() => void persistTaxonomy()}
+                onChange={(event) => setTagOptionsText(event.target.value)}
+                value={tagOptionsText}
+              />
             </label>
           </div>
         </section>

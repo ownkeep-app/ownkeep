@@ -1,5 +1,11 @@
 import type { IndexEntry } from "@/modules/types";
 import {
+  defaultCategory,
+  defaultTags,
+  normalizeTags,
+  type TaxonomySettings,
+} from "@/vault/taxonomy";
+import {
   PASSWORDS_MODULE_ID,
   type PasswordEntry,
   type PasswordFormInput,
@@ -30,6 +36,7 @@ export function buildPasswordIndex(items: PasswordEntry[]): IndexEntry[] {
       item.loginUrl,
       item.recoveryUrl,
       item.notes,
+      item.category,
       item.tags.join(" "),
     ]
       .filter(Boolean)
@@ -38,7 +45,7 @@ export function buildPasswordIndex(items: PasswordEntry[]): IndexEntry[] {
   }));
 }
 
-export function emptyPasswordForm(): PasswordFormInput {
+export function emptyPasswordForm(settings?: TaxonomySettings): PasswordFormInput {
   return {
     name: "",
     username: "",
@@ -46,7 +53,8 @@ export function emptyPasswordForm(): PasswordFormInput {
     loginUrl: "",
     recoveryUrl: "",
     notes: "",
-    tags: "",
+    category: defaultCategory(settings),
+    tags: defaultTags(settings),
   };
 }
 
@@ -58,7 +66,8 @@ export function formFromPassword(item: PasswordEntry): PasswordFormInput {
     loginUrl: item.loginUrl,
     recoveryUrl: item.recoveryUrl,
     notes: item.notes,
-    tags: item.tags.join(", "),
+    category: item.category,
+    tags: [...item.tags],
   };
 }
 
@@ -71,7 +80,7 @@ export function createPasswordEntry(
     {
       id,
       ...input,
-      tags: parseTags(input.tags),
+      tags: normalizeTags(input.tags),
       updatedAt: now,
     },
     now,
@@ -92,7 +101,8 @@ export function updatePasswordEntry(
       loginUrl: input.loginUrl,
       recoveryUrl: input.recoveryUrl,
       notes: input.notes,
-      tags: parseTags(input.tags),
+      category: input.category.trim(),
+      tags: normalizeTags(input.tags),
       updatedAt: now,
     },
     now,
@@ -104,19 +114,9 @@ export function validatePasswordInput(
   mode: "create" | "edit",
 ): string | null {
   if (!input.name.trim()) return "Name is required.";
+  if (!input.category.trim()) return "Category is required.";
   if (mode === "create" && !input.password) return "Password is required.";
   return null;
-}
-
-export function parseTags(value: string): string[] {
-  return Array.from(
-    new Set(
-      value
-        .split(",")
-        .map((tag) => tag.trim())
-        .filter(Boolean),
-    ),
-  );
 }
 
 function normalizePasswordEntry(
@@ -131,7 +131,8 @@ function normalizePasswordEntry(
     loginUrl: item.loginUrl.trim(),
     recoveryUrl: item.recoveryUrl.trim(),
     notes: item.notes.trim(),
-    tags: item.tags,
+    category: item.category.trim(),
+    tags: normalizeTags(item.tags),
     updatedAt: item.updatedAt || fallbackUpdatedAt,
   };
 }

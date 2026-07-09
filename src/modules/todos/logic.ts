@@ -1,6 +1,12 @@
 import type { ReminderEvent, IndexEntry } from "@/modules/types";
 import type { VaultSettings } from "@/vault/model";
 import {
+  defaultCategory,
+  defaultTags,
+  normalizeTags,
+  type TaxonomySettings,
+} from "@/vault/taxonomy";
+import {
   DEFAULT_TODO_LEAD_MINUTES,
   TODO_PRIORITIES,
   TODO_RECURRENCES,
@@ -33,6 +39,7 @@ export function isTodoEntry(value: unknown): value is TodoEntry {
     (typeof entry.dueAt === "string" || entry.dueAt === null) &&
     typeof entry.notifyLeadMinutes === "number" &&
     isTodoPriority(entry.priority) &&
+    typeof entry.category === "string" &&
     Array.isArray(entry.tags) &&
     entry.tags.every((tag) => typeof tag === "string") &&
     isTodoRecurrence(entry.recurrence) &&
@@ -55,6 +62,7 @@ export function buildTodoIndex(items: TodoEntry[]): IndexEntry[] {
       item.priority,
       item.recurrence === "none" ? "" : item.recurrence,
       item.dueAt ?? "",
+      item.category,
       item.tags.join(" "),
     ]
       .filter(Boolean)
@@ -63,14 +71,15 @@ export function buildTodoIndex(items: TodoEntry[]): IndexEntry[] {
   }));
 }
 
-export function emptyTodoForm(): TodoFormInput {
+export function emptyTodoForm(settings?: TaxonomySettings): TodoFormInput {
   return {
     title: "",
     notes: "",
     dueAt: "",
     notifyLeadMinutes: String(DEFAULT_TODO_LEAD_MINUTES),
     priority: "normal",
-    tags: "",
+    category: defaultCategory(settings),
+    tags: defaultTags(settings),
     recurrence: "none",
   };
 }
@@ -82,7 +91,8 @@ export function formFromTodo(item: TodoEntry): TodoFormInput {
     dueAt: isoToLocalDateTimeInput(item.dueAt),
     notifyLeadMinutes: String(item.notifyLeadMinutes),
     priority: item.priority,
-    tags: item.tags.join(", "),
+    category: item.category,
+    tags: [...item.tags],
     recurrence: item.recurrence,
   };
 }
@@ -101,7 +111,8 @@ export function createTodoEntry(
       dueAt: localDateTimeInputToIso(input.dueAt),
       notifyLeadMinutes: parseLeadMinutes(input.notifyLeadMinutes),
       priority: input.priority,
-      tags: parseTags(input.tags),
+      category: input.category.trim(),
+      tags: normalizeTags(input.tags),
       recurrence: input.recurrence,
       updatedAt: now,
     },
@@ -122,7 +133,8 @@ export function updateTodoEntry(
       dueAt: localDateTimeInputToIso(input.dueAt),
       notifyLeadMinutes: parseLeadMinutes(input.notifyLeadMinutes),
       priority: input.priority,
-      tags: parseTags(input.tags),
+      category: input.category.trim(),
+      tags: normalizeTags(input.tags),
       recurrence: input.recurrence,
       updatedAt: now,
     },
@@ -132,6 +144,7 @@ export function updateTodoEntry(
 
 export function validateTodoInput(input: TodoFormInput): string | null {
   if (!input.title.trim()) return "Title is required.";
+  if (!input.category.trim()) return "Category is required.";
   if (!Number.isInteger(Number(input.notifyLeadMinutes))) {
     return "Reminder lead must be a whole number of minutes.";
   }
@@ -206,17 +219,6 @@ export function sortTodos(items: TodoEntry[]): TodoEntry[] {
   });
 }
 
-export function parseTags(value: string): string[] {
-  return Array.from(
-    new Set(
-      value
-        .split(",")
-        .map((tag) => tag.trim())
-        .filter(Boolean),
-    ),
-  );
-}
-
 export function isoToLocalDateTimeInput(iso: string | null): string {
   if (!iso) return "";
   const date = new Date(iso);
@@ -283,7 +285,8 @@ function normalizeTodoEntry(
     dueAt: item.dueAt,
     notifyLeadMinutes: item.notifyLeadMinutes,
     priority: item.priority,
-    tags: item.tags,
+    category: item.category.trim(),
+    tags: normalizeTags(item.tags),
     recurrence: item.recurrence,
     updatedAt: item.updatedAt || fallbackUpdatedAt,
   };

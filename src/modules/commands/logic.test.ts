@@ -135,7 +135,7 @@ describe("command CRUD", () => {
     language: "bash",
     code: "git push origin --delete {{branch}}",
     argumentsText: "branch",
-    tags: "git, vcs, git",
+    tags: ["git", "vcs", "git"],
   };
 
   it("creates a normalized entry with a single snippet + template", () => {
@@ -171,15 +171,15 @@ describe("command CRUD", () => {
   it("validates required fields", () => {
     expect(validateCommandInput(emptyCommandForm())).toMatch(/title/i);
     expect(validateCommandInput({ ...emptyCommandForm(), title: "x" })).toMatch(
-      /category/i,
+      /command/i,
     );
     expect(
       validateCommandInput({
         ...emptyCommandForm(),
         title: "x",
-        category: "g",
+        category: "",
       }),
-    ).toMatch(/command/i);
+    ).toMatch(/category/i);
     expect(validateCommandInput(form)).toBeNull();
   });
 });

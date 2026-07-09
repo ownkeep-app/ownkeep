@@ -18,6 +18,7 @@ const todo: TodoEntry = {
   dueAt: null,
   notifyLeadMinutes: 30,
   priority: "normal",
+  category: "Personal",
   tags: [],
   recurrence: "none",
   updatedAt: "2026-07-08T00:00:00.000Z",

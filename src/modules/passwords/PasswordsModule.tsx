@@ -2,6 +2,8 @@ import { type FormEvent, type ReactNode, useMemo, useState } from "react";
 
 import { Copy, Eye, Pencil, Plus, Search, Trash2, X } from "lucide-react";
 
+import { CategorySelect } from "@/components/category-select";
+import { TagMultiSelect } from "@/components/tag-multi-select";
 import { DetailModal } from "@/components/DetailModal";
 import {
   DetailField,
@@ -33,6 +35,7 @@ import {
 } from "@/lib/table-sort";
 import { toastError, toastSecretCopied } from "@/lib/toast";
 import { cn } from "@/lib/utils";
+import { useTaxonomySettings } from "@/hooks/use-taxonomy-settings";
 import type { ListViewProps } from "@/modules/types";
 import { useVaultStore } from "@/stores/vault-store";
 import {
@@ -398,6 +401,7 @@ export function PasswordDetailView({
         </DetailFieldSpan>
         <DetailUrlField label="Login URL" value={item.loginUrl} />
         <DetailUrlField label="Recovery URL" value={item.recoveryUrl} />
+        <DetailField label="Category" value={item.category} />
         <DetailField label="Tags" value={item.tags.join(", ") || "-"} />
         <DetailField
           label="Updated"
@@ -418,9 +422,10 @@ export function PasswordEditView({
   onSave: (item: PasswordEntry) => void;
   onCancel: () => void;
 }) {
+  const { categoryOptions, tagOptions, taxonomy } = useTaxonomySettings();
   const mode = item ? "edit" : "create";
-  const [form, setForm] = useState<PasswordFormInput>(
-    item ? formFromPassword(item) : emptyPasswordForm(),
+  const [form, setForm] = useState<PasswordFormInput>(() =>
+    item ? formFromPassword(item) : emptyPasswordForm(taxonomy),
   );
   const [error, setError] = useState<string | null>(null);
 
@@ -481,20 +486,28 @@ export function PasswordEditView({
             value={form.username}
           />
         </Field>
+        <Field label="Category">
+          <CategorySelect
+            aria-label="Password category"
+            onChange={(event) => update("category", event.target.value)}
+            options={categoryOptions}
+            value={form.category}
+          />
+        </Field>
+        <Field label="Tags">
+          <TagMultiSelect
+            aria-label="Password tags"
+            onChange={(tags) => update("tags", tags)}
+            options={tagOptions}
+            value={form.tags}
+          />
+        </Field>
         <Field label={item ? "Password (leave blank to keep)" : "Password"}>
           <Input
             aria-label="Password value"
             onChange={(event) => update("password", event.target.value)}
             type="password"
             value={form.password}
-          />
-        </Field>
-        <Field label="Tags">
-          <Input
-            aria-label="Password tags"
-            onChange={(event) => update("tags", event.target.value)}
-            placeholder="dev, work"
-            value={form.tags}
           />
         </Field>
         <Field label="Login URL">

@@ -5,7 +5,13 @@
  * (so Rust stays module-agnostic per §3.4). Everything here is pure and unit-tested — no Tauri.
  */
 
-export const SCHEMA_VERSION = 5;
+import {
+  defaultCategoryOptions,
+  defaultTagOptions,
+  withTaxonomyDefaults,
+} from "./taxonomy";
+
+export const SCHEMA_VERSION = 6;
 export const APP_VERSION = __KEYSTASH_APP_VERSION__;
 
 export type Theme = "system" | "light" | "dark";
@@ -33,6 +39,10 @@ export interface VaultSettings {
   theme: Theme;
   accent: string;
   resultLimit: number;
+  /** Configurable category labels for item edit forms (Settings). */
+  categoryOptions: string[];
+  /** Configurable tag labels for item edit forms (Settings). */
+  tagOptions: string[];
   modules: Record<string, ModuleSettings>;
 }
 
@@ -66,6 +76,8 @@ export function defaultSettings(): VaultSettings {
     theme: "system",
     accent: "#4F7CFF",
     resultLimit: 9,
+    categoryOptions: defaultCategoryOptions(),
+    tagOptions: defaultTagOptions(),
     modules: {},
   };
 }
@@ -98,11 +110,7 @@ export function parseVaultJson(json: string, now: string): VaultModel {
   const base = createDefaultModel(now);
   return {
     meta: { ...base.meta, ...(raw.meta ?? {}) },
-    settings: {
-      ...base.settings,
-      ...(raw.settings ?? {}),
-      modules: { ...(raw.settings?.modules ?? {}) },
-    },
+    settings: withTaxonomyDefaults(raw.settings, base.settings),
     frecency: raw.frecency ?? {},
     modules: raw.modules ?? {},
   };

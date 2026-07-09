@@ -31,8 +31,9 @@ const item: PasswordEntry = {
   password: "super-secret-value",
   loginUrl: "https://github.com/login",
   recoveryUrl: "https://github.com/password_reset",
-  notes: "dev account",
-  tags: ["dev", "work"],
+    notes: "",
+    category: "Personal",
+    tags: ["dev", "work"],
   updatedAt: "2026-07-07T00:00:00.000Z",
 };
 
@@ -232,7 +233,8 @@ describe("PasswordsListView", () => {
     await user.type(screen.getByLabelText("Password username"), "sha");
     await user.type(screen.getByLabelText("Password value"), "secret");
     await user.type(screen.getByLabelText("Login URL"), "https://github.com");
-    await user.type(screen.getByLabelText("Password tags"), "dev, work");
+    await user.click(screen.getByRole("checkbox", { name: "Bash" }));
+    await user.click(screen.getByRole("checkbox", { name: "Git" }));
     await user.click(screen.getByRole("button", { name: "Save" }));
 
     expect(savePassword).toHaveBeenCalledWith(
@@ -242,7 +244,8 @@ describe("PasswordsListView", () => {
         username: "sha",
         password: "secret",
         loginUrl: "https://github.com",
-        tags: ["dev", "work"],
+        category: "Personal",
+        tags: expect.arrayContaining(["React", "Bash", "Git"]),
       }),
     );
   });

@@ -19,6 +19,7 @@ import {
   type ModuleDefaults,
   type VaultModel,
 } from "./model";
+import { DEFAULT_CATEGORY, defaultCategoryOptions, defaultTagOptions } from "./taxonomy";
 
 export const OLD_APP_MESSAGE =
   "You are using an older version of keystash. Please upgrade keystash to open this vault.";
@@ -213,11 +214,119 @@ const schemaFourToFive: Migration = {
   },
 };
 
+const schemaFiveToSix: Migration = {
+  from: 5,
+  to: 6,
+  summary:
+    "Add configurable category/tag option lists and item category fields across modules.",
+  changes: [
+    {
+      kind: "added",
+      path: "settings.categoryOptions",
+      note: "Adds the configurable category labels used by item edit forms.",
+    },
+    {
+      kind: "added",
+      path: "settings.tagOptions",
+      note: "Adds the configurable tag labels used by item edit forms.",
+    },
+    {
+      kind: "added",
+      path: "modules.passwords[].category",
+      note: "Adds the single-select category field for password entries.",
+    },
+    {
+      kind: "added",
+      path: "modules.todos[].category",
+      note: "Adds the single-select category field for todo entries.",
+    },
+    {
+      kind: "added",
+      path: "modules.subscriptions[].category",
+      note: "Adds the single-select category field for subscription entries.",
+    },
+    {
+      kind: "added",
+      path: "modules.subscriptions[].tags",
+      note: "Adds the multi-select tags field for subscription entries.",
+    },
+  ],
+  apply: (model) => {
+    const passwords = Array.isArray(model.modules.passwords)
+      ? model.modules.passwords.map((item, index) => {
+          const normalized = normalizePasswordMigrationItem(
+            item,
+            model.meta.updatedAt,
+            index,
+          );
+          const category =
+            typeof normalized.category === "string" && normalized.category.trim()
+              ? normalized.category.trim()
+              : DEFAULT_CATEGORY;
+          return { ...normalized, category };
+        })
+      : [];
+    const todos = Array.isArray(model.modules.todos)
+      ? model.modules.todos.map((item, index) => {
+          const normalized = normalizeTodoMigrationItem(
+            item,
+            model.meta.updatedAt,
+            index,
+          );
+          const category =
+            typeof normalized.category === "string" && normalized.category.trim()
+              ? normalized.category.trim()
+              : DEFAULT_CATEGORY;
+          return { ...normalized, category };
+        })
+      : [];
+    const subscriptions = Array.isArray(model.modules.subscriptions)
+      ? model.modules.subscriptions.map((item, index) => {
+          const normalized = normalizeSubscriptionMigrationItem(
+            item,
+            model.meta.updatedAt,
+            index,
+          );
+          const category =
+            typeof normalized.category === "string" && normalized.category.trim()
+              ? normalized.category.trim()
+              : DEFAULT_CATEGORY;
+          const tags = Array.isArray(normalized.tags)
+            ? normalized.tags.filter(
+                (tag): tag is string => typeof tag === "string",
+              )
+            : [];
+          return { ...normalized, category, tags };
+        })
+      : [];
+    return {
+      ...model,
+      meta: { ...model.meta, schemaVersion: 6 },
+      settings: {
+        ...model.settings,
+        categoryOptions: model.settings.categoryOptions?.length
+          ? model.settings.categoryOptions
+          : defaultCategoryOptions(),
+        tagOptions: model.settings.tagOptions?.length
+          ? model.settings.tagOptions
+          : defaultTagOptions(),
+      },
+      modules: {
+        ...model.modules,
+        passwords,
+        todos,
+        subscriptions,
+      },
+    };
+  },
+};
+
 export const MIGRATIONS: Migration[] = [
   schemaOneToTwo,
   schemaTwoToThree,
   schemaThreeToFour,
   schemaFourToFive,
+  schemaFiveToSix,
 ];
 
 function normalizePasswordMigrationItem(
@@ -241,6 +350,8 @@ function normalizePasswordMigrationItem(
     recoveryUrl:
       typeof object.recoveryUrl === "string" ? object.recoveryUrl : "",
     notes: typeof object.notes === "string" ? object.notes : "",
+    category:
+      typeof object.category === "string" ? object.category : DEFAULT_CATEGORY,
     tags: Array.isArray(object.tags)
       ? object.tags.filter((tag): tag is string => typeof tag === "string")
       : [],
@@ -273,6 +384,8 @@ function normalizeTodoMigrationItem(
     priority: TODO_PRIORITIES.includes(object.priority as TodoPriority)
       ? object.priority
       : "normal",
+    category:
+      typeof object.category === "string" ? object.category : DEFAULT_CATEGORY,
     tags: Array.isArray(object.tags)
       ? object.tags.filter((tag): tag is string => typeof tag === "string")
       : [],
@@ -332,6 +445,11 @@ function normalizeSubscriptionMigrationItem(
         ? object.notifyLeadDays
         : DEFAULT_SUBSCRIPTION_LEAD_DAYS,
     notes: typeof object.notes === "string" ? object.notes : "",
+    category:
+      typeof object.category === "string" ? object.category : DEFAULT_CATEGORY,
+    tags: Array.isArray(object.tags)
+      ? object.tags.filter((tag): tag is string => typeof tag === "string")
+      : [],
     updatedAt:
       typeof object.updatedAt === "string" ? object.updatedAt : updatedAt,
   };

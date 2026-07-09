@@ -12,6 +12,8 @@ import {
   X,
 } from "lucide-react";
 
+import { CategorySelect } from "@/components/category-select";
+import { TagMultiSelect } from "@/components/tag-multi-select";
 import { DetailModal } from "@/components/DetailModal";
 import {
   DetailField,
@@ -42,6 +44,7 @@ import {
   type SortState,
   type SortValue,
 } from "@/lib/table-sort";
+import { useTaxonomySettings } from "@/hooks/use-taxonomy-settings";
 import type { ListViewProps } from "@/modules/types";
 import { useVaultStore } from "@/stores/vault-store";
 import {
@@ -376,6 +379,7 @@ export function TodoDetailView({ item }: { item: TodoEntry }) {
           value={`${item.notifyLeadMinutes} minutes before due`}
         />
         <DetailField label="Priority" value={item.priority} />
+        <DetailField label="Category" value={item.category} />
         <DetailField label="Recurrence" value={item.recurrence} />
         <DetailField label="Tags" value={item.tags.join(", ") || "-"} />
         <DetailField
@@ -397,8 +401,9 @@ export function TodoEditView({
   onSave: (item: TodoEntry) => void;
   onCancel: () => void;
 }) {
-  const [form, setForm] = useState<TodoFormInput>(
-    item ? formFromTodo(item) : emptyTodoForm(),
+  const { categoryOptions, tagOptions, taxonomy } = useTaxonomySettings();
+  const [form, setForm] = useState<TodoFormInput>(() =>
+    item ? formFromTodo(item) : emptyTodoForm(taxonomy),
   );
   const [error, setError] = useState<string | null>(null);
 
@@ -516,11 +521,21 @@ export function TodoEditView({
             ))}
           </Select>
         </label>
+        <label className="space-y-1 text-sm font-medium">
+          Category
+          <CategorySelect
+            aria-label="Todo category"
+            onChange={(event) => update("category", event.target.value)}
+            options={categoryOptions}
+            value={form.category}
+          />
+        </label>
         <label className="space-y-1 text-sm font-medium col-span-2">
           Tags
-          <Input
+          <TagMultiSelect
             aria-label="Todo tags"
-            onChange={(event) => update("tags", event.target.value)}
+            onChange={(tags) => update("tags", tags)}
+            options={tagOptions}
             value={form.tags}
           />
         </label>

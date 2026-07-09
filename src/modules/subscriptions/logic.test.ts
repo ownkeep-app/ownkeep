@@ -41,6 +41,8 @@ function subscription(
     autoRenew: true,
     notifyLeadDays: 3,
     notes: "VPS",
+    category: "Personal",
+    tags: [],
     updatedAt: NOW,
     ...overrides,
   };

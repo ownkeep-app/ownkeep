@@ -4,7 +4,6 @@ import {
   buildPasswordIndex,
   createPasswordEntry,
   emptyPasswordForm,
-  parseTags,
   updatePasswordEntry,
   validatePasswordInput,
 } from "./logic";
@@ -20,6 +19,7 @@ const existing: PasswordEntry = {
   loginUrl: "https://github.com/login",
   recoveryUrl: "https://github.com/password_reset",
   notes: "dev account",
+  category: "Personal",
   tags: ["dev"],
   updatedAt: NOW,
 };
@@ -48,7 +48,7 @@ describe("password module logic", () => {
       name: "  GitHub  ",
       username: " sha ",
       password: "secret",
-      tags: "dev, work, dev",
+      tags: ["dev", "work", "dev"],
     };
 
     expect(createPasswordEntry(form, NOW, "1")).toEqual(
@@ -57,6 +57,7 @@ describe("password module logic", () => {
         name: "GitHub",
         username: "sha",
         password: "secret",
+        category: "Personal",
         tags: ["dev", "work"],
       }),
     );
@@ -87,9 +88,5 @@ describe("password module logic", () => {
     expect(
       validatePasswordInput({ ...emptyPasswordForm(), name: "GitHub" }, "edit"),
     ).toBeNull();
-  });
-
-  it("parses unique comma-separated tags", () => {
-    expect(parseTags("dev, work, dev,")).toEqual(["dev", "work"]);
   });
 });
