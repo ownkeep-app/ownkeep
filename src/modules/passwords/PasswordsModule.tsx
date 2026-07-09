@@ -32,6 +32,7 @@ import {
   type SortValue,
 } from "@/lib/table-sort";
 import { toastError, toastSecretCopied } from "@/lib/toast";
+import { cn } from "@/lib/utils";
 import type { ListViewProps } from "@/modules/types";
 import { useVaultStore } from "@/stores/vault-store";
 import {
@@ -464,7 +465,7 @@ export function PasswordEditView({
         </Button>
       </header>
 
-      <div className="grid max-w-3xl gap-4 p-6">
+      <div className="grid flex-1 grid-cols-2 gap-4 overflow-auto p-6">
         <Field label="Name">
           <Input
             aria-label="Password name"
@@ -488,6 +489,14 @@ export function PasswordEditView({
             value={form.password}
           />
         </Field>
+        <Field label="Tags">
+          <Input
+            aria-label="Password tags"
+            onChange={(event) => update("tags", event.target.value)}
+            placeholder="dev, work"
+            value={form.tags}
+          />
+        </Field>
         <Field label="Login URL">
           <Input
             aria-label="Login URL"
@@ -502,15 +511,7 @@ export function PasswordEditView({
             value={form.recoveryUrl}
           />
         </Field>
-        <Field label="Tags">
-          <Input
-            aria-label="Password tags"
-            onChange={(event) => update("tags", event.target.value)}
-            placeholder="dev, work"
-            value={form.tags}
-          />
-        </Field>
-        <Field label="Notes">
+        <Field className="col-span-2" label="Notes">
           <textarea
             aria-label="Password notes"
             className="min-h-24 rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
@@ -518,21 +519,31 @@ export function PasswordEditView({
             value={form.notes}
           />
         </Field>
-        {error && <p className="text-sm text-destructive">{error}</p>}
-        <div className="flex gap-2">
-          <Button type="submit">Save</Button>
-          <Button onClick={onCancel} type="button" variant="outline">
-            Cancel
-          </Button>
-        </div>
+        {error && (
+          <p className="col-span-2 text-sm text-destructive">{error}</p>
+        )}
       </div>
+      <footer className="flex justify-end gap-2 border-t border-border px-6 py-4">
+        <Button onClick={onCancel} type="button" variant="outline">
+          Cancel
+        </Button>
+        <Button type="submit">Save</Button>
+      </footer>
     </form>
   );
 }
 
-function Field({ label, children }: { label: string; children: ReactNode }) {
+function Field({
+  label,
+  children,
+  className,
+}: {
+  label: string;
+  children: ReactNode;
+  className?: string;
+}) {
   return (
-    <label className="grid gap-1 text-sm font-medium">
+    <label className={cn("grid gap-1 text-sm font-medium", className)}>
       <span>{label}</span>
       {children}
     </label>

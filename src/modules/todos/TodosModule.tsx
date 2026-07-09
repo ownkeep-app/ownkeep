@@ -444,22 +444,13 @@ export function TodoEditView({
         </Button>
       </header>
 
-      <div className="grid flex-1 gap-4 overflow-auto p-6 md:grid-cols-2">
-        <label className="space-y-1 text-sm font-medium md:col-span-2">
+      <div className="grid flex-1 grid-cols-2 gap-4 overflow-auto p-6">
+        <label className="space-y-1 text-sm font-medium col-span-2">
           Title
           <Input
             aria-label="Todo title"
             onChange={(event) => update("title", event.target.value)}
             value={form.title}
-          />
-        </label>
-        <label className="space-y-1 text-sm font-medium md:col-span-2">
-          Notes
-          <textarea
-            aria-label="Todo notes"
-            className="min-h-24 w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            onChange={(event) => update("notes", event.target.value)}
-            value={form.notes}
           />
         </label>
         <label className="space-y-1 text-sm font-medium">
@@ -525,7 +516,7 @@ export function TodoEditView({
             ))}
           </Select>
         </label>
-        <label className="space-y-1 text-sm font-medium md:col-span-2">
+        <label className="space-y-1 text-sm font-medium col-span-2">
           Tags
           <Input
             aria-label="Todo tags"
@@ -533,8 +524,17 @@ export function TodoEditView({
             value={form.tags}
           />
         </label>
+        <label className="space-y-1 text-sm font-medium col-span-2">
+          Notes
+          <textarea
+            aria-label="Todo notes"
+            className="min-h-24 w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            onChange={(event) => update("notes", event.target.value)}
+            value={form.notes}
+          />
+        </label>
         {error && (
-          <p className="text-sm text-destructive md:col-span-2">{error}</p>
+          <p className="col-span-2 text-sm text-destructive">{error}</p>
         )}
       </div>
 

@@ -20,6 +20,7 @@ import { Input } from "@/components/ui/input";
 import { EmptyState } from "@/components/EmptyState";
 import { writeClipboard } from "@/lib/clipboard";
 import { toastClipboard } from "@/lib/toast";
+import { cn } from "@/lib/utils";
 import type { ListViewProps } from "@/modules/types";
 import { useVaultStore } from "@/stores/vault-store";
 import { FillInForm } from "./FillInForm";
@@ -374,7 +375,7 @@ export function CommandEditView({
         </Button>
       </header>
 
-      <div className="grid max-w-3xl gap-4 overflow-auto p-6">
+      <div className="grid flex-1 grid-cols-2 gap-4 overflow-auto p-6">
         <Field label="Title">
           <Input
             aria-label="Command title"
@@ -390,7 +391,7 @@ export function CommandEditView({
             value={form.category}
           />
         </Field>
-        <Field label="Description">
+        <Field className="col-span-2" label="Description">
           <Input
             aria-label="Command description"
             onChange={(event) => update("description", event.target.value)}
@@ -404,22 +405,6 @@ export function CommandEditView({
             value={form.language}
           />
         </Field>
-        <Field label="Command (use {{name}} placeholders)">
-          <textarea
-            aria-label="Command code"
-            className="min-h-24 rounded-md border border-input bg-transparent px-3 py-2 font-mono text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-            onChange={(event) => update("code", event.target.value)}
-            value={form.code}
-          />
-        </Field>
-        <Field label="Arguments (one per line: name  or  name = a, b, c)">
-          <textarea
-            aria-label="Command arguments"
-            className="min-h-16 rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-            onChange={(event) => update("argumentsText", event.target.value)}
-            value={form.argumentsText}
-          />
-        </Field>
         <Field label="Tags">
           <Input
             aria-label="Command tags"
@@ -428,21 +413,53 @@ export function CommandEditView({
             value={form.tags}
           />
         </Field>
-        {error && <p className="text-sm text-destructive">{error}</p>}
-        <div className="flex gap-2">
-          <Button type="submit">Save</Button>
-          <Button onClick={onCancel} type="button" variant="outline">
-            Cancel
-          </Button>
-        </div>
+        <Field
+          className="col-span-2"
+          label="Command (use {{name}} placeholders)"
+        >
+          <textarea
+            aria-label="Command code"
+            className="min-h-24 rounded-md border border-input bg-transparent px-3 py-2 font-mono text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            onChange={(event) => update("code", event.target.value)}
+            value={form.code}
+          />
+        </Field>
+        <Field
+          className="col-span-2"
+          label="Arguments (one per line: name  or  name = a, b, c)"
+        >
+          <textarea
+            aria-label="Command arguments"
+            className="min-h-16 rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            onChange={(event) => update("argumentsText", event.target.value)}
+            value={form.argumentsText}
+          />
+        </Field>
+        {error && (
+          <p className="col-span-2 text-sm text-destructive">{error}</p>
+        )}
       </div>
+      <footer className="flex justify-end gap-2 border-t border-border px-6 py-4">
+        <Button onClick={onCancel} type="button" variant="outline">
+          Cancel
+        </Button>
+        <Button type="submit">Save</Button>
+      </footer>
     </form>
   );
 }
 
-function Field({ label, children }: { label: string; children: ReactNode }) {
+function Field({
+  label,
+  children,
+  className,
+}: {
+  label: string;
+  children: ReactNode;
+  className?: string;
+}) {
   return (
-    <label className="grid gap-1 text-sm font-medium">
+    <label className={cn("grid gap-1 text-sm font-medium", className)}>
       <span>{label}</span>
       {children}
     </label>

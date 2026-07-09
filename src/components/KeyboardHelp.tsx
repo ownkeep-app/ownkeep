@@ -6,10 +6,15 @@ import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { Button } from "@/components/ui/button";
 import type { ShortcutGroup } from "@/components/keyboard-shortcuts";
 import {
+  modalOverlayClassName,
+  modalPanelClassName,
+} from "@/components/modal-styles";
+import {
   dialogTransition,
   fadeTransition,
   motionOrUndefined,
 } from "@/lib/motion";
+import { cn } from "@/lib/utils";
 
 /**
  * A keyboard-shortcut cheat sheet (spec §10 lists the key maps; Phase 11 surfaces them in-app).
@@ -70,7 +75,7 @@ export function KeyboardHelp({
       <AnimatePresence>
         {open && (
           <motion.div
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-6"
+            className={modalOverlayClassName}
             initial={motionOrUndefined(reduce, { opacity: 0 })}
             animate={{ opacity: 1 }}
             exit={motionOrUndefined(reduce, { opacity: 0 })}
@@ -93,7 +98,7 @@ export function KeyboardHelp({
             <motion.section
               aria-label="Keyboard shortcuts"
               aria-modal="true"
-              className="relative z-10 w-full max-w-md rounded-lg border border-border bg-card p-5 text-card-foreground shadow-lg"
+              className={cn(modalPanelClassName, "w-full max-w-md p-5")}
               role="dialog"
               initial={motionOrUndefined(reduce, {
                 opacity: 0,

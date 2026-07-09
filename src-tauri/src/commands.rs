@@ -197,9 +197,12 @@ pub fn copy_secret(
 }
 
 /// Reveal a registered secret in a native dialog without returning plaintext to the WebView.
+/// Parented to the invoking window so it shows as a sheet — an unparented modal would return
+/// focus to the previously active app on dismiss (Accessory policy), hiding the Dashboard.
 #[tauri::command]
 pub fn reveal_secret(
     app: AppHandle,
+    window: tauri::WebviewWindow,
     state: State<'_, SharedSession>,
     id: String,
     field: String,
@@ -209,11 +212,14 @@ pub fn reveal_secret(
         .unwrap()
         .secret_value(&id, &field)
         .map_err(|e| e.to_string())?;
+    // Non-blocking show: blocking on the sheet's dismissal deadlocks the app on macOS, and the
+    // command has nothing to do after the user closes the dialog anyway.
     app.dialog()
         .message(secret.as_str())
         .title("keystash secret")
         .kind(MessageDialogKind::Info)
-        .blocking_show();
+        .parent(&window)
+        .show(|_| {});
     Ok(())
 }
 

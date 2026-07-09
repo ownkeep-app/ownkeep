@@ -471,7 +471,7 @@ export function SubscriptionEditView({
         </Button>
       </header>
 
-      <div className="grid flex-1 gap-4 overflow-auto p-6 md:grid-cols-2">
+      <div className="grid flex-1 grid-cols-2 gap-4 overflow-auto p-6">
         <label className="space-y-1 text-sm font-medium">
           Service
           <Input
@@ -566,7 +566,7 @@ export function SubscriptionEditView({
             value={form.notifyLeadDays}
           />
         </label>
-        <label className="flex items-center gap-2 text-sm font-medium">
+        <label className="flex items-center gap-2 text-sm font-medium col-span-2">
           <Checkbox
             aria-label="Subscription auto renew"
             checked={form.autoRenew}
@@ -574,7 +574,7 @@ export function SubscriptionEditView({
           />
           Auto renew
         </label>
-        <label className="space-y-1 text-sm font-medium md:col-span-2">
+        <label className="space-y-1 text-sm font-medium col-span-2">
           Notes
           <textarea
             aria-label="Subscription notes"
@@ -584,7 +584,7 @@ export function SubscriptionEditView({
           />
         </label>
         {error && (
-          <p className="text-sm text-destructive md:col-span-2">{error}</p>
+          <p className="col-span-2 text-sm text-destructive">{error}</p>
         )}
       </div>
 

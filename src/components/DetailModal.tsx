@@ -3,8 +3,13 @@ import { type ReactNode, useEffect, useRef } from "react";
 import { X } from "lucide-react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 
+import {
+  modalOverlayClassName,
+  modalPanelClassName,
+} from "@/components/modal-styles";
 import { Button } from "@/components/ui/button";
 import { fadeTransition, motionOrUndefined } from "@/lib/motion";
+import { cn } from "@/lib/utils";
 
 export function DetailModal({
   open,
@@ -32,7 +37,7 @@ export function DetailModal({
     <AnimatePresence>
       {open && (
         <motion.div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-6"
+          className={modalOverlayClassName}
           initial={false}
           animate={{ opacity: 1 }}
           exit={motionOrUndefined(reduce, { opacity: 0 })}
@@ -55,7 +60,10 @@ export function DetailModal({
           <section
             aria-label={ariaLabel ?? title}
             aria-modal="true"
-            className="relative z-10 flex max-h-[min(90vh,720px)] w-full max-w-2xl flex-col rounded-lg border border-border bg-card text-card-foreground shadow-lg"
+            className={cn(
+              modalPanelClassName,
+              "flex max-h-[min(90vh,720px)] w-full max-w-2xl flex-col",
+            )}
             role="dialog"
           >
             <header className="flex shrink-0 items-center gap-2 border-b border-border px-5 py-4">

@@ -489,32 +489,30 @@ export function FinanceEditView({
         </Button>
       </header>
 
-      <div className="flex-1 space-y-4 overflow-auto p-6">
-        <div className="grid gap-4 md:grid-cols-2">
-          <label className="space-y-1 text-sm font-medium">
-            Date
-            <Input
-              aria-label="Snapshot date"
-              onChange={(event) =>
-                setForm((current) => ({ ...current, date: event.target.value }))
-              }
-              type="date"
-              value={form.date}
-            />
-          </label>
-          <label className="space-y-1 text-sm font-medium">
-            Note
-            <Input
-              aria-label="Snapshot note"
-              onChange={(event) =>
-                setForm((current) => ({ ...current, note: event.target.value }))
-              }
-              value={form.note}
-            />
-          </label>
-        </div>
+      <div className="grid flex-1 grid-cols-2 content-start gap-4 overflow-auto p-6">
+        <label className="space-y-1 text-sm font-medium">
+          Date
+          <Input
+            aria-label="Snapshot date"
+            onChange={(event) =>
+              setForm((current) => ({ ...current, date: event.target.value }))
+            }
+            type="date"
+            value={form.date}
+          />
+        </label>
+        <label className="space-y-1 text-sm font-medium">
+          Note
+          <Input
+            aria-label="Snapshot note"
+            onChange={(event) =>
+              setForm((current) => ({ ...current, note: event.target.value }))
+            }
+            value={form.note}
+          />
+        </label>
 
-        <div className="space-y-2">
+        <div className="col-span-2 space-y-2">
           <div className="flex items-center justify-between">
             <p className="text-sm font-medium">Holdings</p>
             <Button onClick={addRow} size="sm" type="button" variant="outline">
@@ -524,7 +522,7 @@ export function FinanceEditView({
           </div>
           {form.entries.map((entry, index) => (
             <div
-              className="grid grid-cols-[1fr_1fr_1fr_4rem_2rem] items-center gap-2"
+              className="grid grid-cols-[1fr_1fr_1fr_5rem_2rem] items-center gap-2"
               key={index}
             >
               <Input
@@ -574,7 +572,9 @@ export function FinanceEditView({
           ))}
         </div>
 
-        {error && <p className="text-sm text-destructive">{error}</p>}
+        {error && (
+          <p className="col-span-2 text-sm text-destructive">{error}</p>
+        )}
       </div>
 
       <footer className="flex justify-end gap-2 border-t border-border px-6 py-4">
