@@ -10,10 +10,15 @@ mod secrets;
 mod session;
 mod storage;
 
-use tauri::Manager;
+use tauri::{Emitter, Manager};
+#[cfg(desktop)]
+use tauri_plugin_dialog::{DialogExt, MessageDialogButtons, MessageDialogKind};
 
 /// Whether the main launcher window should hide when it loses focus (command bar only).
 pub struct MainWindowBehavior(pub std::sync::Mutex<bool>);
+
+/// Module id the Dashboard should select after being opened from the command bar.
+pub struct PendingDashboardModule(pub std::sync::Mutex<Option<String>>);
 
 #[cfg(desktop)]
 use tauri::{
@@ -32,13 +37,33 @@ const DEFAULT_GLOBAL_HOTKEY: &str = "Cmd+Shift+Space";
 #[cfg(desktop)]
 const DEFAULT_DASHBOARD_HOTKEY: &str = "Cmd+Shift+D";
 
-/// Show the main launcher window and give it keyboard focus.
+/// Hide a labeled window if it exists.
 #[cfg(desktop)]
-fn show_and_focus_main(app: &AppHandle) {
-    if let Some(window) = app.get_webview_window("main") {
+fn hide_labeled(app: &AppHandle, label: &str) {
+    if let Some(window) = app.get_webview_window(label) {
+        let _ = window.hide();
+    }
+}
+
+/// Show and focus one surface while hiding the other — command bar and Dashboard never share the screen (§7.6).
+#[cfg(desktop)]
+fn show_exclusive(app: &AppHandle, label: &str) {
+    let other = if label == "main" {
+        "dashboard"
+    } else {
+        "main"
+    };
+    hide_labeled(app, other);
+    if let Some(window) = app.get_webview_window(label) {
         let _ = window.show();
         let _ = window.set_focus();
     }
+}
+
+/// Show the main launcher window and give it keyboard focus.
+#[cfg(desktop)]
+fn show_and_focus_main(app: &AppHandle) {
+    show_exclusive(app, "main");
 }
 
 /// Toggle the launcher: hide it if it is already frontmost, otherwise show + focus it.
@@ -50,8 +75,7 @@ fn toggle_main_window(app: &AppHandle) {
         if is_frontmost {
             let _ = window.hide();
         } else {
-            let _ = window.show();
-            let _ = window.set_focus();
+            show_exclusive(app, "main");
         }
     }
 }
@@ -66,10 +90,46 @@ fn toggle_dashboard_window(app: &AppHandle) {
         if is_frontmost {
             let _ = window.hide();
         } else {
-            let _ = window.show();
-            let _ = window.set_focus();
+            show_exclusive(app, "dashboard");
         }
     }
+}
+
+/// Confirm before the traffic-light close button quits the app (accidental clicks).
+#[cfg(desktop)]
+fn confirm_close_window(window: &tauri::Window) {
+    let Some(webview) = window
+        .app_handle()
+        .get_webview_window(window.label())
+    else {
+        return;
+    };
+
+    // Blur-to-hide would dismiss the launcher under the sheet — pause it for the confirm.
+    let blur = window.state::<MainWindowBehavior>();
+    let previous_blur = *blur.0.lock().unwrap();
+    *blur.0.lock().unwrap() = false;
+
+    let app = window.app_handle().clone();
+
+    app.dialog()
+        .message("This will quit keystash completely (command bar and Dashboard). Reminder notifications will stop until you open it again.")
+        .title("Quit keystash?")
+        .kind(MessageDialogKind::Warning)
+        .buttons(MessageDialogButtons::OkCancelCustom(
+            "Quit".into(),
+            "Cancel".into(),
+        ))
+        .parent(&webview)
+        .show(move |confirmed| {
+            if confirmed {
+                app.exit(0);
+                return;
+            }
+            if let Some(behavior) = app.try_state::<MainWindowBehavior>() {
+                *behavior.0.lock().unwrap() = previous_blur;
+            }
+        });
 }
 
 /// Register the configured launcher + Dashboard hotkeys. Settings can call the same helper at
@@ -160,6 +220,7 @@ pub fn run() {
             session::DEFAULT_AUTO_LOCK,
         ))))
         .manage(MainWindowBehavior(std::sync::Mutex::new(true)))
+        .manage(PendingDashboardModule(std::sync::Mutex::new(None)))
         .invoke_handler(tauri::generate_handler![
             commands::vault_exists,
             commands::vault_incompatibility,
@@ -190,6 +251,8 @@ pub fn run() {
             commands::quit_app,
             set_hotkeys,
             set_main_window_blur_dismiss,
+            show_dashboard,
+            take_dashboard_module,
         ])
         .setup(|app| {
             spawn_auto_lock(app.handle().clone());
@@ -198,17 +261,24 @@ pub fn run() {
             Ok(())
         })
         .on_window_event(|window, event| {
-            // Launcher behavior: hide the main window when it loses focus (Esc is handled in the UI).
-            // Scoped to "main" so later windows (e.g. the Phase 2 Dashboard) aren't hidden on blur.
-            // Disabled while auth/onboarding screens are shown — resize and form entry need focus.
-            if window.label() == "main" {
-                if let tauri::WindowEvent::Focused(false) = event {
+            match event {
+                // Traffic-light close: confirm first, then hide (tray keeps the app alive).
+                tauri::WindowEvent::CloseRequested { api, .. } => {
+                    api.prevent_close();
+                    #[cfg(desktop)]
+                    confirm_close_window(window);
+                }
+                // Launcher behavior: hide the main window when it loses focus (Esc is handled in the UI).
+                // Scoped to "main" so the Dashboard isn't hidden on blur.
+                // Disabled while auth/onboarding screens are shown — resize and form entry need focus.
+                tauri::WindowEvent::Focused(false) if window.label() == "main" => {
                     let blur_dismiss = window.state::<MainWindowBehavior>();
                     let dismiss = *blur_dismiss.0.lock().unwrap();
                     if dismiss {
                         let _ = window.hide();
                     }
                 }
+                _ => {}
             }
         })
         .run(tauri::generate_context!())
@@ -219,6 +289,31 @@ pub fn run() {
 #[tauri::command]
 fn set_main_window_blur_dismiss(state: tauri::State<'_, MainWindowBehavior>, enabled: bool) {
     *state.0.lock().unwrap() = enabled;
+}
+
+/// Show and focus the Dashboard, optionally selecting a module pane (command-bar bridge, §7.6).
+#[tauri::command]
+fn show_dashboard(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, PendingDashboardModule>,
+    module_id: Option<String>,
+) {
+    if let Some(id) = module_id {
+        *state.0.lock().unwrap() = Some(id.clone());
+        let _ = app.emit("dashboard-open-module", id);
+    }
+    #[cfg(desktop)]
+    {
+        show_exclusive(&app, "dashboard");
+    }
+}
+
+/// Consume a pending Dashboard module selection (set by `show_dashboard`).
+#[tauri::command]
+fn take_dashboard_module(
+    state: tauri::State<'_, PendingDashboardModule>,
+) -> Option<String> {
+    state.0.lock().unwrap().take()
 }
 
 /// Apply the hotkeys persisted in the encrypted vault settings.

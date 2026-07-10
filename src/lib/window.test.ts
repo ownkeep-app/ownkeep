@@ -5,8 +5,10 @@ import {
   hideWindow,
   MAIN_WINDOW_EXPANDED,
   mainWindowMode,
+  openDashboardToModule,
   resetMainWindowModeForTests,
   setMainWindowMode,
+  takeDashboardModule,
 } from "./window";
 
 const mockSetSize = vi.fn(async () => {});
@@ -196,6 +198,33 @@ describe("window helpers", () => {
     await hideWindow();
 
     expect(mockHide).toHaveBeenCalledTimes(1);
+  });
+
+  it("opens the Dashboard to a module pane", async () => {
+    await openDashboardToModule("todos");
+
+    expect(mockInvoke).toHaveBeenCalledWith("show_dashboard", {
+      moduleId: "todos",
+    });
+  });
+
+  it("swallows show_dashboard IPC failures", async () => {
+    mockInvoke.mockRejectedValueOnce(new Error("no ipc"));
+
+    await expect(openDashboardToModule("todos")).resolves.toBeUndefined();
+  });
+
+  it("takes a pending Dashboard module selection", async () => {
+    mockInvoke.mockResolvedValueOnce("todos");
+
+    await expect(takeDashboardModule()).resolves.toBe("todos");
+    expect(mockInvoke).toHaveBeenCalledWith("take_dashboard_module");
+  });
+
+  it("returns null when take_dashboard_module IPC fails", async () => {
+    mockInvoke.mockRejectedValueOnce(new Error("no ipc"));
+
+    await expect(takeDashboardModule()).resolves.toBeNull();
   });
 
   it("reads the current window label", () => {

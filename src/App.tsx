@@ -37,7 +37,7 @@ function App() {
   const model = useVaultStore((s) => s.model);
   const pendingKit = useVaultStore((s) => s.pendingKit);
   const theme = useVaultStore((s) => s.model?.settings.theme ?? "system");
-  const accent = useVaultStore((s) => s.model?.settings.accent ?? "#4F7CFF");
+  const accent = useVaultStore((s) => s.model?.settings.accent ?? "#5B6CFF");
   const init = useVaultStore((s) => s.init);
   const label = currentWindowLabel();
 

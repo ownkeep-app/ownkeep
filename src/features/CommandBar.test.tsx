@@ -1,10 +1,16 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { writeClipboard } from "@/lib/clipboard";
 import { toastClipboard, toastError, toastSecretCopied } from "@/lib/toast";
-import { hideWindow } from "@/lib/window";
+import { hideWindow, openDashboardToModule } from "@/lib/window";
 import {
   COMMANDS_MODULE_ID,
   type CommandEntry,
@@ -23,9 +29,12 @@ import { useShellStore } from "@/stores/shell-store";
 import { useVaultStore } from "@/stores/vault-store";
 import { vaultApi } from "@/vault/api";
 import { createDefaultModel, type VaultModel } from "@/vault/model";
-import { CommandBar } from "./CommandBar";
+import { CommandBar, COMMAND_BAR_HIDE_DELAY_MS } from "./CommandBar";
 
-vi.mock("@/lib/window", () => ({ hideWindow: vi.fn(async () => {}) }));
+vi.mock("@/lib/window", () => ({
+  hideWindow: vi.fn(async () => {}),
+  openDashboardToModule: vi.fn(async () => {}),
+}));
 vi.mock("@/lib/clipboard", () => ({ writeClipboard: vi.fn(async () => true) }));
 vi.mock("@/lib/toast", () => ({
   toastSecretCopied: vi.fn(),
@@ -41,12 +50,43 @@ vi.mock("@/vault/api", () => ({
 }));
 
 const mockHideWindow = vi.mocked(hideWindow);
+const mockOpenDashboard = vi.mocked(openDashboardToModule);
 const clip = vi.mocked(writeClipboard);
 const secretToast = vi.mocked(toastSecretCopied);
 const errorToast = vi.mocked(toastError);
 const clipboardToast = vi.mocked(toastClipboard);
 const api = vi.mocked(vaultApi);
 const NOW = "2026-07-07T00:00:00.000Z";
+
+/** Fire ⌥⇧<n> (primary action) using physical Digit codes so Option glyphs don't matter. */
+function pressResultHotkey(n: number) {
+  fireEvent.keyDown(window, {
+    key: String(n),
+    code: `Digit${n}`,
+    altKey: true,
+    shiftKey: true,
+  });
+}
+
+/** Fire ⌥⌘<n> (raw command copy). */
+function pressRawHotkey(n: number) {
+  fireEvent.keyDown(window, {
+    key: String(n),
+    code: `Digit${n}`,
+    altKey: true,
+    metaKey: true,
+  });
+}
+
+async function flushHideDelay() {
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(COMMAND_BAR_HIDE_DELAY_MS);
+  });
+}
+
+function setModel(model: VaultModel | null) {
+  useVaultStore.setState({ model });
+}
 
 function passwordItem(id: string, name: string, username: string) {
   return {
@@ -163,19 +203,22 @@ function withSubscriptions(items: SubscriptionEntry[]): VaultModel {
   };
 }
 
-function setModel(model: VaultModel | null) {
-  useVaultStore.setState({ model });
-}
-
 describe("CommandBar", () => {
   beforeEach(() => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
     vi.clearAllMocks();
     useShellStore.setState({ query: "" });
     setModel(null);
   });
 
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   it("keeps the query in the shell store", async () => {
-    const user = userEvent.setup();
+    const user = userEvent.setup({
+      advanceTimers: vi.advanceTimersByTime,
+    });
     render(<CommandBar />);
 
     await user.type(screen.getByRole("combobox", { name: /search/i }), "ssh");
@@ -209,7 +252,7 @@ describe("CommandBar", () => {
     expect(screen.queryByRole("option")).not.toBeInTheDocument();
   });
 
-  it("renders ranked results numbered 1..N", () => {
+  it("renders ranked results with ⌥⇧n hotkey hints", () => {
     setModel(
       withPasswords([
         passwordItem("gh", "GitHub", "shao"),
@@ -220,21 +263,23 @@ describe("CommandBar", () => {
 
     expect(screen.getByText("GitHub - shao")).toBeInTheDocument();
     expect(screen.getByText("AWS - root")).toBeInTheDocument();
-    expect(screen.getByText("1")).toBeInTheDocument();
-    expect(screen.getByText("2")).toBeInTheDocument();
+    expect(screen.getByText("⌥⇧1")).toBeInTheDocument();
+    expect(screen.getByText("⌥⇧2")).toBeInTheDocument();
   });
 
   it("copies the numbered result's secret and records the use", async () => {
     setModel(withPasswords([passwordItem("gh", "GitHub", "shao")]));
     render(<CommandBar />);
 
-    fireEvent.keyDown(window, { key: "1", metaKey: true });
+    pressResultHotkey(1);
 
     await waitFor(() =>
       expect(api.copySecret).toHaveBeenCalledWith("gh", PASSWORD_SECRET_FIELD),
     );
     expect(secretToast).toHaveBeenCalled();
     expect(api.saveVault).toHaveBeenCalled(); // frecency bump persisted
+    expect(mockHideWindow).not.toHaveBeenCalled();
+    await flushHideDelay();
     expect(mockHideWindow).toHaveBeenCalled();
   });
 
@@ -243,16 +288,20 @@ describe("CommandBar", () => {
     setModel(withPasswords([passwordItem("gh", "GitHub", "shao")]));
     render(<CommandBar />);
 
-    fireEvent.keyDown(window, { key: "1", metaKey: true });
+    pressResultHotkey(1);
 
     await waitFor(() =>
       expect(errorToast).toHaveBeenCalledWith("Couldn't copy the password."),
     );
+    expect(mockHideWindow).not.toHaveBeenCalled();
+    await flushHideDelay();
     expect(mockHideWindow).toHaveBeenCalled();
   });
 
   it("shows a no-results message when the query matches nothing", async () => {
-    const user = userEvent.setup();
+    const user = userEvent.setup({
+      advanceTimers: vi.advanceTimersByTime,
+    });
     setModel(withPasswords([passwordItem("gh", "GitHub", "shao")]));
     render(<CommandBar />);
 
@@ -265,7 +314,9 @@ describe("CommandBar", () => {
   });
 
   it("runs the primary action when a result is selected", async () => {
-    const user = userEvent.setup();
+    const user = userEvent.setup({
+      advanceTimers: vi.advanceTimersByTime,
+    });
     setModel(withPasswords([passwordItem("gh", "GitHub", "shao")]));
     render(<CommandBar />);
 
@@ -274,13 +325,15 @@ describe("CommandBar", () => {
     await waitFor(() =>
       expect(api.copySecret).toHaveBeenCalledWith("gh", PASSWORD_SECRET_FIELD),
     );
+    await flushHideDelay();
+    expect(mockHideWindow).toHaveBeenCalled();
   });
 
   it("ignores a numbered hotkey with no matching result", () => {
     setModel(withPasswords([passwordItem("gh", "GitHub", "shao")]));
     render(<CommandBar />);
 
-    fireEvent.keyDown(window, { key: "5", metaKey: true });
+    pressResultHotkey(5);
 
     expect(api.copySecret).not.toHaveBeenCalled();
   });
@@ -316,59 +369,65 @@ describe("CommandBar", () => {
     });
     render(<CommandBar modules={[notesModule]} />);
 
-    fireEvent.keyDown(window, { key: "1", metaKey: true });
+    pressResultHotkey(1);
 
     await waitFor(() => expect(api.saveVault).toHaveBeenCalled());
     expect(api.copySecret).not.toHaveBeenCalled();
+    expect(mockOpenDashboard).toHaveBeenCalledWith("notes");
+    expect(mockHideWindow).toHaveBeenCalled();
   });
 
   it("copies a placeholder-free command immediately", async () => {
     setModel(withCommands([command({ primaryCopyTemplate: "git status" })]));
     render(<CommandBar />);
 
-    fireEvent.keyDown(window, { key: "1", metaKey: true });
+    pressResultHotkey(1);
 
     await waitFor(() => expect(clip).toHaveBeenCalledWith("git status"));
     expect(clipboardToast).toHaveBeenCalledWith(true, "Command copied");
     expect(api.saveVault).toHaveBeenCalled(); // frecency recorded
+    expect(mockHideWindow).not.toHaveBeenCalled();
+    await flushHideDelay();
     expect(mockHideWindow).toHaveBeenCalled();
   });
 
-  it("toggles a todo result as its primary action", async () => {
+  it("opens the Dashboard Todos pane for a todo result", async () => {
     setModel(withTodos([todo()]));
     render(<CommandBar />);
 
-    fireEvent.keyDown(window, { key: "1", metaKey: true });
-
-    await waitFor(() => expect(api.saveVault).toHaveBeenCalled());
-    const saved = JSON.parse(api.saveVault.mock.calls[0][0] as string);
-    expect(saved.modules.todos[0].done).toBe(true);
-    expect(mockHideWindow).toHaveBeenCalled();
-  });
-
-  it("copies a subscription billing URL as its primary action", async () => {
-    setModel(withSubscriptions([subscription()]));
-    render(<CommandBar />);
-
-    fireEvent.keyDown(window, { key: "1", metaKey: true });
+    pressResultHotkey(1);
 
     await waitFor(() =>
-      expect(clip).toHaveBeenCalledWith(
-        "https://cloud.linode.com/account/billing",
-      ),
+      expect(mockOpenDashboard).toHaveBeenCalledWith(TODOS_MODULE_ID),
     );
     expect(api.saveVault).toHaveBeenCalled(); // frecency recorded
     expect(mockHideWindow).toHaveBeenCalled();
+    const saved = JSON.parse(api.saveVault.mock.calls[0][0] as string);
+    expect(saved.modules.todos[0].done).toBe(false);
   });
 
-  it("records a subscription without a billing URL without copying", async () => {
+  it("opens the Dashboard Subscriptions pane for a subscription result", async () => {
+    setModel(withSubscriptions([subscription()]));
+    render(<CommandBar />);
+
+    pressResultHotkey(1);
+
+    await waitFor(() =>
+      expect(mockOpenDashboard).toHaveBeenCalledWith(SUBSCRIPTIONS_MODULE_ID),
+    );
+    expect(clip).not.toHaveBeenCalled();
+    expect(mockHideWindow).toHaveBeenCalled();
+  });
+
+  it("opens the Dashboard even when a subscription has no billing URL", async () => {
     setModel(withSubscriptions([subscription({ url: "" })]));
     render(<CommandBar />);
 
-    fireEvent.keyDown(window, { key: "1", metaKey: true });
+    pressResultHotkey(1);
 
-    await waitFor(() => expect(api.saveVault).toHaveBeenCalled());
-    expect(clip).not.toHaveBeenCalled();
+    await waitFor(() =>
+      expect(mockOpenDashboard).toHaveBeenCalledWith(SUBSCRIPTIONS_MODULE_ID),
+    );
     expect(mockHideWindow).toHaveBeenCalled();
   });
 
@@ -376,29 +435,33 @@ describe("CommandBar", () => {
     setModel(withCommands([command()]));
     render(<CommandBar />);
 
-    fireEvent.keyDown(window, { key: "1", metaKey: true });
+    pressResultHotkey(1);
 
     expect(await screen.findByLabelText("img")).toBeInTheDocument();
     expect(clip).not.toHaveBeenCalled(); // nothing copied until the form is submitted
   });
 
   it("copies the completed command from the fill-in", async () => {
-    const user = userEvent.setup();
+    const user = userEvent.setup({
+      advanceTimers: vi.advanceTimersByTime,
+    });
     setModel(withCommands([command()]));
     render(<CommandBar />);
 
-    fireEvent.keyDown(window, { key: "1", metaKey: true });
+    pressResultHotkey(1);
     await user.type(await screen.findByLabelText("img"), "nginx");
     await user.click(screen.getByRole("button", { name: /^copy$/i }));
 
     await waitFor(() => expect(clip).toHaveBeenCalledWith("docker run nginx"));
+    await flushHideDelay();
+    expect(mockHideWindow).toHaveBeenCalled();
   });
 
   it("cancels the fill-in on Escape without hiding the launcher", async () => {
     setModel(withCommands([command()]));
     render(<CommandBar />);
 
-    fireEvent.keyDown(window, { key: "1", metaKey: true });
+    pressResultHotkey(1);
     await screen.findByLabelText("img");
     fireEvent.keyDown(window, { key: "Escape" });
 
@@ -412,33 +475,42 @@ describe("CommandBar", () => {
     setModel(withCommands([command()]));
     render(<CommandBar />);
 
-    fireEvent.keyDown(window, { key: "1", metaKey: true, altKey: true });
+    pressRawHotkey(1);
 
     await waitFor(() =>
       expect(clip).toHaveBeenCalledWith("docker run {{img}}"),
     );
+    expect(mockHideWindow).not.toHaveBeenCalled();
+    await flushHideDelay();
+    expect(mockHideWindow).toHaveBeenCalled();
   });
 
   it("copies raw from within the fill-in form", async () => {
-    const user = userEvent.setup();
+    const user = userEvent.setup({
+      advanceTimers: vi.advanceTimersByTime,
+    });
     setModel(withCommands([command()]));
     render(<CommandBar />);
 
-    fireEvent.keyDown(window, { key: "1", metaKey: true });
+    pressResultHotkey(1);
     await screen.findByLabelText("img");
     await user.click(screen.getByRole("button", { name: /copy raw/i }));
 
     await waitFor(() =>
       expect(clip).toHaveBeenCalledWith("docker run {{img}}"),
     );
+    await flushHideDelay();
+    expect(mockHideWindow).toHaveBeenCalled();
   });
 
   it("cancels the fill-in via its Cancel button", async () => {
-    const user = userEvent.setup();
+    const user = userEvent.setup({
+      advanceTimers: vi.advanceTimersByTime,
+    });
     setModel(withCommands([command()]));
     render(<CommandBar />);
 
-    fireEvent.keyDown(window, { key: "1", metaKey: true });
+    pressResultHotkey(1);
     await screen.findByLabelText("img");
     await user.click(screen.getByRole("button", { name: /cancel/i }));
 

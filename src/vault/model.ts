@@ -81,7 +81,7 @@ export function defaultSettings(): VaultSettings {
     lockOnBlur: false,
     clipboardClearSeconds: 30,
     theme: "system",
-    accent: "#4F7CFF",
+    accent: "#5B6CFF",
     resultLimit: 9,
     categoryOptions: defaultCategoryOptions(),
     tagOptions: defaultTagOptions(),

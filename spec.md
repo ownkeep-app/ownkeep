@@ -105,8 +105,8 @@ react-markdown, remark-gfm, rehype-sanitize.
 - **shadcn/ui is not a runtime dependency** — its CLI copies component *source* into `src/components/ui/`, so you own and can audit every line (reassuring for a vault). Add only what you use: `npx shadcn@latest add button input table dialog sheet select switch tabs badge dropdown-menu tooltip command sonner`.
 - **Runtime-offline:** the copied components pull only tiny local helpers (`class-variance-authority`, `clsx`, `tailwind-merge`, `tailwindcss-animate`) + Radix primitives. The CLI needs the network *once at dev time*; **nothing networked at runtime** — honors offline-first. Vendor `components/ui/` into git.
 - **Icons:** `lucide-react`, tree-shaken (import only the glyphs used), bundled into the app.
-- **Theming ties into settings:** shadcn tokens are CSS variables (HSL) in `globals.css`. `settings.theme` (system/light/dark) toggles the `.dark` class; `settings.accent` maps to the `--primary` token — so "theme + accent" (§9) is a token swap, no component edits.
-- **Where each is used:** `command` → the command bar (§7.2); `table` → dashboard `ListView`s (passwords, subscriptions, finance); `sheet` / `dialog` → slide-over detail/edit + the restore warning; `select` / `switch` / `tabs` → settings + enum command arguments; `sonner` → "copied" / "clipboard cleared" / error toasts; `badge` → tags / priority / auto-renew.
+- **Theming ties into settings:** shadcn tokens are CSS variables (HSL) in `src/styles.css`. `settings.theme` (system/light/dark) toggles the `.dark` class; `settings.accent` maps to the `--primary` token — so "theme + accent" (§9) is a token swap, no component edits. Defaults: light = Color Hunt periwinkle mist (`#EEF2FF` family), dark = Color Hunt midnight navy (`#1A1A2E` family), accent = `#5B6CFF`.
+- **Where each is used:** `command` → the command bar (§7.2); `table` → dashboard `ListView`s (passwords, subscriptions, finance); `dialog` / modal chrome → detail view, create/edit `ItemFormShell`, restore warning, keyboard help; `select` / `switch` / `tabs` → settings + enum command arguments; `sonner` → "copied" / "clipboard cleared" / error toasts; `badge` → tags / priority / auto-renew.
 
 ### 2.2 Testing strategy
 Two test surfaces, matching the two-language architecture:
@@ -361,12 +361,12 @@ never migrates another module's slice.
   "settings": {
     "globalHotkey": "Cmd+Shift+Space",       // activate/toggle the search window
     "dashboardHotkey": "Cmd+Shift+D",        // open/toggle the dashboard window
-    "copyHotkey": { "modifiers": "Cmd", "keys": "1-9" },  // numbered copy
+    "copyHotkey": { "modifiers": "Opt+Shift", "keys": "1-9" },  // numbered copy
     "autoLockMinutes": 60,                    // 0 = never auto-lock
     "lockOnBlur": false,
     "clipboardClearSeconds": 30,
     "theme": "system",                        // system | light | dark
-    "accent": "#4F7CFF",
+    "accent": "#5B6CFF",
     "resultLimit": 9,
     "categoryOptions": ["Work", "Personal", "Dev", "Finance", "Casual", "Misc"], // single-select labels; default Personal
     "tagOptions": ["React", "Bash", "Git", "TypeScript", "AI", "MongoDB", "PostgreSQL", "CSS", "HTML", "JavaScript", "Network", "Crypto"], // multi-select labels; default React
@@ -483,7 +483,7 @@ so editing a rate re-totals every snapshot. Future calendar/notes modules add th
 - Simple checklist: **title**, optional notes, **done** flag, optional **due date/time**, **priority** (low/normal/high), **category**, and a per-item **reminder lead** (minutes before due).
 - Optional lightweight **recurrence** (`none` | `daily` | `weekly`) — keep minimal; no full RRULE.
 - **Notifications** fire at `dueAt − notifyLeadMinutes` via the shared scheduler (§8). Completing or snoozing a todo from the notification is a nice-to-have.
-- Optional command-bar search / toggle-done when `searchable` is on (off by default; scope `t `). Dashboard is the primary surface.
+- Optional command-bar search when `searchable` is on (off by default; scope `t `). Activating a todo hit opens the Dashboard Todos pane (no per-item focus). Dashboard is the primary surface for complete/edit.
 - **Acceptance:** add/complete/delete; due todos notify once per window; recurring todos roll forward on completion.
 
 #### M2 — Subscriptions tracker (module `subscriptions`)
@@ -524,35 +524,36 @@ chrome, no sidebar. Escape or blur hides it.
 - As you type, **fuzzy-match across enabled modules that are also `searchable`** using the unified index (each entry exposes `searchString`, `displayLine`, `type`, `actions`). By default only **passwords** and **commands** are searchable; todos / subscriptions / finance stay Dashboard-first (toggleable in Settings).
 - **Ranking = Fuse.js fuzzy score × frecency boost.** Frecency (frequency + recency of past copies/opens) is tracked per item in `frecency` and nudges your habitual items up — this is how Raycast/Alfred actually feel smart. Cheap to implement.
 - **Implementation:** the bar is shadcn's **`command`** component (built on `cmdk`) as the palette shell + keyboard nav, with its built-in filter disabled (`shouldFilter={false}`) so **Fuse.js + frecency drive ranking** over the unified index; row icons via Lucide.
-- Results are **one line each**, ranked, capped at `resultLimit` (default 9), numbered `1..9`.
+- Results are **one line each**, ranked, capped at `resultLimit` (default 9), numbered `1..9`, each showing its **`⌥⇧n`** hotkey hint.
 - **Optional scope prefixes** (Alfred/Raycast-style, per-module configurable): `p ` passwords, `c ` commands, `t ` todos, `s ` subscriptions, `f ` finance. Typing `c branch` searches only commands. Scope prefixes only apply to modules that are currently searchable.
-- **Enter** opens the **Dashboard** focused on that item's module with the item selected (§7.5); the **numbered copy hotkey** performs the item's primary action without opening.
+- **Enter** / click / `⌥⇧<n>` all run the result's **primary action** (§7.3–7.4). For non-password / non-command hits that means opening the Dashboard on that module's pane (no per-item focus).
 
 ### 7.3 Numbered copy + interactive fill-in
-- The configurable copy hotkey (default `Cmd+<n>`) triggers result *n*'s **primary action**:
-  - **Password** → copy the secret to the concealed pasteboard (from Rust), then hide.
+- The numbered copy hotkey (default `Opt+Shift+<n>`) triggers result *n*'s **primary action**:
+  - **Password** → copy the secret to the concealed pasteboard (from Rust), show the success toast, then hide after ~2s.
   - **Command with no placeholders** → copy immediately.
   - **Command with placeholders** → open the inline **fill-in form** (§6/F2). `Opt+Cmd+<n>` copies the raw template instead.
-  - **Todo** → toggle done (or copy title); **Subscription** → copy URL; **Finance** → open snapshot.
+  - **Other modules** (todos, subscriptions, finance, …) → open the **Dashboard** on that module's pane and hide the launcher immediately (no per-item focus required).
 - **Placeholder convention:** `{{name}}` marks a fill-in slot; typed `arguments` may constrain it (enum → dropdown). This replaces v1's `[ ]` strip-from-first rule (which broke on non-trailing placeholders).
 
 ### 7.4 What each result type does
-| Type | `displayLine` | Primary action (`Cmd+n`) |
+| Type | `displayLine` | Primary action (`⌥⇧n`) |
 |---|---|---|
 | Password | `GitHub — shao` | copy password (Rust → concealed clipboard) |
-| Command | `Git command to delete a remote branch: git push origin --delete {{branch}}` | fill-in placeholders → copy completed (Opt+Cmd+n = raw) |
-| Todo | `☐ Renew passport — due Fri` | toggle done |
-| Subscription | `Linode — $20/mo — due Jul 20 — auto-renew` | copy the billing URL |
-| Finance | `Snapshot Jul 2026 — $17,540` | open snapshot detail |
+| Command | `Git command to delete a remote branch: git push origin --delete {{branch}}` | fill-in placeholders → copy completed (⌥⌘n = raw) |
+| Todo | `☐ Renew passport — due Fri` | open Dashboard → Todos |
+| Subscription | `Linode — $20/mo — due Jul 20 — auto-renew` | open Dashboard → Subscriptions |
+| Finance | `Snapshot Jul 2026 — $17,540` | open Dashboard → Finance |
 
 ### 7.5 The Dashboard (browse & manage) — the second surface
 A persistent window for seeing and managing **all** content — not just quick-copy. Opened via
-`Cmd+Shift+D` (configurable), the tray menu, or by pressing **Enter** on a command-bar result.
+`Cmd+Shift+D` (configurable), the tray menu, or a command-bar primary action on a non-password /
+non-command result (§7.3). Mutually exclusive with the command bar (§7.6).
 Layout: **left sidebar + right content pane.**
 
 - **When locked:** opening the Dashboard shows the same master-password unlock form as the launcher — users can unlock in place without switching to the command bar.
-- **Left sidebar (modules):** one row per *enabled* module — icon + title + item count — rendered straight from the registry, plus pinned **Settings**, **Help** (`⌘/`), and **Lock** rows. The bottom footer shows the current app version (`keystash v0.1`) so the user can confirm which build is running after a manual upgrade. Navigate with `↑/↓` or `Cmd+1..9`; the selection persists across opens.
-- **Right pane (all content):** renders the selected module's **`ListView`** — the full list/table of its items (all passwords; all commands grouped by category with title, description, and highlighted snippet per card; the todo list; all subscriptions; the finance snapshot table + trend chart). Includes a per-module filter box, **sortable table headers** (passwords, todos, subscriptions, finance), and **New / Edit / Delete**. Row **View** opens that module's `DetailView` in a dismissible two-column modal (Esc + click-away); edit still uses the full-pane `EditView`. Table columns use fixed proportional widths so headers and common values (e.g. email usernames) stay readable without manual resizing.
+- **Left sidebar (modules):** one row per *enabled* module — icon + title + item count — rendered straight from the registry, plus pinned **Settings**, **Help** (`⌘/`), and **Lock** rows. The bottom footer shows the current app version (`keystash v0.1`) so the user can confirm which build is running after a manual upgrade. Navigate with `↑/↓` or `⌥⇧1..9`; the selection persists across opens.
+- **Right pane (all content):** renders the selected module's **`ListView`** — the full list/table of its items (all passwords; all commands grouped by category with title, description, and highlighted snippet per card; the todo list; all subscriptions; the finance snapshot table + trend chart). Includes a per-module filter box, **sortable table headers** (passwords, todos, subscriptions, finance), and **New / Edit / Delete**. Row **View** opens that module's `DetailView` in a dismissible two-column modal (Esc + click-away); **New / Edit** open the module's `EditView` in a modal-style elevated card over a dimmed pane (Creating/Editing badge, Esc + backdrop dismiss). Table columns use fixed proportional widths so headers and common values (e.g. email usernames) stay readable without manual resizing.
 - **Secrets stay protected:** the passwords `ListView` shows metadata only (name, username, category) with masked passwords; clicking the mask reveals via Rust `reveal_secret` (native dialog — plaintext never enters the WebView); copy buttons in the password column and actions column route through `copy_secret` (§4.5).
 - **Sidebar footer:** Settings, **Help** (`⌘/` opens the keyboard-shortcut sheet), and Lock sit below the module list; the floating help trigger is not shown on the Dashboard (the command bar keeps its own).
 - **Registry-driven, so it scales:** a newly added module appears in the sidebar automatically via its `ListView`; a disabled module disappears but keeps its data (§3.4). No dashboard code changes per feature.
@@ -561,7 +562,9 @@ Layout: **left sidebar + right content pane.**
 ### 7.6 How the two surfaces relate
 - **Command bar** — fast, ephemeral, keyboard-first: find → act (copy / fill / toggle) → hide.
 - **Dashboard** — persistent: browse, bulk-edit, and review (finance trend, all subscriptions, the full todo list).
-- **Bridge:** **Enter** on a bar result opens the Dashboard with that item's module selected and the item focused. Both surfaces read the same in-memory model, so an edit in one is instantly reflected in the other.
+- **Mutually exclusive:** only one surface is visible at a time. Opening the command bar hides the Dashboard, and opening the Dashboard hides the command bar (hotkeys, tray, and the bar→Dashboard bridge all honor this).
+- **Close button:** the traffic-light close control asks for confirmation, then **quits the whole app** (both surfaces + tray). Cancel leaves the window open. Esc/blur on the command bar still only hides the launcher. Tray **Quit** also exits.
+- **Bridge:** activating a non-password / non-command bar result opens the Dashboard with that item's module selected (module pane only — no per-item focus). Password and command hits keep their copy / fill-in primary actions. Both surfaces read the same in-memory model, so an edit in one is instantly reflected in the other.
 
 ---
 
@@ -599,9 +602,9 @@ own `SettingsPanel`.
 ## 10. UX / Visual Design
 
 - **Two surfaces:** the **command bar** is the quick launcher (Escape/blur hides it); the **Dashboard** (sidebar + content pane) is the persistent browse/manage window. Both read the same live model.
-- **Command-bar keys:** `↑/↓` navigate, `Enter` open in Dashboard, `Cmd+<n>` primary action, `Opt+Cmd+<n>` raw copy (commands), `Cmd+,` settings, `Cmd+L` lock, `Cmd+N` new item (context-aware), `Cmd+F` focus search.
-- **Dashboard keys:** `Cmd+Shift+D` toggle Dashboard, `↑/↓` or `Cmd+1..9` switch modules in the sidebar, `Cmd+F` filter within a module, `Cmd+N` new item, `Enter` edit selected, `Esc` back.
-- **Aesthetic:** minimal, high-contrast, generous spacing, one accent color, system light/dark.
+- **Command-bar keys:** `↑/↓` navigate, `Enter`/click/`⌥⇧<n>` primary action, `⌥⌘<n>` raw copy (commands), `Cmd+,` settings, `Cmd+L` lock, `Cmd+N` new item (context-aware), `Cmd+F` focus search.
+- **Dashboard keys:** `Cmd+Shift+D` toggle Dashboard, `↑/↓` or `⌥⇧1..9` switch modules in the sidebar, `Cmd+F` filter within a module, `Cmd+N` new item, `Enter` edit selected, `Esc` back / dismiss form.
+- **Aesthetic:** calm dual themes (periwinkle mist light / midnight navy dark) with one accent (`#5B6CFF` default), generous spacing, high-contrast text.
 - **Component system:** UI built from **shadcn/ui** primitives (Radix + Tailwind, copied into `components/ui/`, à la carte) with **Lucide** icons. Light/dark + accent map to shadcn's CSS-variable tokens, so theming is one token swap (§2.1).
 - **Version visibility:** the Dashboard left-sidebar footer shows the current app version from `APP_VERSION`, which is injected from `package.json.version`, for quick upgrade/debug confirmation.
 - **Onboarding (first run):** create master password → **show Emergency Kit (recovery code)** → set global hotkey → done. No security questions. *(Touch ID is optional and enabled later from Settings → System → Security, §4.7 — not part of first-run setup; it may be offered once after the first successful unlock.)*

@@ -71,7 +71,7 @@ sheet (also reachable from the ⌨ button in the Dashboard). The essentials:
 |---|---|---|
 | Anywhere | `⌘⇧Space` | Summon the command bar |
 | Anywhere | `⌘⇧D` | Toggle the Dashboard window |
-| Command bar | `⌘1`–`⌘9` | Run a result's primary action (e.g. copy password) |
+| Command bar | `⌥⇧1`–`⌥⇧9` | Run a result's primary action (e.g. copy password) |
 | Command bar | `⌥⌘1`–`⌥⌘9` | Copy a command's raw template |
 | Command bar | `Esc` | Hide the launcher |
 | Dashboard | `⌘1`–`⌘9` / `↑ ↓` | Switch modules in the sidebar |

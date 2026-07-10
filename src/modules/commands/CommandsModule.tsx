@@ -1,9 +1,8 @@
 import { type FormEvent, type ReactNode, useMemo, useState } from "react";
 
-import { Copy, Eye, Pencil, Plus, Trash2, X } from "lucide-react";
+import { Copy, Eye, Pencil, Plus, Trash2 } from "lucide-react";
 
 import { CategorySelect } from "@/components/category-select";
-import { TagMultiSelect } from "@/components/tag-multi-select";
 import { DetailModal } from "@/components/DetailModal";
 import {
   DetailField,
@@ -12,14 +11,15 @@ import {
   DetailModalBody,
   DetailModalHero,
 } from "@/components/detail-fields";
-
+import { EmptyState } from "@/components/EmptyState";
+import { ItemFormShell } from "@/components/ItemFormShell";
 import {
   LanguageSelect,
   snippetLanguageLabel,
 } from "@/components/language-select";
+import { TagMultiSelect } from "@/components/tag-multi-select";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { EmptyState } from "@/components/EmptyState";
 import { writeClipboard } from "@/lib/clipboard";
 import { toastClipboard } from "@/lib/toast";
 import { cn } from "@/lib/utils";
@@ -363,94 +363,72 @@ export function CommandEditView({
   }
 
   return (
-    <form className="flex h-full flex-col" onSubmit={submit}>
-      <header className="flex items-center gap-3 border-b border-border px-6 py-4">
-        <h1 className="min-w-0 flex-1 text-lg font-semibold">
-          {item ? "Edit command" : "New command"}
-        </h1>
-        <Button
-          aria-label="Cancel command edit"
-          onClick={onCancel}
-          size="icon"
-          type="button"
-          variant="ghost"
-        >
-          <X className="h-4 w-4" />
-        </Button>
-      </header>
-
-      <div className="grid flex-1 grid-cols-2 gap-4 overflow-auto p-6">
-        <Field label="Title">
-          <Input
-            aria-label="Command title"
-            autoFocus
-            onChange={(event) => update("title", event.target.value)}
-            value={form.title}
-          />
-        </Field>
-        <Field label="Category">
-          <CategorySelect
-            aria-label="Command category"
-            onChange={(event) => update("category", event.target.value)}
-            options={categoryOptions}
-            value={form.category}
-          />
-        </Field>
-        <Field className="col-span-2" label="Description">
-          <Input
-            aria-label="Command description"
-            onChange={(event) => update("description", event.target.value)}
-            value={form.description}
-          />
-        </Field>
-        <Field label="Language">
-          <LanguageSelect
-            aria-label="Snippet language"
-            onChange={(event) => update("language", event.target.value)}
-            value={form.language}
-          />
-        </Field>
-        <Field label="Tags">
-          <TagMultiSelect
-            aria-label="Command tags"
-            onChange={(tags) => update("tags", tags)}
-            options={tagOptions}
-            value={form.tags}
-          />
-        </Field>
-        <Field
-          className="col-span-2"
-          label="Command (use {{name}} placeholders)"
-        >
-          <textarea
-            aria-label="Command code"
-            className="min-h-24 rounded-md border border-input bg-transparent px-3 py-2 font-mono text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-            onChange={(event) => update("code", event.target.value)}
-            value={form.code}
-          />
-        </Field>
-        <Field
-          className="col-span-2"
-          label="Arguments (one per line: name  or  name = a, b, c)"
-        >
-          <textarea
-            aria-label="Command arguments"
-            className="min-h-16 rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-            onChange={(event) => update("argumentsText", event.target.value)}
-            value={form.argumentsText}
-          />
-        </Field>
-        {error && (
-          <p className="col-span-2 text-sm text-destructive">{error}</p>
-        )}
-      </div>
-      <footer className="flex justify-end gap-2 border-t border-border px-6 py-4">
-        <Button onClick={onCancel} type="button" variant="outline">
-          Cancel
-        </Button>
-        <Button type="submit">Save</Button>
-      </footer>
-    </form>
+    <ItemFormShell
+      cancelLabel="Cancel command edit"
+      error={error}
+      mode={item ? "edit" : "create"}
+      onCancel={onCancel}
+      onSubmit={submit}
+      title={item ? "Edit command" : "New command"}
+    >
+      <Field label="Title">
+        <Input
+          aria-label="Command title"
+          autoFocus
+          onChange={(event) => update("title", event.target.value)}
+          value={form.title}
+        />
+      </Field>
+      <Field label="Category">
+        <CategorySelect
+          aria-label="Command category"
+          onChange={(event) => update("category", event.target.value)}
+          options={categoryOptions}
+          value={form.category}
+        />
+      </Field>
+      <Field className="col-span-2" label="Description">
+        <Input
+          aria-label="Command description"
+          onChange={(event) => update("description", event.target.value)}
+          value={form.description}
+        />
+      </Field>
+      <Field label="Language">
+        <LanguageSelect
+          aria-label="Snippet language"
+          onChange={(event) => update("language", event.target.value)}
+          value={form.language}
+        />
+      </Field>
+      <Field label="Tags">
+        <TagMultiSelect
+          aria-label="Command tags"
+          onChange={(tags) => update("tags", tags)}
+          options={tagOptions}
+          value={form.tags}
+        />
+      </Field>
+      <Field className="col-span-2" label="Command (use {{name}} placeholders)">
+        <textarea
+          aria-label="Command code"
+          className="min-h-24 rounded-md border border-input bg-transparent px-3 py-2 font-mono text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+          onChange={(event) => update("code", event.target.value)}
+          value={form.code}
+        />
+      </Field>
+      <Field
+        className="col-span-2"
+        label="Arguments (one per line: name  or  name = a, b, c)"
+      >
+        <textarea
+          aria-label="Command arguments"
+          className="min-h-16 rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+          onChange={(event) => update("argumentsText", event.target.value)}
+          value={form.argumentsText}
+        />
+      </Field>
+    </ItemFormShell>
   );
 }
 
@@ -464,7 +442,7 @@ function Field({
   className?: string;
 }) {
   return (
-    <label className={cn("grid gap-1 text-sm font-medium", className)}>
+    <label className={cn("flex flex-col gap-1 text-sm font-medium", className)}>
       <span>{label}</span>
       {children}
     </label>

@@ -9,11 +9,9 @@ import {
   Plus,
   Search,
   Trash2,
-  X,
 } from "lucide-react";
 
 import { CategorySelect } from "@/components/category-select";
-import { TagMultiSelect } from "@/components/tag-multi-select";
 import { DetailModal } from "@/components/DetailModal";
 import {
   DetailField,
@@ -22,6 +20,9 @@ import {
   DetailModalBody,
   DetailModalHero,
 } from "@/components/detail-fields";
+import { EmptyState } from "@/components/EmptyState";
+import { ItemFormShell } from "@/components/ItemFormShell";
+import { TagMultiSelect } from "@/components/tag-multi-select";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
@@ -38,7 +39,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { EmptyState } from "@/components/EmptyState";
 import {
   nextSortState,
   stableSortBy,
@@ -456,171 +456,148 @@ export function SubscriptionEditView({
   }
 
   return (
-    <form className="flex h-full flex-col" onSubmit={submit}>
-      <header className="flex items-center gap-3 border-b border-border px-6 py-4">
-        <div className="min-w-0 flex-1">
-          <h1 className="text-lg font-semibold">
-            {item ? "Edit subscription" : "New subscription"}
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            Track renewals, due reminders, and billing URLs.
-          </p>
+    <ItemFormShell
+      cancelLabel="Cancel"
+      description="Track renewals, due reminders, and billing URLs."
+      error={error}
+      mode={item ? "edit" : "create"}
+      onCancel={onCancel}
+      onSubmit={submit}
+      title={item ? "Edit subscription" : "New subscription"}
+    >
+      <label className="space-y-1 text-sm font-medium">
+        Service
+        <Input
+          aria-label="Subscription service"
+          onChange={(event) => update("service", event.target.value)}
+          value={form.service}
+        />
+      </label>
+      <label className="space-y-1 text-sm font-medium">
+        Billing URL
+        <div className="relative">
+          <ExternalLink className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+          <Input
+            aria-label="Subscription billing URL"
+            className="pl-9"
+            onChange={(event) => update("url", event.target.value)}
+            value={form.url}
+          />
         </div>
-        <Button
-          aria-label="Cancel"
-          onClick={onCancel}
-          size="icon"
-          type="button"
-          variant="ghost"
+      </label>
+      <label className="space-y-1 text-sm font-medium">
+        Amount
+        <Input
+          aria-label="Subscription amount"
+          min={0}
+          onChange={(event) => update("amount", event.target.value)}
+          step="0.01"
+          type="number"
+          value={form.amount}
+        />
+      </label>
+      <label className="space-y-1 text-sm font-medium">
+        Currency
+        <CurrencySelect
+          aria-label="Subscription currency"
+          onChange={(event) => update("currency", event.target.value)}
+          value={form.currency}
+        />
+      </label>
+      <label className="space-y-1 text-sm font-medium">
+        Cycle
+        <Select
+          aria-label="Subscription cycle"
+          onChange={(event) =>
+            update(
+              "cycle",
+              event.target.value as SubscriptionFormInput["cycle"],
+            )
+          }
+          value={form.cycle}
         >
-          <X className="h-4 w-4" />
-        </Button>
-      </header>
-
-      <div className="grid flex-1 grid-cols-2 gap-4 overflow-auto p-6">
-        <label className="space-y-1 text-sm font-medium">
-          Service
+          {SUBSCRIPTION_CYCLES.map((cycle) => (
+            <option key={cycle} value={cycle}>
+              {cycle}
+            </option>
+          ))}
+        </Select>
+      </label>
+      <label className="space-y-1 text-sm font-medium">
+        Custom days
+        <Input
+          aria-label="Subscription custom interval days"
+          disabled={form.cycle !== "custom"}
+          min={1}
+          onChange={(event) =>
+            update("customIntervalDays", event.target.value)
+          }
+          type="number"
+          value={form.customIntervalDays}
+        />
+      </label>
+      <label className="space-y-1 text-sm font-medium">
+        Next due
+        <div className="relative">
+          <CalendarDays className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input
-            aria-label="Subscription service"
-            onChange={(event) => update("service", event.target.value)}
-            value={form.service}
+            aria-label="Subscription next due date"
+            className="pl-9"
+            onChange={(event) => update("nextDueDate", event.target.value)}
+            type="date"
+            value={form.nextDueDate}
           />
-        </label>
-        <label className="space-y-1 text-sm font-medium">
-          Billing URL
-          <div className="relative">
-            <ExternalLink className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-            <Input
-              aria-label="Subscription billing URL"
-              className="pl-9"
-              onChange={(event) => update("url", event.target.value)}
-              value={form.url}
-            />
-          </div>
-        </label>
-        <label className="space-y-1 text-sm font-medium">
-          Amount
-          <Input
-            aria-label="Subscription amount"
-            min={0}
-            onChange={(event) => update("amount", event.target.value)}
-            step="0.01"
-            type="number"
-            value={form.amount}
-          />
-        </label>
-        <label className="space-y-1 text-sm font-medium">
-          Currency
-          <CurrencySelect
-            aria-label="Subscription currency"
-            onChange={(event) => update("currency", event.target.value)}
-            value={form.currency}
-          />
-        </label>
-        <label className="space-y-1 text-sm font-medium">
-          Cycle
-          <Select
-            aria-label="Subscription cycle"
-            onChange={(event) =>
-              update(
-                "cycle",
-                event.target.value as SubscriptionFormInput["cycle"],
-              )
-            }
-            value={form.cycle}
-          >
-            {SUBSCRIPTION_CYCLES.map((cycle) => (
-              <option key={cycle} value={cycle}>
-                {cycle}
-              </option>
-            ))}
-          </Select>
-        </label>
-        <label className="space-y-1 text-sm font-medium">
-          Custom days
-          <Input
-            aria-label="Subscription custom interval days"
-            disabled={form.cycle !== "custom"}
-            min={1}
-            onChange={(event) =>
-              update("customIntervalDays", event.target.value)
-            }
-            type="number"
-            value={form.customIntervalDays}
-          />
-        </label>
-        <label className="space-y-1 text-sm font-medium">
-          Next due
-          <div className="relative">
-            <CalendarDays className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-            <Input
-              aria-label="Subscription next due date"
-              className="pl-9"
-              onChange={(event) => update("nextDueDate", event.target.value)}
-              type="date"
-              value={form.nextDueDate}
-            />
-          </div>
-        </label>
-        <label className="space-y-1 text-sm font-medium">
-          Reminder lead
-          <Input
-            aria-label="Subscription reminder lead days"
-            min={0}
-            onChange={(event) => update("notifyLeadDays", event.target.value)}
-            type="number"
-            value={form.notifyLeadDays}
-          />
-        </label>
-        <label className="space-y-1 text-sm font-medium">
-          Category
-          <CategorySelect
-            aria-label="Subscription category"
-            onChange={(event) => update("category", event.target.value)}
-            options={categoryOptions}
-            value={form.category}
-          />
-        </label>
-        <label className="space-y-1 text-sm font-medium col-span-2">
-          Tags
-          <TagMultiSelect
-            aria-label="Subscription tags"
-            onChange={(tags) => update("tags", tags)}
-            options={tagOptions}
-            value={form.tags}
-          />
-        </label>
-        <label className="flex items-center gap-2 text-sm font-medium col-span-2">
-          <Checkbox
-            aria-label="Subscription auto renew"
-            checked={form.autoRenew}
-            onCheckedChange={(checked) => update("autoRenew", checked)}
-          />
-          Auto renew
-        </label>
-        <label className="space-y-1 text-sm font-medium col-span-2">
-          Notes
-          <textarea
-            aria-label="Subscription notes"
-            className="min-h-24 w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            onChange={(event) => update("notes", event.target.value)}
-            value={form.notes}
-          />
-        </label>
-        {error && (
-          <p className="col-span-2 text-sm text-destructive">{error}</p>
-        )}
-      </div>
-
-      <footer className="flex justify-end gap-2 border-t border-border px-6 py-4">
-        <Button onClick={onCancel} type="button" variant="outline">
-          Cancel
-        </Button>
-        <Button type="submit">Save</Button>
-      </footer>
-    </form>
+        </div>
+      </label>
+      <label className="space-y-1 text-sm font-medium">
+        Reminder lead
+        <Input
+          aria-label="Subscription reminder lead days"
+          min={0}
+          onChange={(event) => update("notifyLeadDays", event.target.value)}
+          type="number"
+          value={form.notifyLeadDays}
+        />
+      </label>
+      <label className="space-y-1 text-sm font-medium">
+        Category
+        <CategorySelect
+          aria-label="Subscription category"
+          onChange={(event) => update("category", event.target.value)}
+          options={categoryOptions}
+          value={form.category}
+        />
+      </label>
+      <label className="col-span-2 space-y-1 text-sm font-medium">
+        Tags
+        <TagMultiSelect
+          aria-label="Subscription tags"
+          onChange={(tags) => update("tags", tags)}
+          options={tagOptions}
+          value={form.tags}
+        />
+      </label>
+      <label className="col-span-2 flex items-center gap-2 text-sm font-medium">
+        <Checkbox
+          aria-label="Subscription auto renew"
+          checked={form.autoRenew}
+          onCheckedChange={(checked) => update("autoRenew", checked)}
+        />
+        Auto renew
+      </label>
+      <label className="col-span-2 space-y-1 text-sm font-medium">
+        Notes
+        <textarea
+          aria-label="Subscription notes"
+          className="min-h-24 w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          onChange={(event) => update("notes", event.target.value)}
+          value={form.notes}
+        />
+      </label>
+    </ItemFormShell>
   );
 }
+
 
 function SummaryStrip({
   summary,

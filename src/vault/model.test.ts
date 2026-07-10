@@ -57,7 +57,7 @@ describe("parseVaultJson", () => {
     });
     const model = parseVaultJson(stored, NOW);
     expect(model.settings.theme).toBe("dark");
-    expect(model.settings.accent).toBe("#4F7CFF"); // default preserved
+    expect(model.settings.accent).toBe("#5B6CFF"); // default preserved
     expect(model.settings.modules.passwords.enabled).toBe(false);
     expect(model.modules.passwords).toEqual([{ id: "1" }]);
   });

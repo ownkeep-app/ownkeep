@@ -84,7 +84,7 @@ with a **browsable Dashboard** (sidebar + content pane) and a safe upgrade path 
 ### Phase 2 — App shell + module registry + Dashboard shell · 3–4 d
 - [x] `FeatureModule` interface (incl. `ListView`) + `MODULES` registry (§3.4); Zustand store for the decrypted projection.
 - [x] Unified-index plumbing (empty until modules land) with Fuse.js + a frecency booster stub.
-- [x] **Dashboard shell (§7.5):** left sidebar (one row per enabled module, from the registry) + right content pane rendering the selected module's `ListView`; `Cmd+Shift+D` toggles the window; sidebar nav (`↑/↓`, `Cmd+1..9`).
+- [x] **Dashboard shell (§7.5):** left sidebar (one row per enabled module, from the registry) + right content pane rendering the selected module's `ListView`; `Cmd+Shift+D` toggles the window; sidebar nav (`↑/↓`, `⌥⇧1..9`).
 - [x] Lock screen + **onboarding**: set master password → **show Emergency Kit** → confirm hotkeys (rebinding lands with the Settings polish).
 - [x] Settings shell with a **Modules** tab (enable toggles) rendered from the registry.
 - **Exit:** first-run onboarding completes; lock/unlock cycles; the Dashboard sidebar lists enabled modules and switches panes (empty `ListView`s OK until modules land).
@@ -124,16 +124,16 @@ with a **browsable Dashboard** (sidebar + content pane) and a safe upgrade path 
 ### Phase 4 — ⌨️ Command bar (F10 / §7) · 2–3 d
 - [x] Bar shell = shadcn **`command`** (`cmdk`) with `shouldFilter={false}`; unified index across enabled modules; **fuzzy (Fuse.js) × frecency** ranking; update `frecency` on use.
 - [x] Scope prefixes (`p `, `c `, …); result list capped at `resultLimit`, numbered 1–9.
-- [x] Keyboard nav (`↑/↓`, `Cmd+<n>` primary action, `Enter`/click runs it); Esc/blur hides.
+- [x] Keyboard nav (`↑/↓`, `⌥⇧<n>` primary action, `Enter`/click runs it); Esc/blur hides.
 - [x] **Tests:** ranking (fuzzy×frecency ordering) + scope-prefix parsing (Vitest).
-- **Exit:** typing filters passwords instantly; `Cmd+1..9` runs the primary action; frecency reorders repeats.
+- **Exit:** typing filters passwords instantly; `⌥⇧1..9` runs the primary action; frecency reorders repeats.
 - **Deps:** P3.
-- **Deferred (follow-up):** the §7.2 bridge where **`Enter` opens the item in the Dashboard** (vs. running the primary action) needs cross-window item selection the Dashboard doesn't have yet (separate WebView contexts); until then `Enter`/click runs the result's primary action. Password copy is the only wired primary action so far — later modules add their own (§7.4) in their phases.
+- **Bridge (shipped):** non-password / non-command bar hits open the Dashboard on that module's pane and hide the launcher (module pane only — no per-item focus). Password/command hits keep copy / fill-in. Surfaces are mutually exclusive; traffic-light close confirms then quits the app.
 
 ### Phase 5 — 📋 Commands module (F2) · 2–3 d
 - [x] `commandsModule`: category/title/description/snippets; Shiki highlighting; `ListView` (grouped by category).
 - [x] `{{name}}` parser; typed `arguments` (text/enum); **interactive fill-in form** (Tab/Shift-Tab, Enter=copy completed).
-- [x] Raw-copy secondary action (`Opt+Cmd+<n>` / `Opt+Enter`).
+- [x] Raw-copy secondary action (`⌥⌘<n>` / `Opt+Enter`).
 - [x] **Tests:** `{{ }}` parse (names, reuse, invalid) + fill substitution + raw-vs-filled output (Vitest).
 - **Exit:** a mid-string placeholder (`docker run -p {{port}}:{{port}} {{img}}`) fills correctly; raw copy preserves `{{ }}`; snippets highlight.
 - **Deps:** P4.
@@ -154,7 +154,7 @@ with a **browsable Dashboard** (sidebar + content pane) and a safe upgrade path 
 
 ### Phase 8 — ✅ Todos module (M1) · 1–2 d
 - [x] `todosModule`: title/notes/done/dueAt/priority/category; `none|daily|weekly` recurrence; `collectReminders`; `ListView` (checklist).
-- [x] Bar actions: toggle done; recurring rolls forward on completion.
+- [x] Bar action: open Dashboard → Todos; recurring rolls forward on completion in the Dashboard.
 - [x] **Tests:** recurrence rollover (daily/weekly) + `collectReminders` windowing/de-dupe (Vitest).
 - **Exit:** overdue todo notifies once per window; completing a weekly todo reschedules.
 - **Deps:** P7.
@@ -175,9 +175,11 @@ with a **browsable Dashboard** (sidebar + content pane) and a safe upgrade path 
 - **Deps:** P2 (data), independent of P7–P9.
 
 ### Phase 11 — ✨ Polish + ship · 2–4 d
-- [x] Theming pass (light/dark/accent), empty states, error toasts, keyboard-map help. *(Theming was wired earlier; this pass added per-module truly-empty vs filtered empty states with an in-panel New action + a CommandBar no-results state, sonner toast feedback for copy/clipboard/secret actions, and a `⌘/` keyboard-shortcut cheat sheet on both surfaces.)*
+- [x] Theming pass (light/dark/accent), empty states, error toasts, keyboard-map help. *(Theming was wired earlier; later polish locked Color Hunt periwinkle-mist light + midnight-navy dark tokens with default accent `#5B6CFF`, per-module empty states + in-panel New, CommandBar no-results, sonner toasts, and a `⌘/` keyboard-shortcut cheat sheet on both surfaces.)*
 - [ ] Accessibility check; performance check (<300 ms to bar, <30 ms keystroke). *(In progress: added `nav`/`aria-current` on the Dashboard sidebar, `scope="col"` on module tables, `role="status"`/`aria-live` feedback via toasts + the no-results region, and `aria-busy`/`role="alert"` on onboarding. Performance measurement still pending.)*
-- [x] Motion UI polish: calm press/presence animations on shared primitives (`button`, `switch`, `select`, `checkbox`), EmptyState / KeyboardHelp overlays, CommandBar result stagger, and Dashboard sidebar taps — all reduced-motion aware via `useReducedMotion` ([Motion](https://motion.dev/)). *(Input stays a plain native field — focus scale made the placeholder jump.)*
+- [x] Motion UI polish: calm press/presence animations on shared primitives (`button`, `switch`, `select`, `checkbox`, `ButtonGroup` active pill), EmptyState / KeyboardHelp overlays, CommandBar result stagger, and Dashboard sidebar taps (shared sliding active pill) — all reduced-motion aware via `useReducedMotion` ([Motion](https://motion.dev/)). *(Input stays a plain native field — focus scale made the placeholder jump.)*
+- [x] **Create/edit form chrome:** shared `ItemFormShell` — dimmed pane + elevated dialog card with Creating/Editing badge; Esc + backdrop dismiss (all module New/Edit flows).
+- [x] **Window exclusivity + quit-on-close:** command bar and Dashboard never show together; traffic-light close confirms then quits the whole app (Esc/blur still only hides the launcher).
 - [ ] **Developer ID sign + notarize**; DMG/`.app` packaging; README + Emergency-Kit docs + migration-guide docs. *(Docs done: README now has a "Using keystash" section covering the Emergency Kit / recovery code, keyboard shortcuts, theme, and the upgrade/migration-guide flow. Signing, notarization, and DMG packaging still pending.)*
 - [ ] **Release bookkeeping:** tag shipped commits as `v<main>.<minor>`; immediately after a shipped tag, bump the working app version in `package.json` to the next release version (`main.minor`), run `node scripts/sync-version.mjs` to derive SemVer-only package metadata, and keep those derived fields from becoming a second app-version source.
 - **Exit:** Gatekeeper opens it clean on a second Mac; permissions prompt correctly; the shipped `.dmg` includes the migration guide for every schema step since the previous `v*` tag. **← v1.0.**
@@ -219,6 +221,8 @@ changes, update migrations + the migration guide in the same release per spec §
 - [x] **Command-bar searchable modules:** per-module `searchable` setting (schema v9); defaults on
   for passwords + commands only; Settings Modules row toggles Search + Enabled; unified index and
   scope prefixes honor `searchable`.
+- [x] **Dashboard sidebar hotkeys:** module jump chord aligned with the command bar — `⌥⇧1..9`
+  (was `⌘1..9`); help sheet + sidebar hints updated.
 - **Exit:** manual test pass confirms the Dashboard is list-first and fast to scan; common actions
   (view/copy/edit) are reachable with fewer clicks; no regression in secrets exposure rules; `pnpm
   check` stays green.

@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { MODULES } from "@/modules/registry";
+import { TODOS_MODULE_ID } from "@/modules/todos/types";
 import { useVaultStore } from "@/stores/vault-store";
 import { vaultApi } from "@/vault/api";
 import { createDefaultModel, ensureModuleDefaults } from "@/vault/model";
@@ -12,6 +13,18 @@ vi.mock("@/vault/api", () => ({
   vaultApi: {
     lock: vi.fn(async () => {}),
   },
+}));
+
+vi.mock("@/lib/window", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/window")>();
+  return {
+    ...actual,
+    takeDashboardModule: vi.fn(async () => null),
+  };
+});
+
+vi.mock("@tauri-apps/api/event", () => ({
+  listen: vi.fn(async () => () => {}),
 }));
 
 const api = vi.mocked(vaultApi);
@@ -58,6 +71,35 @@ describe("Dashboard", () => {
     ).toBeInTheDocument();
   });
 
+  it("selects a module pane requested by the command-bar bridge", async () => {
+    const { takeDashboardModule } = await import("@/lib/window");
+    vi.mocked(takeDashboardModule).mockResolvedValueOnce(TODOS_MODULE_ID);
+
+    render(<Dashboard />);
+
+    await waitFor(() =>
+      expect(screen.getByRole("heading", { name: "Todos" })).toBeVisible(),
+    );
+  });
+
+  it("switches panes when the dashboard-open-module event fires", async () => {
+    const { listen } = await import("@tauri-apps/api/event");
+    let handler: ((event: { payload: string }) => void) | undefined;
+    vi.mocked(listen).mockImplementationOnce(async (_event, callback) => {
+      handler = callback as (event: { payload: string }) => void;
+      return () => {};
+    });
+
+    render(<Dashboard />);
+
+    await waitFor(() => expect(handler).toBeDefined());
+    handler?.({ payload: TODOS_MODULE_ID });
+
+    await waitFor(() =>
+      expect(screen.getByRole("heading", { name: "Todos" })).toBeVisible(),
+    );
+  });
+
   it("supports numbered and arrow-key sidebar navigation outside text inputs", () => {
     render(<Dashboard />);
 
@@ -67,7 +109,7 @@ describe("Dashboard", () => {
       screen.getByRole("heading", { name: "Commands" }),
     ).toBeInTheDocument();
 
-    fireEvent.keyDown(window, { key: "2", metaKey: true });
+    fireEvent.keyDown(window, { code: "Digit2", altKey: true, shiftKey: true });
     expect(
       screen.getByRole("heading", { name: "Commands" }),
     ).toBeInTheDocument();

@@ -1,9 +1,9 @@
 import { toast } from "sonner";
 
 /**
- * Centralized user feedback (spec §2.1). Copy/clipboard actions are keyboard-first and often hide
- * the window immediately, so success and failure are surfaced as ephemeral toasts rather than
- * inline text. Secrets are never included in a message — only the fact that a copy happened.
+ * Centralized user feedback (spec §2.1). Copy/clipboard actions are keyboard-first; the command
+ * bar holds briefly after a copy so success/failure toasts can be read before the window hides.
+ * Secrets are never included in a message — only the fact that a copy happened.
  */
 
 export function toastCopied(label = "Copied to the clipboard"): void {

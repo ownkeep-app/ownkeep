@@ -1,4 +1,5 @@
 import { type ReactNode, useEffect, useMemo, useState } from "react";
+import { listen } from "@tauri-apps/api/event";
 import { motion, useReducedMotion } from "motion/react";
 
 import { Keyboard, Lock, Settings as SettingsIcon } from "lucide-react";
@@ -9,14 +10,23 @@ import {
   GLOBAL_SHORTCUTS,
 } from "@/components/keyboard-shortcuts";
 import { LockScreen } from "@/features/auth/LockScreen";
-import { TAP_SCALE, motionOrUndefined, tapTransition } from "@/lib/motion";
+import {
+  TAP_SCALE,
+  fadeTransition,
+  motionOrUndefined,
+  tapTransition,
+} from "@/lib/motion";
 import { cn } from "@/lib/utils";
+import { takeDashboardModule } from "@/lib/window";
 import { MODULES } from "@/modules/registry";
 import { useVaultStore } from "@/stores/vault-store";
 import { APP_VERSION } from "@/vault/model";
 import { SettingsPanel } from "./SettingsPanel";
 
 const SETTINGS_KEY = "settings";
+const DASHBOARD_OPEN_MODULE_EVENT = "dashboard-open-module";
+/** Shared layoutId so the active pill slides between sidebar rows like ButtonGroup. */
+const SIDEBAR_ACTIVE_LAYOUT_ID = "dashboard-sidebar-active";
 
 /** The persistent Dashboard window (spec §7.5): registry-driven sidebar + right content pane. */
 export function Dashboard() {
@@ -32,7 +42,33 @@ export function Dashboard() {
     [model],
   );
 
-  // Sidebar keyboard nav: Cmd/Ctrl+1..9 jumps to the Nth module; ↑/↓ moves through the rows.
+  // Command-bar bridge (§7.6): select the module pane requested when opening the Dashboard.
+  useEffect(() => {
+    let cancelled = false;
+    let unlisten: (() => void) | undefined;
+
+    void (async () => {
+      const pending = await takeDashboardModule();
+      if (!cancelled && pending) setSelected(pending);
+      try {
+        unlisten = await listen<string>(
+          DASHBOARD_OPEN_MODULE_EVENT,
+          (event) => {
+            setSelected(event.payload);
+          },
+        );
+      } catch {
+        // Vitest / browser — no Tauri event bus.
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+      unlisten?.();
+    };
+  }, []);
+
+  // Sidebar keyboard nav: ⌥⇧1..9 jumps to the Nth module; ↑/↓ moves through the rows.
   useEffect(() => {
     const navKeys = [...enabledModules.map((m) => m.id), SETTINGS_KEY];
     function onKey(event: KeyboardEvent) {
@@ -40,15 +76,20 @@ export function Dashboard() {
       if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement) {
         return;
       }
+      // Same chord as the command-bar result hotkeys; use event.code so Option glyphs still map.
       if (
-        (event.metaKey || event.ctrlKey) &&
-        event.key >= "1" &&
-        event.key <= "9"
+        event.altKey &&
+        event.shiftKey &&
+        !event.metaKey &&
+        !event.ctrlKey
       ) {
-        const target = enabledModules[Number(event.key) - 1];
-        if (target) {
-          setSelected(target.id);
-          event.preventDefault();
+        const match = /^Digit([1-9])$/.exec(event.code);
+        if (match) {
+          const target = enabledModules[Number(match[1]) - 1];
+          if (target) {
+            setSelected(target.id);
+            event.preventDefault();
+          }
         }
         return;
       }
@@ -109,7 +150,7 @@ export function Dashboard() {
             key={m.id}
             icon={m.icon}
             label={m.title}
-            shortcut={`⌘${i + 1}`}
+            shortcut={`⌥⇧${i + 1}`}
             active={paneKey === m.id}
             onClick={() => setSelected(m.id)}
           />
@@ -171,19 +212,27 @@ function SidebarRow({
       aria-current={active ? "page" : undefined}
       onClick={onClick}
       className={cn(
-        "flex items-center gap-2 rounded-md px-2 py-1.5 text-sm",
-        active
-          ? "bg-accent text-accent-foreground"
-          : "text-foreground hover:bg-accent/50",
+        "relative flex items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors",
+        active ? "text-foreground" : "text-foreground hover:bg-accent/50",
       )}
       transition={tapTransition}
       whileTap={motionOrUndefined(reduce, { scale: TAP_SCALE })}
     >
-      {icon}
-      <span className="flex-1 text-left">{label}</span>
-      {shortcut && (
-        <span className="text-xs text-muted-foreground">{shortcut}</span>
+      {active && (
+        <motion.span
+          className="absolute inset-0 rounded-md bg-border dark:bg-muted"
+          layoutId={SIDEBAR_ACTIVE_LAYOUT_ID}
+          transition={fadeTransition}
+          {...motionOrUndefined(reduce, { layout: true })}
+        />
       )}
+      <span className="relative z-10 flex min-w-0 flex-1 items-center gap-2">
+        {icon}
+        <span className="flex-1 truncate text-left">{label}</span>
+        {shortcut && (
+          <span className="text-xs text-muted-foreground">{shortcut}</span>
+        )}
+      </span>
     </motion.button>
   );
 }

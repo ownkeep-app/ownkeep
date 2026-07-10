@@ -1,6 +1,6 @@
 import { type FormEvent, type ReactNode, useMemo, useState } from "react";
 
-import { Copy, Eye, Pencil, Plus, Search, Trash2, X } from "lucide-react";
+import { Copy, Eye, Pencil, Plus, Search, Trash2 } from "lucide-react";
 
 import { CategorySelect } from "@/components/category-select";
 import { DetailModal } from "@/components/DetailModal";
@@ -12,6 +12,8 @@ import {
   DetailModalHero,
   DetailUrlField,
 } from "@/components/detail-fields";
+import { EmptyState } from "@/components/EmptyState";
+import { ItemFormShell } from "@/components/ItemFormShell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -25,7 +27,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { EmptyState } from "@/components/EmptyState";
 import {
   nextSortState,
   stableSortBy,
@@ -471,89 +472,68 @@ export function PasswordEditView({
   }
 
   return (
-    <form className="flex h-full flex-col" onSubmit={submit}>
-      <header className="flex items-center gap-3 border-b border-border px-6 py-4">
-        <div className="min-w-0 flex-1">
-          <h1 className="text-lg font-semibold">
-            {item ? "Edit password" : "New password"}
-          </h1>
-        </div>
-        <Button
-          aria-label="Cancel password edit"
-          onClick={onCancel}
-          size="icon"
-          type="button"
-          variant="ghost"
-        >
-          <X className="h-4 w-4" />
-        </Button>
-      </header>
-
-      <div className="grid flex-1 grid-cols-2 gap-4 overflow-auto p-6">
-        <Field label="Name">
-          <Input
-            aria-label="Password name"
-            autoFocus
-            onChange={(event) => update("name", event.target.value)}
-            value={form.name}
-          />
-        </Field>
-        <Field label="Username">
-          <Input
-            aria-label="Password username"
-            onChange={(event) => update("username", event.target.value)}
-            value={form.username}
-          />
-        </Field>
-        <Field label="Category">
-          <CategorySelect
-            aria-label="Password category"
-            onChange={(event) => update("category", event.target.value)}
-            options={categoryOptions}
-            value={form.category}
-          />
-        </Field>
-        <Field label={item ? "Password (leave blank to keep)" : "Password"}>
-          <Input
-            aria-label="Password value"
-            onChange={(event) => update("password", event.target.value)}
-            type="password"
-            value={form.password}
-          />
-        </Field>
-        <Field label="Login URL">
-          <Input
-            aria-label="Login URL"
-            onChange={(event) => update("loginUrl", event.target.value)}
-            value={form.loginUrl}
-          />
-        </Field>
-        <Field label="Recovery URL">
-          <Input
-            aria-label="Recovery URL"
-            onChange={(event) => update("recoveryUrl", event.target.value)}
-            value={form.recoveryUrl}
-          />
-        </Field>
-        <Field className="col-span-2" label="Notes">
-          <textarea
-            aria-label="Password notes"
-            className="min-h-24 rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-            onChange={(event) => update("notes", event.target.value)}
-            value={form.notes}
-          />
-        </Field>
-        {error && (
-          <p className="col-span-2 text-sm text-destructive">{error}</p>
-        )}
-      </div>
-      <footer className="flex justify-end gap-2 border-t border-border px-6 py-4">
-        <Button onClick={onCancel} type="button" variant="outline">
-          Cancel
-        </Button>
-        <Button type="submit">Save</Button>
-      </footer>
-    </form>
+    <ItemFormShell
+      cancelLabel="Cancel password edit"
+      error={error}
+      mode={mode}
+      onCancel={onCancel}
+      onSubmit={submit}
+      title={item ? "Edit password" : "New password"}
+    >
+      <Field label="Name">
+        <Input
+          aria-label="Password name"
+          autoFocus
+          onChange={(event) => update("name", event.target.value)}
+          value={form.name}
+        />
+      </Field>
+      <Field label="Username">
+        <Input
+          aria-label="Password username"
+          onChange={(event) => update("username", event.target.value)}
+          value={form.username}
+        />
+      </Field>
+      <Field label="Category">
+        <CategorySelect
+          aria-label="Password category"
+          onChange={(event) => update("category", event.target.value)}
+          options={categoryOptions}
+          value={form.category}
+        />
+      </Field>
+      <Field label={item ? "Password (leave blank to keep)" : "Password"}>
+        <Input
+          aria-label="Password value"
+          onChange={(event) => update("password", event.target.value)}
+          type="password"
+          value={form.password}
+        />
+      </Field>
+      <Field label="Login URL">
+        <Input
+          aria-label="Login URL"
+          onChange={(event) => update("loginUrl", event.target.value)}
+          value={form.loginUrl}
+        />
+      </Field>
+      <Field label="Recovery URL">
+        <Input
+          aria-label="Recovery URL"
+          onChange={(event) => update("recoveryUrl", event.target.value)}
+          value={form.recoveryUrl}
+        />
+      </Field>
+      <Field className="col-span-2" label="Notes">
+        <textarea
+          aria-label="Password notes"
+          className="min-h-24 rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+          onChange={(event) => update("notes", event.target.value)}
+          value={form.notes}
+        />
+      </Field>
+    </ItemFormShell>
   );
 }
 
@@ -567,7 +547,7 @@ function Field({
   className?: string;
 }) {
   return (
-    <label className={cn("grid gap-1 text-sm font-medium", className)}>
+    <label className={cn("flex flex-col gap-1 text-sm font-medium", className)}>
       <span>{label}</span>
       {children}
     </label>

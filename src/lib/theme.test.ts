@@ -11,7 +11,7 @@ describe("theme settings", () => {
   });
 
   it("maps hex accents to shadcn HSL tokens", () => {
-    expect(hexToHslToken("#4F7CFF")).toBe("225 100% 65.5%");
+    expect(hexToHslToken("#5B6CFF")).toBe("234 100% 67.8%");
     expect(hexToHslToken("#ff0000")).toBe("0 100% 50%");
     expect(hexToHslToken("#ff00aa")).toBe("320 100% 50%");
     expect(hexToHslToken("000000")).toBe("0 0% 0%");

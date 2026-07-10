@@ -3,8 +3,8 @@ import { getCurrentWindow, LogicalSize } from "@tauri-apps/api/window";
 
 import type { VaultStatus } from "@/stores/vault-store";
 
-/** Launcher chrome for the command bar: the search input plus its ranked results list (spec §7.1). */
-export const MAIN_WINDOW_COMPACT = { width: 720, height: 400 } as const;
+/** Launcher chrome for the command bar: search input + up to 9 result rows without scrolling. */
+export const MAIN_WINDOW_COMPACT = { width: 720, height: 520 } as const;
 
 /** Tall enough for onboarding, lock/recovery, and the Emergency Kit on the main window. */
 export const MAIN_WINDOW_EXPANDED = { width: 720, height: 560 } as const;
@@ -49,6 +49,27 @@ export function mainWindowMode(
  */
 export async function hideWindow(): Promise<void> {
   await getCurrentWindow().hide();
+}
+
+/**
+ * Show the Dashboard window and select a module pane (command-bar → Dashboard bridge, §7.6).
+ * Isolated here so the bar stays free of direct Tauri calls in tests.
+ */
+export async function openDashboardToModule(moduleId: string): Promise<void> {
+  try {
+    await invoke("show_dashboard", { moduleId });
+  } catch {
+    // Vitest / Vite dev in a browser — no Tauri IPC.
+  }
+}
+
+/** Read and clear a pending Dashboard module selection from the Rust shell. */
+export async function takeDashboardModule(): Promise<string | null> {
+  try {
+    return await invoke<string | null>("take_dashboard_module");
+  } catch {
+    return null;
+  }
 }
 
 async function setBlurDismiss(enabled: boolean): Promise<void> {

@@ -9,7 +9,6 @@ import {
   Plus,
   Search,
   Trash2,
-  X,
 } from "lucide-react";
 
 import { CategorySelect } from "@/components/category-select";
@@ -21,6 +20,8 @@ import {
   DetailModalBody,
   DetailModalHero,
 } from "@/components/detail-fields";
+import { EmptyState } from "@/components/EmptyState";
+import { ItemFormShell } from "@/components/ItemFormShell";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
@@ -36,7 +37,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { EmptyState } from "@/components/EmptyState";
 import {
   ButtonGroup,
   type ButtonGroupOption,
@@ -458,129 +458,100 @@ export function TodoEditView({
   }
 
   return (
-    <form className="flex h-full flex-col" onSubmit={submit}>
-      <header className="flex items-center gap-3 border-b border-border px-6 py-4">
-        <div className="min-w-0 flex-1">
-          <h1 className="text-lg font-semibold">
-            {item ? "Edit todo" : "New todo"}
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            Add a due time to receive scheduler reminders.
-          </p>
+    <ItemFormShell
+      cancelLabel="Cancel"
+      description="Add a due time to receive scheduler reminders."
+      error={error}
+      mode={item ? "edit" : "create"}
+      onCancel={onCancel}
+      onSubmit={submit}
+      title={item ? "Edit todo" : "New todo"}
+    >
+      <label className="col-span-2 space-y-1 text-sm font-medium">
+        Title
+        <Input
+          aria-label="Todo title"
+          onChange={(event) => update("title", event.target.value)}
+          value={form.title}
+        />
+      </label>
+      <label className="space-y-1 text-sm font-medium">
+        Due
+        <div className="relative">
+          <CalendarClock className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+          <Input
+            aria-label="Todo due"
+            className="pl-9"
+            onChange={(event) => update("dueAt", event.target.value)}
+            type="datetime-local"
+            value={form.dueAt}
+          />
         </div>
-        <Button
-          aria-label="Cancel"
-          onClick={onCancel}
-          size="icon"
-          type="button"
-          variant="ghost"
+      </label>
+      <label className="space-y-1 text-sm font-medium">
+        Reminder lead
+        <Input
+          aria-label="Todo reminder lead minutes"
+          min={0}
+          onChange={(event) => update("notifyLeadMinutes", event.target.value)}
+          type="number"
+          value={form.notifyLeadMinutes}
+        />
+      </label>
+      <label className="space-y-1 text-sm font-medium">
+        Priority
+        <Select
+          aria-label="Todo priority"
+          onChange={(event) =>
+            update("priority", event.target.value as TodoFormInput["priority"])
+          }
+          value={form.priority}
         >
-          <X className="h-4 w-4" />
-        </Button>
-      </header>
-
-      <div className="grid flex-1 grid-cols-2 gap-4 overflow-auto p-6">
-        <label className="space-y-1 text-sm font-medium col-span-2">
-          Title
-          <Input
-            aria-label="Todo title"
-            onChange={(event) => update("title", event.target.value)}
-            value={form.title}
-          />
-        </label>
-        <label className="space-y-1 text-sm font-medium">
-          Due
-          <div className="relative">
-            <CalendarClock className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-            <Input
-              aria-label="Todo due"
-              className="pl-9"
-              onChange={(event) => update("dueAt", event.target.value)}
-              type="datetime-local"
-              value={form.dueAt}
-            />
-          </div>
-        </label>
-        <label className="space-y-1 text-sm font-medium">
-          Reminder lead
-          <Input
-            aria-label="Todo reminder lead minutes"
-            min={0}
-            onChange={(event) =>
-              update("notifyLeadMinutes", event.target.value)
-            }
-            type="number"
-            value={form.notifyLeadMinutes}
-          />
-        </label>
-        <label className="space-y-1 text-sm font-medium">
-          Priority
-          <Select
-            aria-label="Todo priority"
-            onChange={(event) =>
-              update(
-                "priority",
-                event.target.value as TodoFormInput["priority"],
-              )
-            }
-            value={form.priority}
-          >
-            {TODO_PRIORITIES.map((priority) => (
-              <option key={priority} value={priority}>
-                {priority}
-              </option>
-            ))}
-          </Select>
-        </label>
-        <label className="space-y-1 text-sm font-medium">
-          Recurrence
-          <Select
-            aria-label="Todo recurrence"
-            onChange={(event) =>
-              update(
-                "recurrence",
-                event.target.value as TodoFormInput["recurrence"],
-              )
-            }
-            value={form.recurrence}
-          >
-            {TODO_RECURRENCES.map((recurrence) => (
-              <option key={recurrence} value={recurrence}>
-                {recurrence}
-              </option>
-            ))}
-          </Select>
-        </label>
-        <label className="space-y-1 text-sm font-medium">
-          Category
-          <CategorySelect
-            aria-label="Todo category"
-            onChange={(event) => update("category", event.target.value)}
-            options={categoryOptions}
-            value={form.category}
-          />
-        </label>
-        <label className="space-y-1 text-sm font-medium col-span-2">
-          Notes
-          <textarea
-            aria-label="Todo notes"
-            className="min-h-24 w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            onChange={(event) => update("notes", event.target.value)}
-            value={form.notes}
-          />
-        </label>
-        {error && (
-          <p className="col-span-2 text-sm text-destructive">{error}</p>
-        )}
-      </div>
-
-      <footer className="flex justify-end gap-2 border-t border-border px-6 py-4">
-        <Button onClick={onCancel} type="button" variant="outline">
-          Cancel
-        </Button>
-        <Button type="submit">Save</Button>
-      </footer>
-    </form>
+          {TODO_PRIORITIES.map((priority) => (
+            <option key={priority} value={priority}>
+              {priority}
+            </option>
+          ))}
+        </Select>
+      </label>
+      <label className="space-y-1 text-sm font-medium">
+        Recurrence
+        <Select
+          aria-label="Todo recurrence"
+          onChange={(event) =>
+            update(
+              "recurrence",
+              event.target.value as TodoFormInput["recurrence"],
+            )
+          }
+          value={form.recurrence}
+        >
+          {TODO_RECURRENCES.map((recurrence) => (
+            <option key={recurrence} value={recurrence}>
+              {recurrence}
+            </option>
+          ))}
+        </Select>
+      </label>
+      <label className="space-y-1 text-sm font-medium">
+        Category
+        <CategorySelect
+          aria-label="Todo category"
+          onChange={(event) => update("category", event.target.value)}
+          options={categoryOptions}
+          value={form.category}
+        />
+      </label>
+      <label className="col-span-2 space-y-1 text-sm font-medium">
+        Notes
+        <textarea
+          aria-label="Todo notes"
+          className="min-h-24 w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          onChange={(event) => update("notes", event.target.value)}
+          value={form.notes}
+        />
+      </label>
+    </ItemFormShell>
   );
 }
 

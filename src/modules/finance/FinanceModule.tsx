@@ -18,6 +18,8 @@ import {
   DetailModalBody,
   DetailModalHero,
 } from "@/components/detail-fields";
+import { EmptyState } from "@/components/EmptyState";
+import { ItemFormShell } from "@/components/ItemFormShell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { CurrencySelect, DEFAULT_CURRENCY } from "@/components/currency-select";
@@ -32,7 +34,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { EmptyState } from "@/components/EmptyState";
 import {
   nextSortState,
   stableSortBy,
@@ -468,124 +469,100 @@ export function FinanceEditView({
   }
 
   return (
-    <form className="flex h-full flex-col" onSubmit={submit}>
-      <header className="flex items-center gap-3 border-b border-border px-6 py-4">
-        <div className="min-w-0 flex-1">
-          <h1 className="text-lg font-semibold">
-            {item ? "Edit snapshot" : "New snapshot"}
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            Record balances across your accounts.
-          </p>
+    <ItemFormShell
+      cancelLabel="Close"
+      description="Record balances across your accounts."
+      error={error}
+      mode={item ? "edit" : "create"}
+      onCancel={onCancel}
+      onSubmit={submit}
+      title={item ? "Edit snapshot" : "New snapshot"}
+    >
+      <label className="space-y-1 text-sm font-medium">
+        Date
+        <Input
+          aria-label="Snapshot date"
+          onChange={(event) =>
+            setForm((current) => ({ ...current, date: event.target.value }))
+          }
+          type="date"
+          value={form.date}
+        />
+      </label>
+      <label className="space-y-1 text-sm font-medium">
+        Note
+        <Input
+          aria-label="Snapshot note"
+          onChange={(event) =>
+            setForm((current) => ({ ...current, note: event.target.value }))
+          }
+          value={form.note}
+        />
+      </label>
+
+      <div className="col-span-2 space-y-2">
+        <div className="flex items-center justify-between">
+          <p className="text-sm font-medium">Holdings</p>
+          <Button onClick={addRow} size="sm" type="button" variant="outline">
+            <Plus className="h-4 w-4" />
+            Add row
+          </Button>
         </div>
-        <Button
-          aria-label="Close"
-          onClick={onCancel}
-          size="icon"
-          type="button"
-          variant="ghost"
-        >
-          <X className="h-4 w-4" />
-        </Button>
-      </header>
-
-      <div className="grid flex-1 grid-cols-2 content-start gap-4 overflow-auto p-6">
-        <label className="space-y-1 text-sm font-medium">
-          Date
-          <Input
-            aria-label="Snapshot date"
-            onChange={(event) =>
-              setForm((current) => ({ ...current, date: event.target.value }))
-            }
-            type="date"
-            value={form.date}
-          />
-        </label>
-        <label className="space-y-1 text-sm font-medium">
-          Note
-          <Input
-            aria-label="Snapshot note"
-            onChange={(event) =>
-              setForm((current) => ({ ...current, note: event.target.value }))
-            }
-            value={form.note}
-          />
-        </label>
-
-        <div className="col-span-2 space-y-2">
-          <div className="flex items-center justify-between">
-            <p className="text-sm font-medium">Holdings</p>
-            <Button onClick={addRow} size="sm" type="button" variant="outline">
-              <Plus className="h-4 w-4" />
-              Add row
+        {form.entries.map((entry, index) => (
+          <div
+            className="grid grid-cols-[1fr_1fr_1fr_5rem_2rem] items-center gap-2"
+            key={index}
+          >
+            <Input
+              aria-label={`Entry ${index + 1} place`}
+              onChange={(event) =>
+                updateEntry(index, "place", event.target.value)
+              }
+              placeholder="Place"
+              value={entry.place}
+            />
+            <Input
+              aria-label={`Entry ${index + 1} category`}
+              onChange={(event) =>
+                updateEntry(index, "category", event.target.value)
+              }
+              placeholder="Category"
+              value={entry.category}
+            />
+            <Input
+              aria-label={`Entry ${index + 1} amount`}
+              min={0}
+              onChange={(event) =>
+                updateEntry(index, "amount", event.target.value)
+              }
+              placeholder="Amount"
+              step="0.01"
+              type="number"
+              value={entry.amount}
+            />
+            <CurrencySelect
+              aria-label={`Entry ${index + 1} currency`}
+              onChange={(event) =>
+                updateEntry(index, "currency", event.target.value)
+              }
+              value={entry.currency}
+            />
+            <Button
+              aria-label={`Remove entry ${index + 1}`}
+              onClick={() => removeRow(index)}
+              size="icon"
+              type="button"
+              variant="ghost"
+            >
+              <Trash2 className="h-4 w-4" />
             </Button>
           </div>
-          {form.entries.map((entry, index) => (
-            <div
-              className="grid grid-cols-[1fr_1fr_1fr_5rem_2rem] items-center gap-2"
-              key={index}
-            >
-              <Input
-                aria-label={`Entry ${index + 1} place`}
-                onChange={(event) =>
-                  updateEntry(index, "place", event.target.value)
-                }
-                placeholder="Place"
-                value={entry.place}
-              />
-              <Input
-                aria-label={`Entry ${index + 1} category`}
-                onChange={(event) =>
-                  updateEntry(index, "category", event.target.value)
-                }
-                placeholder="Category"
-                value={entry.category}
-              />
-              <Input
-                aria-label={`Entry ${index + 1} amount`}
-                min={0}
-                onChange={(event) =>
-                  updateEntry(index, "amount", event.target.value)
-                }
-                placeholder="Amount"
-                step="0.01"
-                type="number"
-                value={entry.amount}
-              />
-              <CurrencySelect
-                aria-label={`Entry ${index + 1} currency`}
-                onChange={(event) =>
-                  updateEntry(index, "currency", event.target.value)
-                }
-                value={entry.currency}
-              />
-              <Button
-                aria-label={`Remove entry ${index + 1}`}
-                onClick={() => removeRow(index)}
-                size="icon"
-                type="button"
-                variant="ghost"
-              >
-                <Trash2 className="h-4 w-4" />
-              </Button>
-            </div>
-          ))}
-        </div>
-
-        {error && (
-          <p className="col-span-2 text-sm text-destructive">{error}</p>
-        )}
+        ))}
       </div>
-
-      <footer className="flex justify-end gap-2 border-t border-border px-6 py-4">
-        <Button onClick={onCancel} type="button" variant="outline">
-          Cancel
-        </Button>
-        <Button type="submit">Save</Button>
-      </footer>
-    </form>
+    </ItemFormShell>
   );
 }
+
 
 export function FxRatesView({ onClose }: { onClose: () => void }) {
   const model = useVaultStore((s) => s.model);

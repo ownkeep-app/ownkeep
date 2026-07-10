@@ -13,7 +13,7 @@ export const COMMAND_BAR_SHORTCUTS: ShortcutGroup = {
   title: "Command bar",
   shortcuts: [
     { keys: ["Type"], label: "Search across searchable modules" },
-    { keys: ["⌘", "1–9"], label: "Run a result's primary action" },
+    { keys: ["⌥", "⇧", "1–9"], label: "Run a result's primary action" },
     { keys: ["⌥", "⌘", "1–9"], label: "Copy a command's raw template" },
     { keys: ["↵"], label: "Run the selected result" },
     { keys: ["Esc"], label: "Hide the launcher" },
@@ -23,7 +23,7 @@ export const COMMAND_BAR_SHORTCUTS: ShortcutGroup = {
 export const DASHBOARD_SHORTCUTS: ShortcutGroup = {
   title: "Dashboard",
   shortcuts: [
-    { keys: ["⌘", "1–9"], label: "Jump to the Nth module" },
+    { keys: ["⌥", "⇧", "1–9"], label: "Jump to the Nth module" },
     { keys: ["↑", "↓"], label: "Move through the sidebar" },
   ],
 };

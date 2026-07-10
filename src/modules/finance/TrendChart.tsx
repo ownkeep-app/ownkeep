@@ -33,7 +33,7 @@ export function TrendChart({
           {},
           {
             label: currency,
-            stroke: "#4F7CFF",
+            stroke: "#5B6CFF",
             width: 2,
             fill: "rgba(79, 124, 255, 0.12)",
             points: { show: true, size: 5 },

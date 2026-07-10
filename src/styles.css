@@ -4,25 +4,28 @@
 
 @layer base {
   :root {
-    --background: 240 5% 96%;
-    --foreground: 240 10% 3.9%;
-    --card: 0 0% 100%;
-    --card-foreground: 240 10% 3.9%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 240 10% 3.9%;
-    --primary: 224 88% 65%;
+    /* Color Hunt periwinkle mist: #EEF2FF #DFE6F9 #C9D4F0 #A5B4D4
+       https://colorhunt.co/palette/eef2ffdfe6f9c9d4f0a5b4d4
+       Ink text #1A1A2E bridges the dark midnight navy theme. */
+    --background: 226 100% 96.7%;
+    --foreground: 240 28% 14%;
+    --card: 231 100% 98.6%;
+    --card-foreground: 240 28% 14%;
+    --popover: 231 100% 98.6%;
+    --popover-foreground: 240 28% 14%;
+    --primary: 234 100% 67.8%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 240 4.8% 95.9%;
-    --secondary-foreground: 240 5.9% 10%;
-    --muted: 240 4.8% 95.9%;
-    --muted-foreground: 240 3.8% 46.1%;
-    --accent: 240 4.8% 95.9%;
-    --accent-foreground: 240 5.9% 10%;
+    --secondary: 224 68% 92.5%;
+    --secondary-foreground: 240 28% 14%;
+    --muted: 224 68% 92.5%;
+    --muted-foreground: 220 14% 41%;
+    --accent: 224 68% 92.5%;
+    --accent-foreground: 240 28% 14%;
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 98%;
-    --border: 240 5.9% 90%;
-    --input: 240 5.9% 90%;
-    --ring: 224 88% 65%;
+    --border: 223 40% 86%;
+    --input: 223 40% 86%;
+    --ring: 234 100% 67.8%;
     --radius: 0.5rem;
     color-scheme: light;
     font-family:
@@ -41,25 +44,27 @@
   }
 
   .dark {
-    --background: 240 10% 3.9%;
-    --foreground: 0 0% 98%;
-    --card: 240 6% 11%;
-    --card-foreground: 0 0% 98%;
-    --popover: 240 6% 11%;
-    --popover-foreground: 0 0% 98%;
-    --primary: 224 88% 65%;
+    /* Color Hunt midnight navy: #1A1A2E #16213E #0F3460 (+ soft text)
+       https://colorhunt.co/palette/1a1a2e16213e0f3460e94560 */
+    --background: 240 28% 14%;
+    --foreground: 225 28% 94%;
+    --card: 224 48% 17%;
+    --card-foreground: 225 28% 94%;
+    --popover: 224 48% 18%;
+    --popover-foreground: 225 28% 94%;
+    --primary: 234 100% 67.8%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 240 3.7% 15.9%;
-    --secondary-foreground: 0 0% 98%;
-    --muted: 240 3.7% 15.9%;
-    --muted-foreground: 240 5% 64.9%;
-    --accent: 240 3.7% 15.9%;
-    --accent-foreground: 0 0% 98%;
-    --destructive: 0 62.8% 30.6%;
+    --secondary: 213 45% 20%;
+    --secondary-foreground: 225 24% 92%;
+    --muted: 213 40% 20%;
+    --muted-foreground: 220 16% 68%;
+    --accent: 213 42% 22%;
+    --accent-foreground: 225 28% 94%;
+    --destructive: 350 72% 52%;
     --destructive-foreground: 0 0% 98%;
-    --border: 240 3.7% 15.9%;
-    --input: 240 3.7% 15.9%;
-    --ring: 224 88% 65%;
+    --border: 213 38% 26%;
+    --input: 213 38% 26%;
+    --ring: 234 100% 67.8%;
     color-scheme: dark;
   }
 
