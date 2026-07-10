@@ -32,7 +32,6 @@ function todo(overrides: Partial<TodoEntry> = {}): TodoEntry {
     notifyLeadMinutes: 30,
     priority: "normal",
     category: "Personal",
-    tags: ["life"],
     recurrence: "none",
     updatedAt: NOW,
     ...overrides,
@@ -67,7 +66,6 @@ describe("todo module logic", () => {
       dueAt: "2026-07-09T09:30",
       notifyLeadMinutes: "45",
       priority: "high" as const,
-      tags: ["home", "bills", "home"],
       recurrence: "weekly" as const,
     };
 
@@ -81,7 +79,7 @@ describe("todo module logic", () => {
         notes: "monthly",
         notifyLeadMinutes: 45,
         priority: "high",
-        tags: ["home", "bills"],
+        category: "Personal",
         recurrence: "weekly",
       }),
     );

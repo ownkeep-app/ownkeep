@@ -38,6 +38,7 @@ layering optional modules on the stable core.
 | **11** | ✨ Polish + ship | Theming, a11y, sign + notarize, packaging, README | 2–4 d | W9–W10 · 08-31 |
 | **12** | 🧹 UI wrap up + bugfixes | Dashboard list UX improvements (sorting, column resize, detail modals, password quick actions, commands category layout) ship polished | 2–5 d | W10+ · 2026-09 |
 | **━━ v1.0 ━━** | **Signed, notarized release** | — | — | **~W10 · 2026-09-07** |
+| **13** | 🔐 Touch ID unlock (optional) | Enroll while unlocked → Touch ID = unlock path C; master password + recovery are the authoritative auth; device-local Keychain key excluded from backups (re-enroll after restore); enable/disable/re-enroll in Settings; no model-schema migration | 2–3 d | W11+ · 2026-09 |
 
 ---
 
@@ -152,7 +153,7 @@ with a **browsable Dashboard** (sidebar + content pane) and a safe upgrade path 
 - **Deps:** P6.
 
 ### Phase 8 — ✅ Todos module (M1) · 1–2 d
-- [x] `todosModule`: title/notes/done/dueAt/priority/tags; `none|daily|weekly` recurrence; `collectReminders`; `ListView` (checklist).
+- [x] `todosModule`: title/notes/done/dueAt/priority/category; `none|daily|weekly` recurrence; `collectReminders`; `ListView` (checklist).
 - [x] Bar actions: toggle done; recurring rolls forward on completion.
 - [x] **Tests:** recurrence rollover (daily/weekly) + `collectReminders` windowing/de-dupe (Vitest).
 - **Exit:** overdue todo notifies once per window; completing a weekly todo reschedules.
@@ -219,6 +220,87 @@ changes, update migrations + the migration guide in the same release per spec §
   (view/copy/edit) are reachable with fewer clicks; no regression in secrets exposure rules; `pnpm
   check` stays green.
 - **Deps:** Phase 11 (polish baseline).
+
+### Phase 13 — 🔐 Biometric unlock · Touch ID (optional) · 2–3 d
+*Post-v1.0, opt-in convenience (spec §4.7): on a Touch ID Mac, unlock with a fingerprint instead of
+the master password. **The master password and recovery code are the only authoritative
+credentials — they always unlock; Touch ID is strictly a secondary shortcut.** It is an
+**addition**, never a replacement: enrolling requires an already-unlocked vault, and losing,
+disabling, or never enabling Touch ID never locks the user out. Mechanism = a **third envelope wrap**
+(mirrors §4.1): a random `KEK_biometric` lives in the macOS Keychain behind a biometric-gated
+`SecAccessControl` and wraps the same DEK into an optional `wrapped_biometric` container field.
+Honors the non-negotiables — fully offline (LocalAuthentication + Keychain, no network) and the
+wrapping key never enters the WebView (§4.5) — with **one flagged exception**: a device-local
+wrapping key now lives in the Keychain, the sole break from "one encrypted file" (spec §4.7/§14),
+unavoidable for biometric unlock, opt-in, and off by default.*
+
+*Backups & portability (spec §11): Touch ID enrollment is **device-local and never included in a
+backup** — `wrapped_biometric` is stripped from every backup, so a restored (or copied) vault has
+Touch ID off and is re-enrolled **fresh, like new**. The backup UI notifies the user of this when
+Touch ID is enrolled; restore/erase also clear the device-local Keychain item.*
+
+*Data-shape note (spec §11.2 / AGENTS guardrail): the encrypted model is **unchanged** — enrolled
+state is derived in Rust, so there is **no `meta.schemaVersion` bump and no model migration**. The
+container gains only the **optional, additive** `wrapped_biometric`; it does **not** bump
+`container.version` (older builds ignore it and still unlock via password/recovery). Document it as
+a reviewed, non-breaking container addition and keep `$verify` honest.*
+
+- [ ] **Envelope third wrap (Rust):** add optional `wrapped_biometric: Option<SealedBlob>` to
+  `Container` (`src-tauri/src/container.rs`; `#[serde(default, skip_serializing_if = "Option::is_none")]`,
+  **no `container.version` bump**). Add `envelope::wrap_biometric`, `envelope::unlock_with_biometric`,
+  and `envelope::clear_biometric` (`src-tauri/src/envelope.rs`) — pure, unit-testable like the
+  existing wraps.
+- [ ] **Keychain + LocalAuthentication shim (Rust):** a `src-tauri/src/biometric.rs` that stores /
+  reads / deletes a random 256-bit `KEK_biometric` as a Keychain item with
+  `SecAccessControl(BiometryCurrentSet, WhenUnlockedThisDeviceOnly)`, non-synchronizable; prompts
+  Touch ID via `LAContext` (reason "Unlock keystash"); and probes availability (`canEvaluatePolicy`).
+  Crates: `security-framework` + `objc2-local-authentication` (macOS-only target, beside the Phase 3
+  `objc2` clipboard shim). Put the OS calls behind a small trait so session/command logic stays
+  testable without hardware.
+- [ ] **Session + commands (Rust):** `enable_biometric_unlock` (requires unlocked → gen key, store in
+  Keychain, wrap DEK, persist), `disable_biometric_unlock` (delete Keychain item + clear wrap +
+  persist), `reenroll_biometric_unlock` (disable → enable, for "update" / after a fingerprint-set
+  change), `unlock_biometric` (prompt → Keychain → unwrap → decrypt, like `unlock_password`), and
+  `biometric_status` → `{ available, enrolled }`. Wire into `session.rs` + `commands.rs`
+  (`generate_handler!`).
+- [ ] **Backup/restore hygiene (Rust):** the backup commands (`backup_vault*`, plus pre-migration /
+  pre-restore snapshots) write the container **without** `wrapped_biometric` (device-local, §4.7/§11);
+  `restore_*` and `erase_vault` delete the local biometric Keychain item so no orphan key remains. A
+  restored vault reports Touch ID *not enrolled* and can be re-enrolled fresh.
+- [ ] **Frontend API + store + lock screen:** add `biometricStatus`, `enableBiometric`,
+  `disableBiometric`, `reenrollBiometric`, `unlockBiometric` to `src/vault/api.ts` and the vault
+  store (keep `invoke` behind the api boundary). In `LockScreen.tsx`, when `available && enrolled`,
+  show an **"Unlock with Touch ID"** button (optionally auto-prompt once); a failed/canceled prompt
+  falls back to the password field. Master password + recovery stay always available.
+- [ ] **Settings control (System → Security):** in `SettingsPanel.tsx`, add a Touch ID control that
+  **enables, disables, or re-enrolls ("update")** based on `biometric_status`; render an
+  unavailable/hardware-missing state gracefully. In the **Backup & restore** section, show a
+  **notice** — whenever Touch ID is enrolled — that biometric unlock isn't included in backups and
+  must be re-enabled after restoring.
+- [ ] **Packaging + docs:** ensure the app is **code-signed** so the Keychain item + LocalAuthentication
+  behave (spec §12); document the reason string, the `WhenUnlockedThisDeviceOnly` attributes, and the
+  re-sign / fingerprint-change invalidation caveat; record the additive container field per §11.2 and
+  bump `package.json.version` per the release-bookkeeping contract when shipping.
+- [ ] **Tests:** Rust — `wrap_biometric`/`unlock_with_biometric` recover the same DEK as
+  password/recovery; `clear_biometric` disables path C while both other paths still unlock; the
+  backup path **omits** `wrapped_biometric` and the result still restores via password/recovery; a
+  container **without** the field parses (`None`) and one **with** it round-trips and is ignored by an
+  old-shape reader (backward-compat). Frontend (Vitest) — LockScreen shows/hides the Touch ID button
+  per mocked `biometric_status` and falls back to the password on failure; SettingsPanel
+  enable/disable/re-enroll call the right API and the backup notice shows only when enrolled. Keep
+  coverage **>95%** on both surfaces (Phase 2.2 bar); mock the Keychain/LAContext boundary and
+  validate the native path manually.
+- **Exit:** the **master password and recovery code always unlock** and are the only authoritative
+  credentials (disabling/losing Touch ID never locks the user out). On a signed build, enrolling
+  while unlocked stores a biometric-gated key and Touch ID unlocks the vault (path C);
+  enable/disable/re-enroll work from Settings → System → Security; **backups exclude
+  `wrapped_biometric`** and show the notice, and a restored vault has Touch ID off and can be
+  re-enabled fresh; an absent sensor, denied prompt, or fingerprint-set change falls back cleanly to
+  the password with **no data-shape change**; older builds still open a biometric-enrolled vault via
+  password/recovery; `pnpm check` + coverage stay green.
+- **Deps:** Phase 12 (post-v1.0 baseline). Builds on the Phase 1 envelope, the Phase 3 `objc2`
+  clipboard shim (same native tooling), the Phase 6 lock/settings + backup/restore surfaces, and the
+  Phase 11 signing story.
 
 ---
 

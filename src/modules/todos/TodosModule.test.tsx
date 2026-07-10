@@ -21,7 +21,6 @@ const item: TodoEntry = {
   notifyLeadMinutes: 30,
   priority: "high",
   category: "Personal",
-  tags: ["life"],
   recurrence: "weekly",
   updatedAt: "2026-07-08T12:00:00.000Z",
 };
@@ -45,14 +44,14 @@ describe("TodosListView", () => {
     const user = userEvent.setup();
     render(
       <TodosListView
-        items={[item, { ...item, id: "todo-2", title: "Buy tea", tags: [] }]}
+        items={[item, { ...item, id: "todo-2", title: "Buy tea" }]}
       />,
     );
 
     expect(screen.getByRole("heading", { name: "Todos" })).toBeVisible();
     expect(screen.getAllByText("Renew passport")[0]).toBeVisible();
 
-    await user.type(screen.getByLabelText("Filter todos"), "life");
+    await user.type(screen.getByLabelText("Filter todos"), "passport");
     expect(screen.getAllByText("Renew passport")[0]).toBeVisible();
     expect(screen.queryByText("Buy tea")).not.toBeInTheDocument();
   });
@@ -64,6 +63,33 @@ describe("TodosListView", () => {
     await user.type(screen.getByLabelText("Filter todos"), "zzz-nomatch");
 
     expect(screen.getByText(/no matches/i)).toBeVisible();
+  });
+
+  it("filters rows by todo status", async () => {
+    const user = userEvent.setup();
+    render(
+      <TodosListView
+        items={[
+          item,
+          { ...item, id: "todo-2", title: "Done task", done: true },
+        ]}
+      />,
+    );
+
+    expect(screen.getByRole("radio", { name: "Undone" })).toHaveAttribute(
+      "aria-checked",
+      "true",
+    );
+    expect(screen.getByText("Renew passport")).toBeVisible();
+    expect(screen.queryByText("Done task")).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("radio", { name: "Done" }));
+    expect(screen.queryByText("Renew passport")).not.toBeInTheDocument();
+    expect(screen.getByText("Done task")).toBeVisible();
+
+    await user.click(screen.getByRole("radio", { name: "All" }));
+    expect(screen.getByText("Renew passport")).toBeVisible();
+    expect(screen.getByText("Done task")).toBeVisible();
   });
 
   it("sorts rows by clicked table headers", async () => {
@@ -78,7 +104,7 @@ describe("TodosListView", () => {
             title: "Buy tea",
             dueAt: null,
             priority: "low",
-            tags: [],
+            category: "Work",
           },
           {
             ...item,
@@ -87,11 +113,13 @@ describe("TodosListView", () => {
             done: true,
             dueAt: "2026-07-07T12:30:00.000Z",
             priority: "normal",
-            tags: ["finance"],
+            category: "Dev",
           },
         ]}
       />,
     );
+
+    await user.click(screen.getByRole("radio", { name: "All" }));
 
     // Default sort is due ascending.
     expect(todoRowTitles()).toEqual(["Call bank", "Renew passport", "Buy tea"]);
@@ -127,15 +155,16 @@ describe("TodosListView", () => {
     expect(todoRowTitles()).toEqual(["Renew passport", "Call bank", "Buy tea"]);
 
     await user.click(
-      screen.getByRole("button", { name: /sort tags ascending/i }),
+      screen.getByRole("button", { name: /sort category ascending/i }),
     );
-    expect(todoRowTitles()).toEqual(["Buy tea", "Call bank", "Renew passport"]);
+    expect(todoRowTitles()).toEqual(["Call bank", "Renew passport", "Buy tea"]);
   });
 
   it("renders completed todos and detail actions", async () => {
     const user = userEvent.setup();
     render(<TodosListView items={[{ ...item, done: true }]} />);
 
+    await user.click(screen.getByRole("radio", { name: "Done" }));
     expect(screen.getByLabelText("Toggle Renew passport")).toBeChecked();
     await user.click(
       screen.getByRole("button", { name: /view renew passport/i }),
@@ -168,8 +197,6 @@ describe("TodosListView", () => {
       screen.getByLabelText("Todo recurrence"),
       "weekly",
     );
-    await user.click(screen.getByRole("checkbox", { name: "MongoDB" }));
-    await user.click(screen.getByRole("checkbox", { name: "PostgreSQL" }));
     await user.click(screen.getByRole("button", { name: "Save" }));
 
     expect(saveTodo).toHaveBeenCalledWith(
@@ -181,7 +208,6 @@ describe("TodosListView", () => {
         priority: "high",
         recurrence: "weekly",
         category: "Personal",
-        tags: expect.arrayContaining(["React", "MongoDB", "PostgreSQL"]),
       }),
     );
   });

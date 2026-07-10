@@ -58,7 +58,6 @@ function passwordItem(id: string, name: string, username: string) {
     recoveryUrl: "",
     notes: "",
     category: "Personal",
-    tags: [] as string[],
     updatedAt: NOW,
   };
 }
@@ -106,7 +105,6 @@ function todo(overrides: Partial<TodoEntry> = {}): TodoEntry {
     notifyLeadMinutes: 30,
     priority: "normal",
     category: "Personal",
-    tags: [],
     recurrence: "none",
     updatedAt: NOW,
     ...overrides,

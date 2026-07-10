@@ -1,8 +1,6 @@
 import type { IndexEntry } from "@/modules/types";
 import {
   defaultCategory,
-  defaultTags,
-  normalizeTags,
   type TaxonomySettings,
 } from "@/vault/taxonomy";
 import {
@@ -17,7 +15,8 @@ export function isPasswordEntry(value: unknown): value is PasswordEntry {
   return (
     typeof entry.id === "string" &&
     typeof entry.name === "string" &&
-    typeof entry.username === "string"
+    typeof entry.username === "string" &&
+    typeof entry.category === "string"
   );
 }
 
@@ -37,7 +36,6 @@ export function buildPasswordIndex(items: PasswordEntry[]): IndexEntry[] {
       item.recoveryUrl,
       item.notes,
       item.category,
-      item.tags.join(" "),
     ]
       .filter(Boolean)
       .join(" "),
@@ -45,7 +43,9 @@ export function buildPasswordIndex(items: PasswordEntry[]): IndexEntry[] {
   }));
 }
 
-export function emptyPasswordForm(settings?: TaxonomySettings): PasswordFormInput {
+export function emptyPasswordForm(
+  settings?: TaxonomySettings,
+): PasswordFormInput {
   return {
     name: "",
     username: "",
@@ -54,7 +54,6 @@ export function emptyPasswordForm(settings?: TaxonomySettings): PasswordFormInpu
     recoveryUrl: "",
     notes: "",
     category: defaultCategory(settings),
-    tags: defaultTags(settings),
   };
 }
 
@@ -67,7 +66,6 @@ export function formFromPassword(item: PasswordEntry): PasswordFormInput {
     recoveryUrl: item.recoveryUrl,
     notes: item.notes,
     category: item.category,
-    tags: [...item.tags],
   };
 }
 
@@ -80,7 +78,6 @@ export function createPasswordEntry(
     {
       id,
       ...input,
-      tags: normalizeTags(input.tags),
       updatedAt: now,
     },
     now,
@@ -102,7 +99,6 @@ export function updatePasswordEntry(
       recoveryUrl: input.recoveryUrl,
       notes: input.notes,
       category: input.category.trim(),
-      tags: normalizeTags(input.tags),
       updatedAt: now,
     },
     now,
@@ -132,7 +128,6 @@ function normalizePasswordEntry(
     recoveryUrl: item.recoveryUrl.trim(),
     notes: item.notes.trim(),
     category: item.category.trim(),
-    tags: normalizeTags(item.tags),
     updatedAt: item.updatedAt || fallbackUpdatedAt,
   };
 }

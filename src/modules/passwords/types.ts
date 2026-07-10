@@ -11,7 +11,6 @@ export interface PasswordEntry {
   recoveryUrl: string;
   notes: string;
   category: string;
-  tags: string[];
   updatedAt: string;
 }
 
@@ -23,5 +22,4 @@ export interface PasswordFormInput {
   recoveryUrl: string;
   notes: string;
   category: string;
-  tags: string[];
 }

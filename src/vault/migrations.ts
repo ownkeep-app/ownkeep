@@ -321,12 +321,78 @@ const schemaFiveToSix: Migration = {
   },
 };
 
+const schemaSixToSeven: Migration = {
+  from: 6,
+  to: 7,
+  summary: "Remove the unused tags field from todo entries.",
+  changes: [
+    {
+      kind: "removed",
+      path: "modules.todos[].tags",
+      note: "Todos use category only; per-item tags are dropped.",
+      dataLoss: true,
+    },
+  ],
+  apply: (model) => {
+    const todos = Array.isArray(model.modules.todos)
+      ? model.modules.todos.map((item, index) => {
+          const normalized = normalizeTodoMigrationItem(
+            item,
+            model.meta.updatedAt,
+            index,
+          );
+          const { tags: _tags, ...withoutTags } = normalized;
+          return withoutTags;
+        })
+      : [];
+    return {
+      ...model,
+      meta: { ...model.meta, schemaVersion: 7 },
+      modules: { ...model.modules, todos },
+    };
+  },
+};
+
+const schemaSevenToEight: Migration = {
+  from: 7,
+  to: 8,
+  summary: "Replace password tags with category-only.",
+  changes: [
+    {
+      kind: "removed",
+      path: "modules.passwords[].tags",
+      note: "Passwords use category only; per-item tags are dropped.",
+      dataLoss: true,
+    },
+  ],
+  apply: (model) => {
+    const passwords = Array.isArray(model.modules.passwords)
+      ? model.modules.passwords.map((item, index) => {
+          const normalized = normalizePasswordMigrationItem(
+            item,
+            model.meta.updatedAt,
+            index,
+          );
+          const { tags: _tags, ...withoutTags } = normalized;
+          return withoutTags;
+        })
+      : [];
+    return {
+      ...model,
+      meta: { ...model.meta, schemaVersion: 8 },
+      modules: { ...model.modules, passwords },
+    };
+  },
+};
+
 export const MIGRATIONS: Migration[] = [
   schemaOneToTwo,
   schemaTwoToThree,
   schemaThreeToFour,
   schemaFourToFive,
   schemaFiveToSix,
+  schemaSixToSeven,
+  schemaSevenToEight,
 ];
 
 function normalizePasswordMigrationItem(

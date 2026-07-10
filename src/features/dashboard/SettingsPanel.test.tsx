@@ -1,7 +1,8 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { toastSuccess } from "@/lib/toast";
 import { useVaultStore } from "@/stores/vault-store";
 import { vaultApi } from "@/vault/api";
 import { createDefaultModel } from "@/vault/model";
@@ -29,7 +30,12 @@ vi.mock("@/vault/api", () => ({
   },
 }));
 
+vi.mock("@/lib/toast", () => ({
+  toastSuccess: vi.fn(),
+}));
+
 const api = vi.mocked(vaultApi);
+const successToast = vi.mocked(toastSuccess);
 
 describe("SettingsPanel auto-lock", () => {
   beforeEach(() => {
@@ -48,6 +54,8 @@ describe("SettingsPanel auto-lock", () => {
 
   it("shows the current timeout and offers a Never option", () => {
     render(<SettingsPanel />);
+    fireEvent.click(screen.getByRole("tab", { name: "System" }));
+
     const select = screen.getByLabelText(
       "Auto-lock timeout",
     ) as HTMLSelectElement;
@@ -59,11 +67,38 @@ describe("SettingsPanel auto-lock", () => {
     const user = userEvent.setup();
     render(<SettingsPanel />);
 
+    await user.click(screen.getByRole("tab", { name: "System" }));
     await user.selectOptions(screen.getByLabelText("Auto-lock timeout"), "0");
 
     const saved = JSON.parse(api.saveVault.mock.calls[0][0] as string);
     expect(saved.settings.autoLockMinutes).toBe(0);
     expect(api.setAutoLock).toHaveBeenCalledWith(0);
+  });
+
+  it("keeps the default Settings menu focused and moves advanced controls to System", async () => {
+    const user = userEvent.setup();
+    render(<SettingsPanel />);
+
+    expect(
+      screen
+        .getAllByRole("heading", { level: 2 })
+        .map((heading) => heading.textContent),
+    ).toEqual(["Modules", "Hotkeys", "Categories", "Tags"]);
+    expect(screen.getByRole("heading", { name: "Categories" })).toBeVisible();
+    expect(screen.getByRole("heading", { name: "Tags" })).toBeVisible();
+    expect(screen.getByRole("heading", { name: "Hotkeys" })).toBeVisible();
+    expect(screen.getByRole("heading", { name: "Modules" })).toBeVisible();
+    expect(screen.queryByLabelText("Auto-lock timeout")).toBeNull();
+    expect(screen.queryByRole("button", { name: /back up vault/i })).toBeNull();
+
+    await user.click(screen.getByRole("tab", { name: "System" }));
+
+    expect(screen.getByLabelText("Auto-lock timeout")).toBeVisible();
+    expect(screen.getByLabelText("Theme")).toBeVisible();
+    expect(
+      screen.getByRole("button", { name: /back up vault/i }),
+    ).toBeVisible();
+    expect(screen.queryByRole("heading", { name: "Modules" })).toBeNull();
   });
 
   it("persists hotkeys, clipboard clear, theme, accent, and result limit", async () => {
@@ -73,6 +108,8 @@ describe("SettingsPanel auto-lock", () => {
     await user.clear(screen.getByLabelText("Global hotkey"));
     await user.type(screen.getByLabelText("Global hotkey"), "Cmd+Option+Space");
     await user.tab();
+
+    await user.click(screen.getByRole("tab", { name: "System" }));
     await user.selectOptions(screen.getByLabelText("Clipboard clear seconds"), [
       "120",
     ]);
@@ -102,6 +139,24 @@ describe("SettingsPanel auto-lock", () => {
     );
   });
 
+  it("shows a success toast after saving taxonomy options", async () => {
+    render(<SettingsPanel />);
+
+    fireEvent.change(screen.getByLabelText("Category options"), {
+      target: { value: "Work\nPersonal\nOps" },
+    });
+    fireEvent.blur(screen.getByLabelText("Category options"));
+
+    await waitFor(() =>
+      expect(successToast).toHaveBeenCalledWith(
+        "Category and tag options saved.",
+      ),
+    );
+    expect(
+      screen.queryByText("Category and tag options saved."),
+    ).not.toBeInTheDocument();
+  });
+
   it("runs backup and password-gated restore from Settings", async () => {
     const user = userEvent.setup();
     api.getVault.mockResolvedValueOnce(
@@ -109,6 +164,7 @@ describe("SettingsPanel auto-lock", () => {
     );
     render(<SettingsPanel />);
 
+    await user.click(screen.getByRole("tab", { name: "System" }));
     await user.click(screen.getByRole("button", { name: /back up vault/i }));
     expect(api.backupVaultToChosenLocation).toHaveBeenCalledWith(
       expect.stringMatching(/^keystash-v0\.1-/),
@@ -131,6 +187,7 @@ describe("SettingsPanel auto-lock", () => {
     api.getVault.mockResolvedValueOnce("{}");
     render(<SettingsPanel />);
 
+    await user.click(screen.getByRole("tab", { name: "System" }));
     await user.click(screen.getByRole("button", { name: /back up vault/i }));
     expect(await screen.findByText(/backup canceled/i)).toBeVisible();
 
@@ -150,6 +207,7 @@ describe("SettingsPanel auto-lock", () => {
     const user = userEvent.setup();
     render(<SettingsPanel />);
 
+    await user.click(screen.getByRole("tab", { name: "System" }));
     await user.click(
       screen.getByRole("button", { name: /regenerate recovery code/i }),
     );
@@ -174,11 +232,13 @@ describe("SettingsPanel auto-lock", () => {
     const user = userEvent.setup();
     render(<SettingsPanel />);
 
-    expect(screen.getByText(/stays unlocked/i)).toBeVisible();
     await user.click(screen.getByRole("switch", { name: /enable passwords/i }));
 
     const saved = JSON.parse(api.saveVault.mock.calls[0][0] as string);
     expect(saved.settings.modules.passwords.enabled).toBe(true);
+
+    await user.click(screen.getByRole("tab", { name: "System" }));
+    expect(screen.getByText(/stays unlocked/i)).toBeVisible();
   });
 
   it("renders nothing before a model is loaded", () => {

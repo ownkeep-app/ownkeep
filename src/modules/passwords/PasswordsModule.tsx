@@ -3,7 +3,6 @@ import { type FormEvent, type ReactNode, useMemo, useState } from "react";
 import { Copy, Eye, Pencil, Plus, Search, Trash2, X } from "lucide-react";
 
 import { CategorySelect } from "@/components/category-select";
-import { TagMultiSelect } from "@/components/tag-multi-select";
 import { DetailModal } from "@/components/DetailModal";
 import {
   DetailField,
@@ -33,7 +32,8 @@ import {
   type SortState,
   type SortValue,
 } from "@/lib/table-sort";
-import { toastError, toastSecretCopied } from "@/lib/toast";
+import { writeClipboard } from "@/lib/clipboard";
+import { toastClipboard, toastError, toastSecretCopied } from "@/lib/toast";
 import { cn } from "@/lib/utils";
 import { useTaxonomySettings } from "@/hooks/use-taxonomy-settings";
 import type { ListViewProps } from "@/modules/types";
@@ -79,7 +79,7 @@ export function PasswordsListView({ items }: ListViewProps<PasswordEntry>) {
             item.loginUrl,
             item.recoveryUrl,
             item.notes,
-            item.tags.join(" "),
+            item.category,
           ]
             .join(" ")
             .toLowerCase()
@@ -121,6 +121,11 @@ export function PasswordsListView({ items }: ListViewProps<PasswordEntry>) {
     } catch {
       toastError("Couldn't reveal the password.");
     }
+  }
+
+  async function handleCopyUsername(username: string) {
+    const ok = await writeClipboard(username);
+    toastClipboard(ok, "Username copied");
   }
 
   if (editing !== undefined) {
@@ -186,14 +191,14 @@ export function PasswordsListView({ items }: ListViewProps<PasswordEntry>) {
             <TableHeader className="sticky top-0 bg-background text-xs uppercase text-muted-foreground">
               <TableRow>
                 <SortableTableHead
-                  className="w-[28%] px-4"
+                  className="w-[22%] px-4"
                   column="name"
                   label="Name"
                   onSort={handleSort}
                   sort={sortState}
                 />
                 <SortableTableHead
-                  className="w-[26%] px-4"
+                  className="w-[32%] px-4"
                   column="username"
                   label="Username"
                   onSort={handleSort}
@@ -208,8 +213,8 @@ export function PasswordsListView({ items }: ListViewProps<PasswordEntry>) {
                 />
                 <SortableTableHead
                   className="w-[14%] px-4"
-                  column="tags"
-                  label="Tags"
+                  column="category"
+                  label="Category"
                   onSort={handleSort}
                   sort={sortState}
                 />
@@ -226,7 +231,22 @@ export function PasswordsListView({ items }: ListViewProps<PasswordEntry>) {
                     {item.name}
                   </TableCell>
                   <TableCell className="px-4 py-3 text-muted-foreground">
-                    {item.username || "-"}
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="min-w-0 flex-1 truncate">
+                        {item.username || "-"}
+                      </span>
+                      {item.username.trim() ? (
+                        <Button
+                          aria-label={`Copy username for ${item.name}`}
+                          onClick={() => void handleCopyUsername(item.username)}
+                          size="icon"
+                          type="button"
+                          variant="ghost"
+                        >
+                          <Copy className="h-4 w-4" />
+                        </Button>
+                      ) : null}
+                    </div>
                   </TableCell>
                   <TableCell className="px-4 py-3">
                     <div className="flex items-center gap-1">
@@ -250,7 +270,7 @@ export function PasswordsListView({ items }: ListViewProps<PasswordEntry>) {
                     </div>
                   </TableCell>
                   <TableCell className="truncate px-4 py-3 text-muted-foreground">
-                    {item.tags.join(", ") || "-"}
+                    {item.category || "-"}
                   </TableCell>
                   <TableCell className="px-4 py-2">
                     <div className="flex justify-end gap-1">
@@ -341,7 +361,7 @@ export function PasswordsListView({ items }: ListViewProps<PasswordEntry>) {
   );
 }
 
-type PasswordSortColumn = "name" | "username" | "password" | "tags";
+type PasswordSortColumn = "name" | "username" | "password" | "category";
 
 function passwordSortValue(
   item: PasswordEntry,
@@ -349,7 +369,7 @@ function passwordSortValue(
 ): SortValue {
   if (column === "name") return item.name;
   if (column === "username") return item.username;
-  if (column === "tags") return item.tags.join(", ");
+  if (column === "category") return item.category;
   return MASKED_PASSWORD;
 }
 
@@ -402,7 +422,6 @@ export function PasswordDetailView({
         <DetailUrlField label="Login URL" value={item.loginUrl} />
         <DetailUrlField label="Recovery URL" value={item.recoveryUrl} />
         <DetailField label="Category" value={item.category} />
-        <DetailField label="Tags" value={item.tags.join(", ") || "-"} />
         <DetailField
           label="Updated"
           value={new Date(item.updatedAt).toLocaleString()}
@@ -422,7 +441,7 @@ export function PasswordEditView({
   onSave: (item: PasswordEntry) => void;
   onCancel: () => void;
 }) {
-  const { categoryOptions, tagOptions, taxonomy } = useTaxonomySettings();
+  const { categoryOptions, taxonomy } = useTaxonomySettings();
   const mode = item ? "edit" : "create";
   const [form, setForm] = useState<PasswordFormInput>(() =>
     item ? formFromPassword(item) : emptyPasswordForm(taxonomy),
@@ -492,14 +511,6 @@ export function PasswordEditView({
             onChange={(event) => update("category", event.target.value)}
             options={categoryOptions}
             value={form.category}
-          />
-        </Field>
-        <Field label="Tags">
-          <TagMultiSelect
-            aria-label="Password tags"
-            onChange={(tags) => update("tags", tags)}
-            options={tagOptions}
-            value={form.tags}
           />
         </Field>
         <Field label={item ? "Password (leave blank to keep)" : "Password"}>

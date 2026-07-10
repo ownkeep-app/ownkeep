@@ -11,7 +11,7 @@ import {
   withTaxonomyDefaults,
 } from "./taxonomy";
 
-export const SCHEMA_VERSION = 6;
+export const SCHEMA_VERSION = 8;
 export const APP_VERSION = __KEYSTASH_APP_VERSION__;
 
 export type Theme = "system" | "light" | "dark";

@@ -10,6 +10,10 @@ export function toastCopied(label = "Copied to the clipboard"): void {
   toast.success(label);
 }
 
+export function toastSuccess(label: string): void {
+  toast.success(label);
+}
+
 /** Feedback for a concealed-clipboard secret copy (§4.3): note the auto-clear window. */
 export function toastSecretCopied(clearSeconds: number): void {
   toast.success("Password copied", {

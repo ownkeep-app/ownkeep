@@ -16,7 +16,6 @@ export interface TodoEntry {
   notifyLeadMinutes: number;
   priority: TodoPriority;
   category: string;
-  tags: string[];
   recurrence: TodoRecurrence;
   updatedAt: string;
 }
@@ -28,6 +27,5 @@ export interface TodoFormInput {
   notifyLeadMinutes: string;
   priority: TodoPriority;
   category: string;
-  tags: string[];
   recurrence: TodoRecurrence;
 }

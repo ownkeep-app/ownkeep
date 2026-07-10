@@ -13,7 +13,6 @@ import {
 } from "lucide-react";
 
 import { CategorySelect } from "@/components/category-select";
-import { TagMultiSelect } from "@/components/tag-multi-select";
 import { DetailModal } from "@/components/DetailModal";
 import {
   DetailField,
@@ -38,6 +37,10 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { EmptyState } from "@/components/EmptyState";
+import {
+  ButtonGroup,
+  type ButtonGroupOption,
+} from "@/components/ui/button-group";
 import {
   nextSortState,
   stableSortBy,
@@ -64,11 +67,20 @@ import {
   type TodoFormInput,
 } from "./types";
 
+type TodoStatusFilter = "undone" | "done" | "all";
+
+const TODO_STATUS_FILTERS: ButtonGroupOption<TodoStatusFilter>[] = [
+  { value: "undone", label: "Undone" },
+  { value: "done", label: "Done" },
+  { value: "all", label: "All" },
+];
+
 export function TodosListView({ items }: ListViewProps<TodoEntry>) {
   const saveTodo = useVaultStore((s) => s.saveTodo);
   const deleteTodo = useVaultStore((s) => s.deleteTodo);
   const toggleTodoDone = useVaultStore((s) => s.toggleTodoDone);
   const [query, setQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState<TodoStatusFilter>("undone");
   const [viewing, setViewing] = useState<TodoEntry | null>(null);
   const [editing, setEditing] = useState<TodoEntry | null | undefined>();
   const [sortState, setSortState] = useState<SortState<TodoSortColumn> | null>({
@@ -80,24 +92,30 @@ export function TodosListView({ items }: ListViewProps<TodoEntry>) {
   const filtered = useMemo(() => {
     const term = query.trim().toLowerCase();
     const sorted = sortTodos(todos);
+    const byStatus =
+      statusFilter === "all"
+        ? sorted
+        : sorted.filter((item) =>
+            statusFilter === "done" ? item.done : !item.done,
+          );
     const visible = term
-      ? sorted.filter((item) =>
+      ? byStatus.filter((item) =>
           [
             item.title,
             item.notes,
             item.priority,
             item.recurrence,
-            item.tags.join(" "),
+            item.category,
           ]
             .join(" ")
             .toLowerCase()
             .includes(term),
         )
-      : sorted;
+      : byStatus;
     return sortState
       ? stableSortBy(visible, sortState, todoSortValue)
       : visible;
-  }, [todos, query, sortState]);
+  }, [todos, query, sortState, statusFilter]);
   const handleSort = (column: TodoSortColumn) =>
     setSortState((current) => nextSortState(current, column));
   const openCount = todos.filter((item) => !item.done).length;
@@ -154,8 +172,14 @@ export function TodosListView({ items }: ListViewProps<TodoEntry>) {
       </header>
 
       <div className="flex min-h-0 flex-1 flex-col">
-        <div className="border-b border-border p-4">
-          <label className="relative block">
+        <div className="flex flex-col gap-3 border-b border-border p-4 sm:flex-row sm:items-center">
+          <ButtonGroup
+            aria-label="Todo status"
+            onValueChange={setStatusFilter}
+            options={TODO_STATUS_FILTERS}
+            value={statusFilter}
+          />
+          <label className="relative block min-w-0 flex-1">
             <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input
               aria-label="Filter todos"
@@ -173,7 +197,7 @@ export function TodosListView({ items }: ListViewProps<TodoEntry>) {
               title="No matches"
               description={`Nothing matches “${query.trim()}”.`}
             />
-          ) : (
+          ) : todos.length === 0 ? (
             <EmptyState
               title="No todos yet"
               description="Add a task — set a due time to get reminders."
@@ -184,6 +208,13 @@ export function TodosListView({ items }: ListViewProps<TodoEntry>) {
                 </Button>
               }
             />
+          ) : statusFilter === "done" ? (
+            <EmptyState
+              title="No done todos"
+              description="Completed tasks will show here."
+            />
+          ) : (
+            <EmptyState title="No undone todos" description="All caught up." />
           )
         ) : (
           <Table className="table-fixed" wrapperClassName="min-h-0 flex-1">
@@ -219,8 +250,8 @@ export function TodosListView({ items }: ListViewProps<TodoEntry>) {
                 />
                 <SortableTableHead
                   className="w-[18%] px-4"
-                  column="tags"
-                  label="Tags"
+                  column="category"
+                  label="Category"
                   onSort={handleSort}
                   sort={sortState}
                 />
@@ -258,7 +289,7 @@ export function TodosListView({ items }: ListViewProps<TodoEntry>) {
                     <PriorityPill priority={item.priority} />
                   </TableCell>
                   <TableCell className="truncate px-4 py-3 text-muted-foreground">
-                    {item.tags.join(", ") || "-"}
+                    {item.category || "-"}
                   </TableCell>
                   <TableCell className="px-4 py-2">
                     <div className="flex justify-end gap-1">
@@ -341,13 +372,13 @@ export function TodosListView({ items }: ListViewProps<TodoEntry>) {
   );
 }
 
-type TodoSortColumn = "done" | "title" | "due" | "priority" | "tags";
+type TodoSortColumn = "done" | "title" | "due" | "priority" | "category";
 
 function todoSortValue(item: TodoEntry, column: TodoSortColumn): SortValue {
   if (column === "done") return item.done;
   if (column === "title") return item.title;
   if (column === "due") return item.dueAt ? Date.parse(item.dueAt) : null;
-  if (column === "tags") return item.tags.join(", ");
+  if (column === "category") return item.category;
   return priorityRank[item.priority];
 }
 
@@ -381,7 +412,6 @@ export function TodoDetailView({ item }: { item: TodoEntry }) {
         <DetailField label="Priority" value={item.priority} />
         <DetailField label="Category" value={item.category} />
         <DetailField label="Recurrence" value={item.recurrence} />
-        <DetailField label="Tags" value={item.tags.join(", ") || "-"} />
         <DetailField
           label="Updated"
           value={new Date(item.updatedAt).toLocaleString()}
@@ -401,7 +431,7 @@ export function TodoEditView({
   onSave: (item: TodoEntry) => void;
   onCancel: () => void;
 }) {
-  const { categoryOptions, tagOptions, taxonomy } = useTaxonomySettings();
+  const { categoryOptions, taxonomy } = useTaxonomySettings();
   const [form, setForm] = useState<TodoFormInput>(() =>
     item ? formFromTodo(item) : emptyTodoForm(taxonomy),
   );
@@ -528,15 +558,6 @@ export function TodoEditView({
             onChange={(event) => update("category", event.target.value)}
             options={categoryOptions}
             value={form.category}
-          />
-        </label>
-        <label className="space-y-1 text-sm font-medium col-span-2">
-          Tags
-          <TagMultiSelect
-            aria-label="Todo tags"
-            onChange={(tags) => update("tags", tags)}
-            options={tagOptions}
-            value={form.tags}
           />
         </label>
         <label className="space-y-1 text-sm font-medium col-span-2">

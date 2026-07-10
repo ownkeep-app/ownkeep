@@ -2,19 +2,27 @@ import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { toastError, toastSecretCopied } from "@/lib/toast";
+import { writeClipboard } from "@/lib/clipboard";
+import { toastClipboard, toastError, toastSecretCopied } from "@/lib/toast";
 import { useVaultStore } from "@/stores/vault-store";
 import { PasswordsListView } from "./PasswordsModule";
 import type { PasswordEntry } from "./types";
 
+vi.mock("@/lib/clipboard", () => ({ writeClipboard: vi.fn(async () => true) }));
 vi.mock("@/lib/toast", () => ({
+  toastClipboard: vi.fn(),
   toastSecretCopied: vi.fn(),
   toastError: vi.fn(),
 }));
 
 const toasts = {
+  toastClipboard: vi.mocked(toastClipboard),
   toastSecretCopied: vi.mocked(toastSecretCopied),
   toastError: vi.mocked(toastError),
+};
+
+const clipboard = {
+  writeClipboard: vi.mocked(writeClipboard),
 };
 
 const actions = {
@@ -31,9 +39,8 @@ const item: PasswordEntry = {
   password: "super-secret-value",
   loginUrl: "https://github.com/login",
   recoveryUrl: "https://github.com/password_reset",
-    notes: "",
-    category: "Personal",
-    tags: ["dev", "work"],
+  notes: "",
+  category: "Personal",
   updatedAt: "2026-07-07T00:00:00.000Z",
 };
 
@@ -79,13 +86,13 @@ describe("PasswordsListView", () => {
             id: "mail",
             name: "Fastmail",
             username: "me@example.com",
-            tags: ["personal"],
+            category: "Work",
           },
         ]}
       />,
     );
 
-    await user.type(screen.getByLabelText(/filter passwords/i), "personal");
+    await user.type(screen.getByLabelText(/filter passwords/i), "work");
 
     expect(screen.getAllByText("Fastmail")[0]).toBeVisible();
     expect(screen.queryByText("GitHub")).not.toBeInTheDocument();
@@ -102,14 +109,14 @@ describe("PasswordsListView", () => {
             id: "aws",
             name: "AWS",
             username: "root",
-            tags: ["cloud"],
+            category: "Dev",
           },
           {
             ...item,
             id: "mail",
             name: "Fastmail",
             username: "me@example.com",
-            tags: ["personal"],
+            category: "Work",
           },
         ]}
       />,
@@ -128,7 +135,7 @@ describe("PasswordsListView", () => {
     expect(passwordRowNames()).toEqual(["GitHub", "AWS", "Fastmail"]);
 
     await user.click(
-      screen.getByRole("button", { name: /sort tags ascending/i }),
+      screen.getByRole("button", { name: /sort category ascending/i }),
     );
     expect(passwordRowNames()).toEqual(["AWS", "GitHub", "Fastmail"]);
 
@@ -161,6 +168,18 @@ describe("PasswordsListView", () => {
     expect(copySecret).toHaveBeenCalledWith("github", "password");
     expect(screen.queryByText("super-secret-value")).not.toBeInTheDocument();
     expect(toasts.toastSecretCopied).toHaveBeenCalled();
+  });
+
+  it("copies the username directly to the clipboard", async () => {
+    const user = userEvent.setup();
+    render(<PasswordsListView items={[item]} />);
+
+    await user.click(
+      screen.getByRole("button", { name: /copy username for github/i }),
+    );
+
+    expect(clipboard.writeClipboard).toHaveBeenCalledWith("sha");
+    expect(toasts.toastClipboard).toHaveBeenCalledWith(true, "Username copied");
   });
 
   it("toasts an error when the copy fails", async () => {
@@ -233,8 +252,6 @@ describe("PasswordsListView", () => {
     await user.type(screen.getByLabelText("Password username"), "sha");
     await user.type(screen.getByLabelText("Password value"), "secret");
     await user.type(screen.getByLabelText("Login URL"), "https://github.com");
-    await user.click(screen.getByRole("checkbox", { name: "Bash" }));
-    await user.click(screen.getByRole("checkbox", { name: "Git" }));
     await user.click(screen.getByRole("button", { name: "Save" }));
 
     expect(savePassword).toHaveBeenCalledWith(
@@ -245,7 +262,6 @@ describe("PasswordsListView", () => {
         password: "secret",
         loginUrl: "https://github.com",
         category: "Personal",
-        tags: expect.arrayContaining(["React", "Bash", "Git"]),
       }),
     );
   });

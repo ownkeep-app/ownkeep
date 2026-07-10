@@ -6,6 +6,7 @@ import {
   toastCopied,
   toastError,
   toastSecretCopied,
+  toastSuccess,
 } from "./toast";
 
 vi.mock("sonner", () => ({
@@ -28,6 +29,11 @@ describe("toast helpers", () => {
   it("accepts a custom copy label", () => {
     toastCopied("URL copied");
     expect(success).toHaveBeenCalledWith("URL copied");
+  });
+
+  it("surfaces generic success", () => {
+    toastSuccess("Saved");
+    expect(success).toHaveBeenCalledWith("Saved");
   });
 
   it("notes the auto-clear window when copying a secret", () => {

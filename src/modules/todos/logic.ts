@@ -1,11 +1,6 @@
 import type { ReminderEvent, IndexEntry } from "@/modules/types";
 import type { VaultSettings } from "@/vault/model";
-import {
-  defaultCategory,
-  defaultTags,
-  normalizeTags,
-  type TaxonomySettings,
-} from "@/vault/taxonomy";
+import { defaultCategory, type TaxonomySettings } from "@/vault/taxonomy";
 import {
   DEFAULT_TODO_LEAD_MINUTES,
   TODO_PRIORITIES,
@@ -40,8 +35,6 @@ export function isTodoEntry(value: unknown): value is TodoEntry {
     typeof entry.notifyLeadMinutes === "number" &&
     isTodoPriority(entry.priority) &&
     typeof entry.category === "string" &&
-    Array.isArray(entry.tags) &&
-    entry.tags.every((tag) => typeof tag === "string") &&
     isTodoRecurrence(entry.recurrence) &&
     typeof entry.updatedAt === "string"
   );
@@ -63,7 +56,6 @@ export function buildTodoIndex(items: TodoEntry[]): IndexEntry[] {
       item.recurrence === "none" ? "" : item.recurrence,
       item.dueAt ?? "",
       item.category,
-      item.tags.join(" "),
     ]
       .filter(Boolean)
       .join(" "),
@@ -79,7 +71,6 @@ export function emptyTodoForm(settings?: TaxonomySettings): TodoFormInput {
     notifyLeadMinutes: String(DEFAULT_TODO_LEAD_MINUTES),
     priority: "normal",
     category: defaultCategory(settings),
-    tags: defaultTags(settings),
     recurrence: "none",
   };
 }
@@ -92,7 +83,6 @@ export function formFromTodo(item: TodoEntry): TodoFormInput {
     notifyLeadMinutes: String(item.notifyLeadMinutes),
     priority: item.priority,
     category: item.category,
-    tags: [...item.tags],
     recurrence: item.recurrence,
   };
 }
@@ -112,7 +102,6 @@ export function createTodoEntry(
       notifyLeadMinutes: parseLeadMinutes(input.notifyLeadMinutes),
       priority: input.priority,
       category: input.category.trim(),
-      tags: normalizeTags(input.tags),
       recurrence: input.recurrence,
       updatedAt: now,
     },
@@ -134,7 +123,6 @@ export function updateTodoEntry(
       notifyLeadMinutes: parseLeadMinutes(input.notifyLeadMinutes),
       priority: input.priority,
       category: input.category.trim(),
-      tags: normalizeTags(input.tags),
       recurrence: input.recurrence,
       updatedAt: now,
     },
@@ -269,7 +257,7 @@ function parseLeadMinutes(value: string): number {
 function formatReminderBody(item: TodoEntry): string {
   const parts = [`Due ${formatDateTime(item.dueAt)}`];
   if (item.priority !== "normal") parts.push(`${item.priority} priority`);
-  if (item.tags.length) parts.push(item.tags.join(", "));
+  if (item.category) parts.push(item.category);
   return parts.join(" - ");
 }
 
@@ -286,7 +274,6 @@ function normalizeTodoEntry(
     notifyLeadMinutes: item.notifyLeadMinutes,
     priority: item.priority,
     category: item.category.trim(),
-    tags: normalizeTags(item.tags),
     recurrence: item.recurrence,
     updatedAt: item.updatedAt || fallbackUpdatedAt,
   };

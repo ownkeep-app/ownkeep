@@ -20,7 +20,6 @@ const existing: PasswordEntry = {
   recoveryUrl: "https://github.com/password_reset",
   notes: "dev account",
   category: "Personal",
-  tags: ["dev"],
   updatedAt: NOW,
 };
 
@@ -42,13 +41,13 @@ describe("password module logic", () => {
     expect(index[0].searchString).not.toContain("super-secret-value");
   });
 
-  it("normalizes new entries and tags", () => {
+  it("normalizes new entries and category", () => {
     const form = {
       ...emptyPasswordForm(),
       name: "  GitHub  ",
       username: " sha ",
       password: "secret",
-      tags: ["dev", "work", "dev"],
+      category: " Dev ",
     };
 
     expect(createPasswordEntry(form, NOW, "1")).toEqual(
@@ -57,8 +56,7 @@ describe("password module logic", () => {
         name: "GitHub",
         username: "sha",
         password: "secret",
-        category: "Personal",
-        tags: ["dev", "work"],
+        category: "Dev",
       }),
     );
   });

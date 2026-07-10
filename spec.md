@@ -7,8 +7,8 @@
 **Name:** keystash
 **Target platform:** macOS 13+ (Apple Silicon + Intel)
 **Author:** Shaojiang
-**Status:** Draft v2.3 (adds manual-upgrade, release-version, migration-guide, and data-migration rules)
-**Last updated:** 2026-07-07
+**Status:** Draft v2.4 (adds optional Touch ID / biometric unlock — §4.7)
+**Last updated:** 2026-07-10
 
 ---
 
@@ -148,6 +148,9 @@ launch → read vault file header (`vault-dev.dat` in dev, `vault.dat` in releas
       → frontend requests get_projection() → receives non-secret index; search bar ready
 ```
 
+Recovery unlock (path B, §4.1) and — when enrolled — **Touch ID unlock (path C, §4.7)** reach the
+same DEK by a different unwrap; every step from *decrypt the vault body* onward is identical.
+
 ### 3.4 Feature-module registry (the backbone) — **new in v2**
 
 The whole app is a **thin core + a set of modules**. The core knows nothing about "passwords" or
@@ -233,6 +236,12 @@ decrypt vault → **force setting a new master password** (re-derive `KEK_master
 `salt_master`, re-wrap the DEK). The DEK and `vault_ciphertext` are unchanged. Optionally
 regenerate the recovery code too.
 
+**Unlock path C (Touch ID — optional, §4.7):** when biometrics are enrolled, the DEK is *also*
+wrapped a third time under a random `KEK_biometric` kept in the macOS Keychain behind a
+biometric-gated access control. Touch ID releases `KEK_biometric` → unwrap `wrapped_biometric` →
+decrypt vault. This **never replaces** the master password (still required to enroll, and always
+usable); it is opt-in and device-local.
+
 **Wrong password/code** → wrong key → AEAD unwrap fails authentication → reject. No separate
 password hash to store or leak; the AEAD tag *is* the verification.
 
@@ -247,14 +256,20 @@ password hash to store or leak; the AEAD tag *is* the verification.
   "salt_recovery": "<base64>",
   "wrapped_master":   { "nonce": "<b64>", "ct": "<b64>" },   // encrypts the 32-byte DEK
   "wrapped_recovery": { "nonce": "<b64>", "ct": "<b64>" },   // encrypts the same DEK
+  "wrapped_biometric":{ "nonce": "<b64>", "ct": "<b64>" },   // OPTIONAL (§4.7): same DEK under a Keychain-held Touch ID key; absent unless enrolled
   "vault":            { "nonce": "<b64>", "ct": "<b64>" }    // XChaCha20-Poly1305 over the model
 }
 ```
 > Argon2 params (256 MiB / 3 / 4) are generous for a desktop; tune down for older Intel Macs if
 > unlock feels slow. No security-questions array — the recovery path stores nothing but a salt.
+>
+> `wrapped_biometric` is **optional and additive** (§4.7): present only when Touch ID is enrolled,
+> it does **not** bump `container.version`, so older builds ignore it and still unlock via password
+> or recovery. It holds another wrap of the *same* DEK — never the DEK itself — so the Keychain item
+> is useless without this vault file.
 
 ### 4.3 Runtime protections
-- **Auto-lock:** wipe keys + in-memory plaintext after N minutes idle (default 1 hour; configurable in Settings — 5 / 15 / 30 minutes, 1 / 3 hours, or **never**) and optionally on window blur. Re-entry requires the master password. "Never" (`autoLockMinutes: 0`) keeps the vault unlocked until the user locks it manually or quits — a deliberate convenience/security trade-off surfaced in the UI.
+- **Auto-lock:** wipe keys + in-memory plaintext after N minutes idle (default 1 hour; configurable in Settings — 5 / 15 / 30 minutes, 1 / 3 hours, or **never**) and optionally on window blur. Re-entry requires the master password (or Touch ID, if enrolled — §4.7). "Never" (`autoLockMinutes: 0`) keeps the vault unlocked until the user locks it manually or quits — a deliberate convenience/security trade-off surfaced in the UI.
 - **Zeroize:** all key material and decrypted secrets zeroized (`zeroize`) on lock/quit.
 - **Clipboard hygiene:** on copy of a secret, (a) auto-clear the pasteboard after N seconds (default 30), and (b) mark it **concealed/transient** (`org.nspasteboard.ConcealedType` + `TransientType`) so clipboard-history tools ignore it. *Requires ~20 lines of custom Rust (objc2/cocoa) — the Tauri clipboard plugin does not set these types.* *Caveat:* macOS Universal Clipboard/Handoff and some third-party managers may still capture — documented honestly in-app.
 - **Failed-attempt backoff:** Argon2 is already slow; add optional exponential backoff after repeated failures.
@@ -263,7 +278,9 @@ password hash to store or leak; the AEAD tag *is* the verification.
 ### 4.4 Backup encryption
 A backup **is** the encrypted container — already safe at rest. No special export crypto: a backup
 is a copy of the active vault file (`vault-dev.dat` in dev, `vault.dat` in release), openable only
-with the same master password (or recovery code). See §11.
+with the same master password (or recovery code). The one thing a backup **omits** is the optional,
+device-local Touch ID wrap (`wrapped_biometric`, §4.7) — biometric enrollment never travels in a
+backup and is re-enabled per device after restore. See §11.
 
 ### 4.5 Frontend exposure hardening
 - **Never load secret fields into the WebView by default.** The Rust core holds the decrypted model; it serves the frontend a projection with each module's `secretFields` redacted. A secret is returned **only** on an explicit copy action — Rust writes it straight to the concealed pasteboard and discards it; the value never enters JS.
@@ -276,6 +293,58 @@ Shown once at setup and re-downloadable from Settings (regenerates a fresh code 
 - Includes app name + creation date + instructions. **Does not include the master password.**
 - Offered as a printable / saveable card (PDF or plain text via the file dialog).
 
+### 4.7 Biometric unlock (Touch ID) — optional, device-local
+
+An **opt-in convenience**: on a Mac with Touch ID, unlock keystash with a fingerprint instead of
+typing the master password. The **master password and the recovery code are the only authoritative
+credentials** — they can always unlock the vault, and Touch ID is strictly a secondary shortcut
+layered on top. Touch ID is an **addition to**, never a **replacement for**, them: enrolling
+requires an already-unlocked vault (so the master password is proven first), and losing, disabling,
+or never enabling Touch ID **never locks you out** — the password and recovery code always remain.
+Off by default.
+
+**Mechanism — a third envelope wrap (mirrors §4.1).** Enabling Touch ID (only possible while the
+vault is *unlocked*, so the DEK is in hand) generates a random 256-bit `KEK_biometric`, wraps the
+DEK a third time — `wrapped_biometric = AEAD_encrypt(DEK, KEK_biometric)` (stored in the container,
+§4.2) — and stores **`KEK_biometric` in the macOS Keychain** behind a biometric-gated
+`SecAccessControl`. We store a *wrapping key*, not the DEK, so the Keychain item alone is useless
+without this vault file (defense in depth).
+
+- **Access control:** `kSecAccessControlBiometryCurrentSet` (adding/removing a fingerprint
+  invalidates the item → re-enroll with the master password) + `kSecAttrAccessibleWhenUnlockedThisDeviceOnly`
+  (never leaves the device, never syncs to iCloud Keychain, only readable while the macOS session is
+  unlocked).
+- **Unlock path C:** LocalAuthentication (`LAContext`, reason "Unlock keystash") prompts Touch ID →
+  on success the Keychain releases `KEK_biometric` → Rust unwraps `wrapped_biometric` → DEK →
+  decrypt the vault. Identical to paths A/B from the DEK onward; **the wrapping key and the biometric
+  prompt never enter the WebView** (§4.5 preserved).
+- **Enable / disable:** enable = generate + Keychain-store `KEK_biometric`, wrap the DEK, persist
+  `wrapped_biometric`. Disable = delete the Keychain item and drop `wrapped_biometric`. Toggled from
+  Settings → System → Security (§9).
+- **Availability & fallback:** the Touch ID button appears only when the sensor is present *and*
+  enrolled; a failed/canceled prompt, a missing sensor, or an invalidated item (fingerprints
+  changed) falls back to the master-password field with no data change. **Enrolled state is derived
+  in Rust** (`wrapped_biometric` present ∧ Keychain key present ∧ hardware available) — it is
+  **not** stored in `settings`, so there is no encrypted-model schema change and nothing to drift.
+- **Auto-lock still applies:** Touch ID unlocks whenever the vault is locked (cold start or after
+  auto-lock); it does not weaken the idle timeout or `zeroize`-on-lock (§4.3).
+- **Backups exclude Touch ID (§11).** Enrollment is device-local, so `wrapped_biometric` is
+  **stripped from every backup** (manual, pre-migration, pre-restore). A restored (or copied) vault
+  therefore shows Touch ID as *not enrolled* and can be re-enabled **fresh, like new**; restoring or
+  erasing the vault also clears the device-local Keychain item so no orphan key remains. The backup
+  UI notifies the user of this whenever Touch ID is enrolled.
+- **Manage / update from Settings → System → Security (§9):** enable, disable, or **re-enroll
+  ("update")** — re-enrollment issues a fresh `KEK_biometric` and re-wrap, which is also how the user
+  recovers after a fingerprint-set change invalidates the item.
+
+**Trade-off (flagged against the "one encrypted file" rule, §1/§14).** Biometric unlock is the one
+place keystash keeps key material **outside** the single vault file: a device-local wrapping key in
+the OS Keychain (Secure Enclave-protected). The *vault data* is still one encrypted file; this is an
+**opt-in, device-local exception** that is unavoidable for biometric unlock and matches how
+mainstream managers implement it. It stays **fully offline** (LocalAuthentication + Keychain are
+local; no network), honoring offline-first. Users who want zero auxiliary key material simply leave
+Touch ID off (the default).
+
 ---
 
 ## 5. Data Model (single JSON document, encrypted as one blob)
@@ -285,7 +354,7 @@ never migrates another module's slice.
 
 ```jsonc
 {
-  "meta": { "schemaVersion": 6, "appVersion": "0.1", "createdAt": "ISO", "updatedAt": "ISO" },
+  "meta": { "schemaVersion": 8, "appVersion": "0.1", "createdAt": "ISO", "updatedAt": "ISO" },
 
   "settings": {
     "globalHotkey": "Cmd+Shift+Space",       // activate/toggle the search window
@@ -314,7 +383,7 @@ never migrates another module's slice.
     "passwords": [
       { "id": "uuid", "name": "GitHub", "username": "shao", "password": "secret",   // secretFields: ["password"]
         "loginUrl": "https://github.com/login", "recoveryUrl": "https://github.com/password_reset",
-        "notes": "", "category": "Personal", "tags": ["dev"], "updatedAt": "ISO" }
+        "notes": "", "category": "Personal", "updatedAt": "ISO" }
     ],
 
     "commands": [
@@ -329,7 +398,7 @@ never migrates another module's slice.
     "todos": [
       { "id": "uuid", "title": "Renew passport", "notes": "", "done": false,
         "dueAt": "ISO|null", "notifyLeadMinutes": 30, "priority": "normal",  // low|normal|high
-        "category": "Personal", "tags": ["life"], "recurrence": null, "updatedAt": "ISO" }
+        "category": "Personal", "recurrence": null, "updatedAt": "ISO" }
     ],
 
     "subscriptions": [
@@ -365,7 +434,7 @@ so editing a rate re-totals every snapshot. Future calendar/notes modules add th
 ### CORE — ships in the first runnable version
 
 #### F1 — Password vault (module `passwords`)
-- Fields: **name** (memorable label), **username**, **password**, **login URL**, **recovery URL**, optional notes + tags.
+- Fields: **name** (memorable label), **username**, **password**, **login URL**, **recovery URL**, optional notes + **category**.
 - `secretFields: ["password"]` — the password is never sent to the WebView; it renders masked `••••••`.
 - **Copy** pulls the value from Rust, writes it to a concealed pasteboard, schedules auto-clear. An explicit "reveal" toggle shows plaintext temporarily (fetched on demand, not held).
 - Login/recovery URLs are click-to-open.
@@ -390,6 +459,13 @@ so editing a rate re-totals every snapshot. Future calendar/notes modules add th
 - If forgotten, enter the **recovery code** → recovery-path unlock → **force a new master password** (§4.1). Emergency Kit is re-generatable from Settings.
 - **Acceptance:** wrong password/code reveals nothing; recovery flow works end-to-end; regenerating the kit re-wraps the recovery key.
 
+#### Biometric unlock — Touch ID (F12) — *optional, macOS-only, off by default*
+- **Master password + recovery code are the ultimate, authoritative credentials — they always unlock.** On a Touch ID Mac, Touch ID adds a fingerprint shortcut via **unlock path C** (§4.7): a third DEK wrap under a Keychain-held, biometric-gated key. It **never replaces** the password/recovery, enrolling requires an already-unlocked vault, and losing or disabling Touch ID never locks the user out.
+- **Managed from Settings → System → Security (§9):** enable, disable, or **re-enroll ("update")**; disabling removes the Keychain item + the `wrapped_biometric` container field. No encrypted-model schema change (enrolled state is derived in Rust).
+- **Excluded from backups (§11):** `wrapped_biometric` is stripped from every backup, so a restored vault has Touch ID off and can be re-enabled **fresh, like new**; the backup UI notifies the user when Touch ID is enrolled. Restore/erase also clear the device-local Keychain item.
+- Fully offline (LocalAuthentication + Keychain, no network); the biometric wrapping key never enters the WebView (§4.5). Graceful fallback to the password when the sensor is absent, the prompt is denied, or the item was invalidated by a fingerprint-set change.
+- **Acceptance:** enroll while unlocked; Touch ID unlocks the vault; disable/re-enroll from Settings works; master password + recovery always unlock (Touch ID loss never locks out); a backup omits the biometric wrap and shows the notice; after restore Touch ID is off and can be re-enabled; a canceled/failed prompt falls back to the password with no data loss.
+
 #### No database, single file + backup/restore (F8) — see §11.
 
 #### Configurable global hotkey (F9)
@@ -402,7 +478,7 @@ so editing a rate re-totals every snapshot. Future calendar/notes modules add th
 ### OPTIONAL MODULES — spec'd now, built after the MVP line
 
 #### M1 — Todos (module `todos`) — *new in v2*
-- Simple checklist: **title**, optional notes, **done** flag, optional **due date/time**, **priority** (low/normal/high), tags, and a per-item **reminder lead** (minutes before due).
+- Simple checklist: **title**, optional notes, **done** flag, optional **due date/time**, **priority** (low/normal/high), **category**, and a per-item **reminder lead** (minutes before due).
 - Optional lightweight **recurrence** (`none` | `daily` | `weekly`) — keep minimal; no full RRULE.
 - **Notifications** fire at `dueAt − notifyLeadMinutes` via the shared scheduler (§8). Completing or snoozing a todo from the notification is a nice-to-have.
 - Searchable/toggle-done from the command bar (scope `t `).
@@ -475,7 +551,7 @@ Layout: **left sidebar + right content pane.**
 - **When locked:** opening the Dashboard shows the same master-password unlock form as the launcher — users can unlock in place without switching to the command bar.
 - **Left sidebar (modules):** one row per *enabled* module — icon + title + item count — rendered straight from the registry, plus pinned **Settings**, **Help** (`⌘/`), and **Lock** rows. The bottom footer shows the current app version (`keystash v0.1`) so the user can confirm which build is running after a manual upgrade. Navigate with `↑/↓` or `Cmd+1..9`; the selection persists across opens.
 - **Right pane (all content):** renders the selected module's **`ListView`** — the full list/table of its items (all passwords; all commands grouped by category with title, description, and highlighted snippet per card; the todo list; all subscriptions; the finance snapshot table + trend chart). Includes a per-module filter box, **sortable table headers** (passwords, todos, subscriptions, finance), and **New / Edit / Delete**. Row **View** opens that module's `DetailView` in a dismissible two-column modal (Esc + click-away); edit still uses the full-pane `EditView`. Table columns use fixed proportional widths so headers and common values (e.g. email usernames) stay readable without manual resizing.
-- **Secrets stay protected:** the passwords `ListView` shows metadata only (name, username, tags) with masked passwords; clicking the mask reveals via Rust `reveal_secret` (native dialog — plaintext never enters the WebView); copy buttons in the password column and actions column route through `copy_secret` (§4.5).
+- **Secrets stay protected:** the passwords `ListView` shows metadata only (name, username, category) with masked passwords; clicking the mask reveals via Rust `reveal_secret` (native dialog — plaintext never enters the WebView); copy buttons in the password column and actions column route through `copy_secret` (§4.5).
 - **Sidebar footer:** Settings, **Help** (`⌘/` opens the keyboard-shortcut sheet), and Lock sit below the module list; the floating help trigger is not shown on the Dashboard (the command bar keeps its own).
 - **Registry-driven, so it scales:** a newly added module appears in the sidebar automatically via its `ListView`; a disabled module disappears but keeps its data (§3.4). No dashboard code changes per feature.
 - **Empty states:** every module ships a `ListView`; an empty module shows a friendly empty state + **New**.
@@ -505,10 +581,15 @@ never) + lock-on-blur; clipboard auto-clear
 seconds; theme + accent; result limit; **category/tag option lists** (editable in Settings — one
 label per line; used by item edit forms); **per-module enable toggles + scope prefixes + module
 settings** (command placeholder/copy mode; todo default lead; subscription default lead days;
-finance base currency + FX table); Emergency Kit regeneration.
+finance base currency + FX table); Emergency Kit regeneration; **Touch ID / biometric unlock**
+enable / disable / re-enroll (§4.7 — device-local; state derived in Rust, not stored in the encrypted model).
 
-Settings is itself rendered from the registry: a **Modules** tab lists every module with an
-enable toggle, and each enabled module contributes its own `SettingsPanel`.
+The default Settings menu stays focused on **Modules**, **Hotkeys**, **Categories**, and **Tags**.
+Advanced app/runtime controls — security (incl. Touch ID / biometric unlock, §4.7), appearance,
+backup/restore, and Emergency Kit — live in a
+secondary **System** menu under Settings. Settings is itself rendered from the registry: the
+**Modules** section lists every module with an enable toggle, and each enabled module contributes its
+own `SettingsPanel`.
 
 ---
 
@@ -520,14 +601,14 @@ enable toggle, and each enabled module contributes its own `SettingsPanel`.
 - **Aesthetic:** minimal, high-contrast, generous spacing, one accent color, system light/dark.
 - **Component system:** UI built from **shadcn/ui** primitives (Radix + Tailwind, copied into `components/ui/`, à la carte) with **Lucide** icons. Light/dark + accent map to shadcn's CSS-variable tokens, so theming is one token swap (§2.1).
 - **Version visibility:** the Dashboard left-sidebar footer shows the current app version from `APP_VERSION`, which is injected from `package.json.version`, for quick upgrade/debug confirmation.
-- **Onboarding (first run):** create master password → **show Emergency Kit (recovery code)** → set global hotkey → done. No security questions.
+- **Onboarding (first run):** create master password → **show Emergency Kit (recovery code)** → set global hotkey → done. No security questions. *(Touch ID is optional and enabled later from Settings → System → Security, §4.7 — not part of first-run setup; it may be offered once after the first successful unlock.)*
 
 ---
 
 ## 11. Backup, Restore & Upgrades
 
-- **Backup** (`Cmd+B` / menu): choose a destination via file dialog; write a copy of the encrypted container. Already AEAD-encrypted → safe anywhere. Suggested name: `keystash-v<appVersion>-<YYYY-MM-DD-HHmm>.dat` (example: `keystash-v0.1-2026-07-07-1530.dat`).
-- **Restore** (menu): choose a backup → enter master password (or recovery code) → the app **attempts full decryption**; only on success does it proceed. Prominent warning: _"Restoring will permanently erase all current data. This cannot be undone."_ Optionally auto-create a `pre-restore-<timestamp>.dat` of the current vault first, then atomically replace the live file and reload.
+- **Backup** (`Cmd+B` / menu): choose a destination via file dialog; write a copy of the encrypted container. Already AEAD-encrypted → safe anywhere. Suggested name: `keystash-v<appVersion>-<YYYY-MM-DD-HHmm>.dat` (example: `keystash-v0.1-2026-07-07-1530.dat`). The copy **omits the device-local Touch ID wrap** (`wrapped_biometric`, §4.7); when Touch ID is enrolled the backup UI shows a **notice** that biometric unlock isn't included and must be re-enabled after restoring on the target Mac.
+- **Restore** (menu): choose a backup → enter master password (or recovery code) → the app **attempts full decryption**; only on success does it proceed. Prominent warning: _"Restoring will permanently erase all current data. This cannot be undone."_ Optionally auto-create a `pre-restore-<timestamp>.dat` of the current vault first, then atomically replace the live file and reload. Restore also **clears the device-local Touch ID Keychain item**; because backups carry no biometric wrap (§4.7), the restored vault has Touch ID **off** — re-enable it in Settings → System → Security.
 - **Atomicity:** write to a temp file, `fsync`, then rename over the live vault so a crash mid-write can't corrupt data.
 - **Version in backups:** backups are normal vault containers. The clear container header stores `container.version`; the encrypted vault body stores `meta.appVersion` and `meta.schemaVersion`, so the backup itself knows which app/data format wrote it once unlocked.
 
@@ -588,6 +669,7 @@ The guide shown at upgrade time is the union of the change lists from the vault'
 - Release tags are `v<main>.<minor>` (for example `v0.1`, `v1.2`). After shipping and tagging a release, immediately bump the working app version in `package.json` to the next release (for example `v1.0` shipped → working version `1.1`).
 - The latest `v*` tag is the last shipped release baseline. All vault-format-affecting changes after that tag are part of the current `package.json.version` release and must either add/update a migration guide entry or explicitly state why no migration is needed.
 - Never repurpose an existing key in place. To change shape, add a migration step (added / renamed / removed / transformed) and bump `APP_SCHEMA_VERSION` **in the same release**.
+- **Additive, optional *container* fields** that older builds can safely ignore (e.g. `wrapped_biometric`, §4.7) do **not** bump `container.version` and need **no migration step** — they carry no data to transform and cause no loss. They must still be documented here and confirmed by `$verify` as a deliberate, non-breaking addition. Anything that changes how an *existing* field is read (or that an older build cannot ignore) **does** bump `container.version`, and older builds then refuse it (§11.2 step 1).
 - Each step owns **both** its transform *and* its change list — the guide is generated from these, so the docs and the behavior can't drift.
 - Migrations are pure, ordered, forward-only, and unit-tested against old-schema fixtures; a failed step leaves the original file untouched.
 
@@ -614,9 +696,9 @@ interface Migration {
 
 ## 12. macOS Permissions & Packaging
 
-- **Permissions:** Accessibility (global hotkey — with graceful tray fallback if denied), Notifications.
+- **Permissions:** Accessibility (global hotkey — with graceful tray fallback if denied), Notifications, and — when Touch ID is enabled — Biometric unlock via LocalAuthentication + a biometric-gated Keychain item (§4.7; optional, off by default, graceful fallback to the master password if the sensor is absent or the prompt is denied).
 - **Activation policy:** tray/menu-bar app; optionally `Accessory` (no Dock icon) so it feels like a launcher.
-- **Signing & notarization:** Developer ID sign + notarize so Gatekeeper allows it and permission prompts behave well. (Fine to defer during early dev with an ad-hoc/self-signed build; do it before "daily driver" use.)
+- **Signing & notarization:** Developer ID sign + notarize so Gatekeeper allows it and permission prompts behave well. (Fine to defer during early dev with an ad-hoc/self-signed build; do it before "daily driver" use.) Touch ID additionally needs a **stable code-signing identity**: the biometric Keychain item is bound to the app's signature, so re-signing with a different identity (or an ad-hoc rebuild) can invalidate it → re-enroll (the master password is unaffected).
 - **Auto-update (optional):** Tauri updater plugin — but it needs network; keep it opt-in and off by default to honor offline-first.
 
 ---
@@ -643,6 +725,7 @@ modules round-trip their data to JS freely.
 - **Concealed clipboard needs native Rust** — the Tauri plugin can't set `ConcealedType`; budget a small objc2/cocoa shim. Verify it works with your clipboard-history tool of choice.
 - **Clipboard capture by Handoff / third-party managers** — mitigations reduce but don't eliminate; document honestly in-app.
 - **Recovery-code custody** — the code unlocks everything; the Emergency Kit must not be stored beside the vault. Consider a minimum-friction "have you saved it?" confirm at setup.
+- **Biometric unlock key custody (§4.7)** — enabling Touch ID stores a device-local wrapping key in the macOS Keychain, the one exception to "one encrypted file." It's opt-in and offline, but (a) ties unlock to anyone who can satisfy Touch ID while the macOS session is unlocked, (b) is invalidated by a fingerprint-set change or a code-signing-identity change (→ re-enroll; the password still works), and (c) is **excluded from every backup** and cleared on restore/erase, so it never travels with the vault — a restored vault re-enrolls Touch ID from scratch. Keep it off by default and documented honestly in-app.
 - **Argon2 params on old Intel Macs** — 256 MiB / 3 iters may make unlock sluggish; expose or auto-calibrate.
 - **FX rates for net worth** — manual table (v1) vs online fetch (breaks offline). Manual for v1.
 - **Single file + large data** — v1 is text-only; attachments/large finance history would bloat the single blob (revisit if needed).
@@ -656,7 +739,7 @@ modules round-trip their data to JS freely.
 ## 15. Appendix — Library quick-reference
 
 - **Tauri plugins:** `global-shortcut`, `notification`, `fs`, `dialog`, `single-instance` (official, v2). Plus a small custom Rust command for concealed-clipboard writes.
-- **Rust crates:** `argon2`, `chacha20poly1305`, `hkdf`, `sha2`, `getrandom`, `zeroize`, `bip39` (12-word recovery), `base64`, `serde` / `serde_json`; `objc2` (clipboard shim, Phase 3). *(`getrandom` is used directly for keys/nonces/salts instead of `rand`; auto-lock uses a std background thread, so no direct `tokio`.)*
+- **Rust crates:** `argon2`, `chacha20poly1305`, `hkdf`, `sha2`, `getrandom`, `zeroize`, `bip39` (12-word recovery), `base64`, `serde` / `serde_json`; `objc2` (clipboard shim, Phase 3); `security-framework` + `objc2-local-authentication` (Touch ID biometric unlock — Keychain `SecAccessControl` + `LAContext`, macOS-only, Phase 13, §4.7). *(`getrandom` is used directly for keys/nonces/salts instead of `rand`; auto-lock uses a std background thread, so no direct `tokio`.)*
 - **Frontend:** `react`, `typescript`, `tailwindcss`, `zustand`, `fuse.js`, `shiki`, `lucide-react`, **shadcn/ui** (`cmdk`, `@radix-ui/*`, `class-variance-authority`, `clsx`, `tailwind-merge`, `tailwindcss-animate`, `sonner`); **`motion`** (Motion/React — calm press/presence animations, respects `prefers-reduced-motion`); `uplot` (Finance module only).
 - **Testing:** `vitest`, `@testing-library/react`, `@testing-library/user-event`, `jsdom` (frontend); `cargo test` + `proptest` (Rust). *(Future E2E: `tauri-driver` + `webdriverio`.)*
 - **Dropped from v1 (re-add with a Notes module):** `codemirror`/`milkdown`, `react-markdown`, `remark-gfm`, `rehype-sanitize`.

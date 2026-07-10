@@ -628,11 +628,10 @@ describe("vault store", () => {
               password: "__KEYSTASH_REDACTED_SECRET__",
               loginUrl: "",
               recoveryUrl: "",
-              notes: "",
-              category: "Personal",
-              tags: [],
-              updatedAt: "2026-07-07T00:00:00.000Z",
-            },
+        notes: "",
+        category: "Personal",
+        updatedAt: "2026-07-07T00:00:00.000Z",
+      },
           ],
         },
       }),
@@ -648,7 +647,6 @@ describe("vault store", () => {
       recoveryUrl: "",
       notes: "",
       category: "Personal",
-      tags: [],
       updatedAt: "2026-07-07T00:00:00.000Z",
     });
 
@@ -691,7 +689,7 @@ describe("vault store", () => {
                 loginUrl: "",
                 recoveryUrl: "",
                 notes: "",
-                tags: [],
+                category: "Personal",
                 updatedAt: "2026-07-07T00:00:00.000Z",
               },
             ],
@@ -709,7 +707,6 @@ describe("vault store", () => {
       recoveryUrl: "",
       notes: "",
       category: "Personal",
-      tags: [],
       updatedAt: "2026-07-07T00:00:00.000Z",
     });
 
@@ -732,11 +729,10 @@ describe("vault store", () => {
               password: "__KEYSTASH_REDACTED_SECRET__",
               loginUrl: "",
               recoveryUrl: "",
-              notes: "",
-              category: "Personal",
-              tags: [],
-              updatedAt: "2026-07-07T00:00:00.000Z",
-            },
+        notes: "",
+        category: "Personal",
+        updatedAt: "2026-07-07T00:00:00.000Z",
+      },
           ],
         },
       }),
@@ -803,7 +799,6 @@ describe("vault store", () => {
     notifyLeadMinutes: 30,
     priority: "normal",
     category: "Personal",
-    tags: [],
     recurrence: "none",
     updatedAt: "2026-07-07T00:00:00.000Z",
   };
@@ -819,10 +814,9 @@ describe("vault store", () => {
     nextDueDate: "2026-07-10T00:00:00.000Z",
     autoRenew: true,
     notifyLeadDays: 3,
-    notes: "",
-    category: "Personal",
-    tags: [],
-    updatedAt: "2026-07-07T00:00:00.000Z",
+        notes: "",
+        category: "Personal",
+        updatedAt: "2026-07-07T00:00:00.000Z",
   };
 
   it("saveCommand adds a command and persists it", async () => {

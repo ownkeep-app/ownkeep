@@ -71,6 +71,8 @@ describe("migration registry", () => {
       [3, 4],
       [4, 5],
       [5, 6],
+      [6, 7],
+      [7, 8],
     ]);
   });
 
@@ -105,7 +107,6 @@ describe("migration registry", () => {
         recoveryUrl: "",
         notes: "",
         category: "Personal",
-        tags: [],
         updatedAt: NOW,
       },
     ]);
@@ -149,7 +150,6 @@ describe("migration registry", () => {
         recoveryUrl: "",
         notes: "",
         category: "Personal",
-        tags: ["dev"],
         updatedAt: NOW,
       },
     ]);
@@ -224,7 +224,6 @@ describe("migration registry", () => {
         notifyLeadMinutes: 30,
         priority: "high",
         category: "Personal",
-        tags: ["life"],
         recurrence: "none",
         updatedAt: NOW,
       },
@@ -237,7 +236,6 @@ describe("migration registry", () => {
         notifyLeadMinutes: 5,
         priority: "low",
         category: "Personal",
-        tags: [],
         recurrence: "weekly",
         updatedAt: "2026-07-08T00:00:00.000Z",
       },
@@ -250,7 +248,6 @@ describe("migration registry", () => {
         notifyLeadMinutes: 30,
         priority: "normal",
         category: "Personal",
-        tags: [],
         recurrence: "none",
         updatedAt: NOW,
       },
