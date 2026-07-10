@@ -1,8 +1,5 @@
 import type { IndexEntry } from "@/modules/types";
-import {
-  defaultCategory,
-  type TaxonomySettings,
-} from "@/vault/taxonomy";
+import { defaultCategory, type TaxonomySettings } from "@/vault/taxonomy";
 import {
   PASSWORDS_MODULE_ID,
   type PasswordEntry,

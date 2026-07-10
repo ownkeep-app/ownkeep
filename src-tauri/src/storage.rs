@@ -61,10 +61,13 @@ pub fn backup_vault_file(path: &Path, file_name: &str) -> Result<PathBuf> {
     backup_vault_to_path(path, &dir.join(file_name))
 }
 
-/// Copy the encrypted vault file to an explicit backup destination and fsync the copy.
+/// Copy the encrypted vault to an explicit backup destination (fsynced), stripping the device-local
+/// Touch ID wrap. Biometric enrollment is per-device and never travels in a backup (spec §4.7), so a
+/// restored vault starts with Touch ID off and is re-enrolled fresh.
 pub fn backup_vault_to_path(path: &Path, backup_path: &Path) -> Result<PathBuf> {
-    let bytes = fs::read(path)?;
-    write_atomic(backup_path, &bytes)?;
+    let mut container = read_container(path)?;
+    container.wrapped_biometric = None;
+    write_atomic(backup_path, &container.to_bytes()?)?;
     if let Ok(file) = File::open(backup_path) {
         let _ = file.sync_all();
     }
@@ -162,6 +165,7 @@ mod tests {
                 nonce: crate::container::encode_bytes(&[5u8; NONCE_LEN]),
                 ct: crate::container::encode_bytes(&[6u8; 48]),
             },
+            wrapped_biometric: None,
             vault: SealedBlob {
                 nonce: crate::container::encode_bytes(&[7u8; NONCE_LEN]),
                 ct: crate::container::encode_bytes(&[8u8; 64]),
@@ -212,12 +216,12 @@ mod tests {
     fn backup_copies_the_encrypted_vault_file() {
         let dir = unique_temp_dir();
         let path = dir.join(VAULT_FILE);
-        fs::write(&path, b"encrypted bytes").unwrap();
+        write_container(&path, &sample()).unwrap();
 
         let backup = backup_vault_file(&path, "keystash-v0.1-20260707-1530.dat").unwrap();
 
         assert_eq!(backup.parent(), Some(dir.as_path()));
-        assert_eq!(fs::read(backup).unwrap(), b"encrypted bytes");
+        assert_eq!(read_container(&backup).unwrap(), sample());
         fs::remove_dir_all(&dir).ok();
     }
 
@@ -226,12 +230,12 @@ mod tests {
         let dir = unique_temp_dir();
         let path = dir.join(VAULT_FILE);
         let destination = dir.join("chosen").join("keystash-v0.1-20260707-1530.dat");
-        fs::write(&path, b"encrypted bytes").unwrap();
+        write_container(&path, &sample()).unwrap();
 
         let backup = backup_vault_to_path(&path, &destination).unwrap();
 
         assert_eq!(backup, destination);
-        assert_eq!(fs::read(backup).unwrap(), b"encrypted bytes");
+        assert_eq!(read_container(&backup).unwrap(), sample());
         fs::remove_dir_all(&dir).ok();
     }
 
@@ -266,11 +270,34 @@ mod tests {
 
         let backup = backup_vault_file(&path, "keystash-v0.1-20260707-1530.dat").unwrap();
 
-        // A backup is a byte copy of the encrypted container, so it round-trips unchanged —
-        // `container.version` (and the sealed `meta.appVersion`/`meta.schemaVersion`) are preserved.
+        // A backup preserves the encrypted container (minus the device-local Touch ID wrap, §4.7) —
+        // `container.version` and the sealed `meta.appVersion`/`meta.schemaVersion` are preserved.
         let restored = read_container(&backup).unwrap();
         assert_eq!(restored.version, VERSION);
         assert_eq!(restored, sample());
+        fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
+    fn backup_strips_the_biometric_wrap() {
+        let dir = unique_temp_dir();
+        let path = dir.join(VAULT_FILE);
+        let mut container = sample();
+        container.wrapped_biometric = Some(SealedBlob {
+            nonce: crate::container::encode_bytes(&[9u8; NONCE_LEN]),
+            ct: crate::container::encode_bytes(&[10u8; 48]),
+        });
+        write_container(&path, &container).unwrap();
+
+        let backup = backup_vault_file(&path, "keystash-v0.1-20260707-1530.dat").unwrap();
+        let restored = read_container(&backup).unwrap();
+
+        // Touch ID enrollment never travels in a backup (§4.7)...
+        assert_eq!(restored.wrapped_biometric, None);
+        // ...but everything else is intact, so password/recovery still restore it.
+        let mut expected = container.clone();
+        expected.wrapped_biometric = None;
+        assert_eq!(restored, expected);
         fs::remove_dir_all(&dir).ok();
     }
 

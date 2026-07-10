@@ -19,7 +19,11 @@ import {
   type ModuleDefaults,
   type VaultModel,
 } from "./model";
-import { DEFAULT_CATEGORY, defaultCategoryOptions, defaultTagOptions } from "./taxonomy";
+import {
+  DEFAULT_CATEGORY,
+  defaultCategoryOptions,
+  defaultTagOptions,
+} from "./taxonomy";
 
 export const OLD_APP_MESSAGE =
   "You are using an older version of keystash. Please upgrade keystash to open this vault.";
@@ -260,7 +264,8 @@ const schemaFiveToSix: Migration = {
             index,
           );
           const category =
-            typeof normalized.category === "string" && normalized.category.trim()
+            typeof normalized.category === "string" &&
+            normalized.category.trim()
               ? normalized.category.trim()
               : DEFAULT_CATEGORY;
           return { ...normalized, category };
@@ -274,7 +279,8 @@ const schemaFiveToSix: Migration = {
             index,
           );
           const category =
-            typeof normalized.category === "string" && normalized.category.trim()
+            typeof normalized.category === "string" &&
+            normalized.category.trim()
               ? normalized.category.trim()
               : DEFAULT_CATEGORY;
           return { ...normalized, category };
@@ -288,7 +294,8 @@ const schemaFiveToSix: Migration = {
             index,
           );
           const category =
-            typeof normalized.category === "string" && normalized.category.trim()
+            typeof normalized.category === "string" &&
+            normalized.category.trim()
               ? normalized.category.trim()
               : DEFAULT_CATEGORY;
           const tags = Array.isArray(normalized.tags)

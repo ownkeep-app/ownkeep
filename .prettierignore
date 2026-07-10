@@ -1,5 +1,6 @@
 coverage
 dist
+.claude/worktrees
 src-tauri/gen
 src-tauri/target
 pnpm-lock.yaml

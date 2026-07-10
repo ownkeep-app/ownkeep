@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -277,6 +277,49 @@ describe("SubscriptionsListView", () => {
     );
 
     await user.click(screen.getByRole("button", { name: /delete linode/i }));
+    expect(deleteSubscription).toHaveBeenCalledWith("sub-1");
+  });
+
+  it("runs detail advance, edit, close, and delete actions", async () => {
+    const user = userEvent.setup();
+    render(<SubscriptionsListView items={[item]} />);
+
+    await user.click(screen.getByRole("button", { name: /view linode/i }));
+    let dialog = screen.getByRole("dialog", { name: "Linode" });
+    await user.click(
+      within(dialog).getByRole("button", { name: /advance due date/i }),
+    );
+    expect(saveSubscription).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: "sub-1",
+        nextDueDate: "2026-08-10T00:00:00.000Z",
+      }),
+    );
+
+    await user.click(within(dialog).getByRole("button", { name: "Edit" }));
+    expect(
+      screen.getByRole("heading", { name: /edit subscription/i }),
+    ).toBeInTheDocument();
+    const cancelButtons = screen.getAllByRole("button", { name: "Cancel" });
+    await user.click(cancelButtons[cancelButtons.length - 1]);
+    expect(
+      screen.getByRole("heading", { name: "Subscriptions" }),
+    ).toBeVisible();
+
+    await user.click(screen.getByRole("button", { name: /view linode/i }));
+    dialog = screen.getByRole("dialog", { name: "Linode" });
+    await user.click(
+      within(dialog).getByRole("button", { name: /close details/i }),
+    );
+    await waitFor(() =>
+      expect(
+        screen.queryByRole("dialog", { name: "Linode" }),
+      ).not.toBeInTheDocument(),
+    );
+
+    await user.click(screen.getByRole("button", { name: /view linode/i }));
+    dialog = screen.getByRole("dialog", { name: "Linode" });
+    await user.click(within(dialog).getByRole("button", { name: "Delete" }));
     expect(deleteSubscription).toHaveBeenCalledWith("sub-1");
   });
 

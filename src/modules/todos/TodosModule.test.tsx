@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -179,6 +179,37 @@ describe("TodosListView", () => {
 
     render(<TodoDetailView item={{ ...item, done: true }} />);
     expect(screen.getAllByText("Done").length).toBeGreaterThan(0);
+  });
+
+  it("runs detail edit, close, and delete actions", async () => {
+    const user = userEvent.setup();
+    render(<TodosListView items={[item]} />);
+
+    await user.click(screen.getByRole("button", { name: /view renew/i }));
+    let dialog = screen.getByRole("dialog", { name: "Renew passport" });
+    await user.click(within(dialog).getByRole("button", { name: "Edit" }));
+    expect(
+      screen.getByRole("heading", { name: /edit todo/i }),
+    ).toBeInTheDocument();
+    const cancelButtons = screen.getAllByRole("button", { name: "Cancel" });
+    await user.click(cancelButtons[cancelButtons.length - 1]);
+    expect(screen.getByRole("heading", { name: "Todos" })).toBeVisible();
+
+    await user.click(screen.getByRole("button", { name: /view renew/i }));
+    dialog = screen.getByRole("dialog", { name: "Renew passport" });
+    await user.click(
+      within(dialog).getByRole("button", { name: /close details/i }),
+    );
+    await waitFor(() =>
+      expect(
+        screen.queryByRole("dialog", { name: "Renew passport" }),
+      ).not.toBeInTheDocument(),
+    );
+
+    await user.click(screen.getByRole("button", { name: /view renew/i }));
+    dialog = screen.getByRole("dialog", { name: "Renew passport" });
+    await user.click(within(dialog).getByRole("button", { name: "Delete" }));
+    expect(deleteTodo).toHaveBeenCalledWith("todo-1");
   });
 
   it("creates a todo entry from the edit form", async () => {

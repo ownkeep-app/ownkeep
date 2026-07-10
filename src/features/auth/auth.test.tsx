@@ -28,6 +28,8 @@ vi.mock("@/vault/api", () => ({
     saveVault: vi.fn(async () => {}),
     unlock: vi.fn(async () => {}),
     unlockRecovery: vi.fn(async () => {}),
+    unlockBiometric: vi.fn(async () => {}),
+    biometricStatus: vi.fn(async () => ({ available: false, enrolled: false })),
     getVault: vi.fn(async () => "{}"),
     isUnlocked: vi.fn(async () => false),
     vaultExists: vi.fn(async () => false),
@@ -210,6 +212,41 @@ describe("LockScreen", () => {
     await user.click(screen.getByRole("button", { name: /^unlock$/i }));
 
     expect(await screen.findByText(/recovery code didn't work/i)).toBeVisible();
+  });
+
+  it("offers Touch ID when enrolled and unlocks with it (§4.7)", async () => {
+    api.biometricStatus.mockResolvedValue({ available: true, enrolled: true });
+    const user = userEvent.setup();
+    render(<LockScreen />);
+
+    const touchId = await screen.findByRole("button", {
+      name: /unlock with touch id/i,
+    });
+    await user.click(touchId);
+    expect(api.unlockBiometric).toHaveBeenCalled();
+  });
+
+  it("hides the Touch ID button when the vault is not enrolled", async () => {
+    api.biometricStatus.mockResolvedValue({ available: true, enrolled: false });
+    render(<LockScreen />);
+
+    await waitFor(() => expect(api.biometricStatus).toHaveBeenCalled());
+    expect(
+      screen.queryByRole("button", { name: /unlock with touch id/i }),
+    ).toBeNull();
+  });
+
+  it("falls back to the master password when Touch ID fails", async () => {
+    api.biometricStatus.mockResolvedValue({ available: true, enrolled: true });
+    api.unlockBiometric.mockRejectedValueOnce(new Error("canceled"));
+    const user = userEvent.setup();
+    render(<LockScreen />);
+
+    await user.click(
+      await screen.findByRole("button", { name: /unlock with touch id/i }),
+    );
+    expect(await screen.findByText(/touch id didn't work/i)).toBeVisible();
+    expect(screen.getByLabelText("Master password")).toBeInTheDocument();
   });
 });
 

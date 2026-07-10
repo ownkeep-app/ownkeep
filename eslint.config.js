@@ -5,7 +5,7 @@ import reactRefresh from "eslint-plugin-react-refresh";
 import tseslint from "typescript-eslint";
 
 export default tseslint.config(
-  { ignores: ["coverage", "dist", "src-tauri/target"] },
+  { ignores: ["coverage", "dist", "src-tauri/target", ".claude/worktrees/**"] },
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {
@@ -23,6 +23,12 @@ export default tseslint.config(
       "react-refresh/only-export-components": [
         "warn",
         { allowConstantExport: true },
+      ],
+      // Honor the `_`-prefix "intentionally unused" convention used across the codebase
+      // (e.g. destructuring-to-omit a key: `const { tags: _tags, ...rest } = x`).
+      "@typescript-eslint/no-unused-vars": [
+        "error",
+        { argsIgnorePattern: "^_", varsIgnorePattern: "^_" },
       ],
     },
   },

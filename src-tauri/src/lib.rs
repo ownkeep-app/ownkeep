@@ -1,3 +1,4 @@
+mod biometric;
 mod clipboard;
 mod commands;
 mod container;
@@ -170,6 +171,11 @@ pub fn run() {
             commands::set_auto_lock,
             commands::change_master,
             commands::regenerate_recovery,
+            commands::biometric_status,
+            commands::enable_biometric_unlock,
+            commands::disable_biometric_unlock,
+            commands::reenroll_biometric_unlock,
+            commands::unlock_biometric,
             commands::get_vault,
             commands::save_vault,
             commands::copy_secret,

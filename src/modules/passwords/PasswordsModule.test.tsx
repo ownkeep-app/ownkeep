@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -222,6 +222,45 @@ describe("PasswordsListView", () => {
 
     expect(revealSecret).toHaveBeenCalledWith("github", "password");
     expect(screen.queryByText("super-secret-value")).not.toBeInTheDocument();
+  });
+
+  it("runs detail copy, edit, close, and delete actions", async () => {
+    const user = userEvent.setup();
+    render(<PasswordsListView items={[item]} />);
+
+    await user.click(screen.getByRole("button", { name: /view github/i }));
+    let dialog = screen.getByRole("dialog", { name: "GitHub" });
+    await user.click(
+      within(dialog).getByRole("button", {
+        name: /copy password for github/i,
+      }),
+    );
+    expect(copySecret).toHaveBeenCalledWith("github", "password");
+
+    await user.click(within(dialog).getByRole("button", { name: "Edit" }));
+    expect(
+      screen.getByRole("heading", { name: /edit password/i }),
+    ).toBeInTheDocument();
+    await user.click(
+      screen.getByRole("button", { name: /cancel password edit/i }),
+    );
+    expect(screen.getByRole("heading", { name: "Passwords" })).toBeVisible();
+
+    await user.click(screen.getByRole("button", { name: /view github/i }));
+    dialog = screen.getByRole("dialog", { name: "GitHub" });
+    await user.click(
+      within(dialog).getByRole("button", { name: /close details/i }),
+    );
+    await waitFor(() =>
+      expect(
+        screen.queryByRole("dialog", { name: "GitHub" }),
+      ).not.toBeInTheDocument(),
+    );
+
+    await user.click(screen.getByRole("button", { name: /view github/i }));
+    dialog = screen.getByRole("dialog", { name: "GitHub" });
+    await user.click(within(dialog).getByRole("button", { name: "Delete" }));
+    expect(deletePassword).toHaveBeenCalledWith("github");
   });
 
   it("toasts an error when reveal fails", async () => {

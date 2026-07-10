@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -162,6 +162,31 @@ describe("FinanceListView", () => {
     await user.click(
       screen.getByRole("button", { name: /delete snapshot jul/i }),
     );
+    expect(deleteSnapshot).toHaveBeenCalledWith("s2");
+  });
+
+  it("runs detail close and delete actions", async () => {
+    const user = userEvent.setup();
+    render(<FinanceListView items={snapshots} />);
+
+    await user.click(
+      screen.getByRole("button", { name: /view snapshot jul 1, 2026/i }),
+    );
+    let dialog = screen.getByRole("dialog", { name: /jul 1, 2026/i });
+    await user.click(
+      within(dialog).getByRole("button", { name: /close details/i }),
+    );
+    await waitFor(() =>
+      expect(
+        screen.queryByRole("dialog", { name: /jul 1, 2026/i }),
+      ).not.toBeInTheDocument(),
+    );
+
+    await user.click(
+      screen.getByRole("button", { name: /view snapshot jul 1, 2026/i }),
+    );
+    dialog = screen.getByRole("dialog", { name: /jul 1, 2026/i });
+    await user.click(within(dialog).getByRole("button", { name: "Delete" }));
     expect(deleteSnapshot).toHaveBeenCalledWith("s2");
   });
 

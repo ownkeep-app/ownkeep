@@ -145,7 +145,9 @@ function parseTags(tags: readonly string[]): string[] {
   return normalizeTags(tags);
 }
 
-export function emptyCommandForm(settings?: TaxonomySettings): CommandFormInput {
+export function emptyCommandForm(
+  settings?: TaxonomySettings,
+): CommandFormInput {
   return {
     category: defaultCategory(settings),
     title: "",

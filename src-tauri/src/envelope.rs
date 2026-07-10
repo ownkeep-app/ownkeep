@@ -54,6 +54,7 @@ pub fn create_vault(
         salt_recovery: container::encode_bytes(&salt_recovery),
         wrapped_master: SealedBlob::from_sealed(&wrapped_master),
         wrapped_recovery: SealedBlob::from_sealed(&wrapped_recovery),
+        wrapped_biometric: None,
         vault: SealedBlob::from_sealed(&vault),
     };
 
@@ -124,6 +125,32 @@ pub fn regenerate_recovery(container: &mut Container, dek: &Key) -> Result<Emerg
     container.salt_recovery = container::encode_bytes(&salt_recovery);
     container.wrapped_recovery = SealedBlob::from_sealed(&wrapped);
     Ok(EmergencyKit::new(&code.phrase))
+}
+
+/// Wrap the DEK a third time under a biometric KEK (held in the OS Keychain, spec §4.7) and store it
+/// as the optional `wrapped_biometric`. Requires the caller to already hold the DEK (an unlocked
+/// vault). The DEK and both existing wraps are unchanged, so unlock paths A/B keep working.
+pub fn wrap_biometric(container: &mut Container, dek: &Key, kek_biometric: &Key) -> Result<()> {
+    let wrapped = crypto::seal(kek_biometric, dek.as_slice())?;
+    container.wrapped_biometric = Some(SealedBlob::from_sealed(&wrapped));
+    Ok(())
+}
+
+/// Unlock path C (spec §4.7): unwrap the DEK with the biometric KEK the Keychain released after a
+/// Touch ID prompt. Errors with [`Error::BiometricNotEnrolled`] if the vault has no biometric wrap.
+pub fn unlock_with_biometric(container: &Container, kek_biometric: &Key) -> Result<Key> {
+    let wrapped = container
+        .wrapped_biometric
+        .as_ref()
+        .ok_or(Error::BiometricNotEnrolled)?;
+    unwrap_dek(kek_biometric, &wrapped.to_sealed()?)
+}
+
+/// Disable biometric unlock by dropping the `wrapped_biometric` wrap. The Keychain key itself is
+/// deleted separately by the biometric shim. The DEK and the master/recovery wraps are untouched, so
+/// the vault still unlocks via password or recovery code.
+pub fn clear_biometric(container: &mut Container) {
+    container.wrapped_biometric = None;
 }
 
 /// Unwrap a 32-byte DEK from a sealed blob, copying it straight into a zeroizing buffer.
@@ -278,6 +305,64 @@ mod tests {
         let dek_new = unlock_with_recovery(&created.container, &new_kit.recovery_code).unwrap();
         assert_eq!(dek[..], dek_new[..]);
         assert!(unlock_with_password(&created.container, "correct horse battery").is_ok());
+    }
+
+    #[test]
+    fn biometric_wrap_recovers_the_same_dek() {
+        let mut created = create();
+        let dek = unlock_with_password(&created.container, "correct horse battery").unwrap();
+        let kek = crypto::random_key().unwrap();
+        wrap_biometric(&mut created.container, &dek, &kek).unwrap();
+        let by_bio = unlock_with_biometric(&created.container, &kek).unwrap();
+        assert_eq!(dek[..], by_bio[..]);
+        assert_eq!(
+            &decrypt_vault(&created.container, &by_bio).unwrap()[..],
+            PLAINTEXT
+        );
+    }
+
+    #[test]
+    fn biometric_unlock_requires_enrollment() {
+        let created = create();
+        let kek = crypto::random_key().unwrap();
+        assert!(matches!(
+            unlock_with_biometric(&created.container, &kek),
+            Err(Error::BiometricNotEnrolled)
+        ));
+    }
+
+    #[test]
+    fn wrong_biometric_kek_is_rejected() {
+        let mut created = create();
+        let dek = unlock_with_password(&created.container, "correct horse battery").unwrap();
+        let kek = crypto::random_key().unwrap();
+        wrap_biometric(&mut created.container, &dek, &kek).unwrap();
+        let other = crypto::random_key().unwrap();
+        assert!(matches!(
+            unlock_with_biometric(&created.container, &other),
+            Err(Error::Aead)
+        ));
+    }
+
+    #[test]
+    fn clear_biometric_disables_path_c_but_keeps_password_and_recovery() {
+        let mut created = create();
+        let dek = unlock_with_password(&created.container, "correct horse battery").unwrap();
+        let kek = crypto::random_key().unwrap();
+        wrap_biometric(&mut created.container, &dek, &kek).unwrap();
+        assert!(created.container.wrapped_biometric.is_some());
+
+        clear_biometric(&mut created.container);
+        assert!(created.container.wrapped_biometric.is_none());
+        assert!(matches!(
+            unlock_with_biometric(&created.container, &kek),
+            Err(Error::BiometricNotEnrolled)
+        ));
+        // The authoritative credentials (§4.7) are untouched.
+        assert!(unlock_with_password(&created.container, "correct horse battery").is_ok());
+        assert!(
+            unlock_with_recovery(&created.container, &created.emergency_kit.recovery_code).is_ok()
+        );
     }
 
     use proptest::prelude::*;

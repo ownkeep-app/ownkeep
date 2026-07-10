@@ -29,6 +29,11 @@ pub struct Container {
     pub salt_recovery: String,
     pub wrapped_master: SealedBlob,
     pub wrapped_recovery: SealedBlob,
+    /// Optional third DEK wrap for Touch ID unlock (spec §4.7). Present only when biometric unlock
+    /// is enrolled; the wrapping key lives in the macOS Keychain, not here. Additive and skipped
+    /// when absent, so it does not bump [`VERSION`] and older builds ignore it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub wrapped_biometric: Option<SealedBlob>,
     pub vault: SealedBlob,
 }
 
@@ -168,6 +173,7 @@ mod tests {
                 nonce: encode_bytes(&[5u8; NONCE_LEN]),
                 ct: encode_bytes(&[6u8; 48]),
             },
+            wrapped_biometric: None,
             vault: SealedBlob {
                 nonce: encode_bytes(&[7u8; NONCE_LEN]),
                 ct: encode_bytes(&[8u8; 64]),
@@ -248,5 +254,35 @@ mod tests {
             ct: encode_bytes(&[0u8; 16]),
         };
         assert!(matches!(blob.to_sealed(), Err(Error::Format(_))));
+    }
+
+    #[test]
+    fn biometric_wrap_is_optional_and_omitted_when_absent() {
+        // A vault without Touch ID enrolled must serialize exactly like a pre-biometric container
+        // (no `wrapped_biometric` key) so the version stays 2 and old builds still read it (§4.7).
+        let container = sample();
+        assert_eq!(container.wrapped_biometric, None);
+        let json = String::from_utf8(container.to_bytes().unwrap()).unwrap();
+        assert!(!json.contains("wrapped_biometric"));
+        assert_eq!(
+            Container::from_bytes(json.as_bytes())
+                .unwrap()
+                .wrapped_biometric,
+            None
+        );
+    }
+
+    #[test]
+    fn biometric_wrap_round_trips_when_present() {
+        let mut container = sample();
+        container.wrapped_biometric = Some(SealedBlob {
+            nonce: encode_bytes(&[9u8; NONCE_LEN]),
+            ct: encode_bytes(&[10u8; 48]),
+        });
+        let bytes = container.to_bytes().unwrap();
+        assert!(String::from_utf8(bytes.clone())
+            .unwrap()
+            .contains("wrapped_biometric"));
+        assert_eq!(Container::from_bytes(&bytes).unwrap(), container);
     }
 }

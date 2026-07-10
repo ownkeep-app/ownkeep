@@ -65,9 +65,7 @@ export function optionsWithExtras(
 }
 
 export function normalizeTags(tags: readonly string[]): string[] {
-  return Array.from(
-    new Set(tags.map((tag) => tag.trim()).filter(Boolean)),
-  );
+  return Array.from(new Set(tags.map((tag) => tag.trim()).filter(Boolean)));
 }
 
 export function resolveCategoryOptions(settings?: TaxonomySettings): string[] {
@@ -108,8 +106,6 @@ export function withTaxonomyDefaults(
     categoryOptions: merged.categoryOptions?.length
       ? merged.categoryOptions
       : base.categoryOptions,
-    tagOptions: merged.tagOptions?.length
-      ? merged.tagOptions
-      : base.tagOptions,
+    tagOptions: merged.tagOptions?.length ? merged.tagOptions : base.tagOptions,
   };
 }

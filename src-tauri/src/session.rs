@@ -9,9 +9,10 @@ use std::time::{Duration, Instant};
 
 use zeroize::Zeroizing;
 
+use crate::biometric::{self, BiometricKeyStore, BiometricStatus};
 use crate::clipboard;
 use crate::container::Container;
-use crate::crypto::{Argon2Params, Key};
+use crate::crypto::{self, Argon2Params, Key};
 use crate::envelope;
 use crate::error::{Error, Result};
 use crate::recovery::EmergencyKit;
@@ -234,6 +235,51 @@ impl Session {
         Ok(kit)
     }
 
+    /// Enable Touch ID unlock (spec §4.7): store a fresh biometric KEK in the Keychain and wrap the
+    /// DEK a third time. Requires the vault to be unlocked — the master password was already proven
+    /// to reach this point, so Touch ID never becomes an independent way in.
+    pub fn enable_biometric<S: BiometricKeyStore>(&mut self, path: &Path, store: &S) -> Result<()> {
+        let unlocked = self.unlocked.as_mut().ok_or(Error::Locked)?;
+        let kek = crypto::random_key()?;
+        store.store_key(&kek)?;
+        envelope::wrap_biometric(&mut unlocked.container, &unlocked.dek, &kek)?;
+        storage::write_container(path, &unlocked.container)?;
+        unlocked.last_activity = Instant::now();
+        Ok(())
+    }
+
+    /// Disable Touch ID unlock: delete the Keychain key and drop the biometric wrap. The master
+    /// password and recovery code still unlock (§4.7). Requires unlocked.
+    pub fn disable_biometric<S: BiometricKeyStore>(&mut self, path: &Path, store: &S) -> Result<()> {
+        let unlocked = self.unlocked.as_mut().ok_or(Error::Locked)?;
+        store.delete_key()?;
+        envelope::clear_biometric(&mut unlocked.container);
+        storage::write_container(path, &unlocked.container)?;
+        unlocked.last_activity = Instant::now();
+        Ok(())
+    }
+
+    /// Re-enroll ("update") Touch ID with a fresh key + wrap. This is how the user recovers after a
+    /// fingerprint-set change invalidates the Keychain item (§4.7). Requires unlocked. `store_key`
+    /// replaces any prior item, so re-enroll is just enable.
+    pub fn reenroll_biometric<S: BiometricKeyStore>(
+        &mut self,
+        path: &Path,
+        store: &S,
+    ) -> Result<()> {
+        self.enable_biometric(path, store)
+    }
+
+    /// Unlock path C (spec §4.7): Touch ID releases the biometric KEK, which unwraps the DEK. A
+    /// denied/canceled prompt errors before the derive step, so it is not counted as a backoff
+    /// failure (unlike a wrong password).
+    pub fn unlock_biometric<S: BiometricKeyStore>(&mut self, path: &Path, store: &S) -> Result<()> {
+        let kek = store.load_key()?;
+        self.load(path, |container| {
+            envelope::unlock_with_biometric(container, &kek)
+        })
+    }
+
     /// Return the decrypted vault model as a redacted JSON projection. Requires unlocked.
     pub fn vault_json(&mut self) -> Result<String> {
         let unlocked = self.unlocked.as_mut().ok_or(Error::Locked)?;
@@ -278,6 +324,15 @@ impl Session {
         unlocked.last_activity = Instant::now();
         Ok(())
     }
+}
+
+/// Compute the Touch ID status for the vault at `path` (spec §4.7). Reads only the public container
+/// header, so it needs no unlock and never triggers a Touch ID prompt. Pure over the store.
+pub fn biometric_status<S: BiometricKeyStore>(path: &Path, store: &S) -> BiometricStatus {
+    let wrap_present = storage::read_container(path)
+        .map(|container| container.wrapped_biometric.is_some())
+        .unwrap_or(false);
+    biometric::status_from(store, wrap_present)
 }
 
 /// Map a user-facing auto-lock setting (`settings.autoLockMinutes`; `0` = never) to the session
@@ -669,6 +724,111 @@ mod tests {
             active.vault_json().unwrap(),
             r#"{"settings":{"resultLimit":5}}"#,
         );
+        fs::remove_dir_all(&dir).ok();
+    }
+
+    // --- Touch ID biometric unlock (spec §4.7) ---
+    use crate::biometric::testing::FakeBiometricKeyStore;
+
+    #[test]
+    fn enable_then_unlock_with_biometric() {
+        let dir = unique_temp_dir();
+        let path = dir.join(VAULT_FILE);
+        let store = FakeBiometricKeyStore::available();
+        let mut s = session();
+        s.create(&path, "pw", TEST_ARGON).unwrap();
+
+        // Not enrolled until enabled.
+        assert!(!biometric_status(&path, &store).enrolled);
+        s.enable_biometric(&path, &store).unwrap();
+        assert!(store.has_key());
+        assert!(biometric_status(&path, &store).enrolled);
+
+        // Path C unlocks the vault after a lock.
+        s.lock();
+        s.unlock_biometric(&path, &store).unwrap();
+        assert!(s.is_unlocked());
+        // The DEK matches — the projection round-trips.
+        assert_eq!(s.vault_json().unwrap(), "{}");
+        fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
+    fn disable_biometric_clears_key_and_wrap_but_password_still_unlocks() {
+        let dir = unique_temp_dir();
+        let path = dir.join(VAULT_FILE);
+        let store = FakeBiometricKeyStore::available();
+        let mut s = session();
+        s.create(&path, "pw", TEST_ARGON).unwrap();
+        s.enable_biometric(&path, &store).unwrap();
+
+        s.disable_biometric(&path, &store).unwrap();
+        assert!(!store.has_key());
+        assert!(!biometric_status(&path, &store).enrolled);
+
+        s.lock();
+        assert!(matches!(
+            s.unlock_biometric(&path, &store),
+            Err(Error::BiometricNotEnrolled)
+        ));
+        // The authoritative credential always works (§4.7).
+        s.unlock_password(&path, "pw").unwrap();
+        assert!(s.is_unlocked());
+        fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
+    fn biometric_management_requires_unlock() {
+        let dir = unique_temp_dir();
+        let path = dir.join(VAULT_FILE);
+        let store = FakeBiometricKeyStore::available();
+        let mut s = session();
+        assert!(matches!(
+            s.enable_biometric(&path, &store),
+            Err(Error::Locked)
+        ));
+        assert!(matches!(
+            s.disable_biometric(&path, &store),
+            Err(Error::Locked)
+        ));
+        fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
+    fn reenroll_issues_a_fresh_key_that_still_unlocks() {
+        let dir = unique_temp_dir();
+        let path = dir.join(VAULT_FILE);
+        let store = FakeBiometricKeyStore::available();
+        let mut s = session();
+        s.create(&path, "pw", TEST_ARGON).unwrap();
+        s.enable_biometric(&path, &store).unwrap();
+
+        s.reenroll_biometric(&path, &store).unwrap();
+        assert!(biometric_status(&path, &store).enrolled);
+        s.lock();
+        s.unlock_biometric(&path, &store).unwrap();
+        assert!(s.is_unlocked());
+        fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
+    fn canceled_touch_id_prompt_is_not_a_backoff_failure() {
+        let dir = unique_temp_dir();
+        let path = dir.join(VAULT_FILE);
+        let mut s = session();
+        s.create(&path, "pw", TEST_ARGON).unwrap();
+        s.lock();
+
+        // Available + has a key, but the prompt is denied/canceled — the load fails before any
+        // container derive, so no backoff failure is counted.
+        let store = FakeBiometricKeyStore {
+            available: true,
+            key: std::sync::Mutex::new(Some(crate::crypto::random_key().unwrap())),
+            load_should_fail: true,
+        };
+        assert!(s.unlock_biometric(&path, &store).is_err());
+        assert!(!s.is_unlocked());
+        assert_eq!(s.backoff_delay(), Duration::ZERO);
         fs::remove_dir_all(&dir).ok();
     }
 }

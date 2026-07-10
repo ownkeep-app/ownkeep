@@ -1,4 +1,4 @@
-import { defineConfig } from "vitest/config";
+import { configDefaults, defineConfig } from "vitest/config";
 import react from "@vitejs/plugin-react";
 import { readFileSync } from "node:fs";
 import path from "node:path";
@@ -9,6 +9,7 @@ const appPackage = JSON.parse(
 ) as { version: string };
 const appVersion = appPackage.version;
 const coverageThreshold = 95;
+const claudeWorktreeGlob = "**/.claude/worktrees/**";
 
 if (!/^\d+\.\d+$/.test(appVersion)) {
   throw new Error(
@@ -29,11 +30,13 @@ export default defineConfig(async () => ({
   },
   test: {
     environment: "jsdom",
+    exclude: [...configDefaults.exclude, claudeWorktreeGlob],
     setupFiles: "./src/test/setup.ts",
     coverage: {
       provider: "v8",
       include: ["src/**/*.{ts,tsx}"],
       exclude: [
+        claudeWorktreeGlob,
         "src/**/*.test.{ts,tsx}",
         "src/test/**",
         "src/vite-env.d.ts",

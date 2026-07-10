@@ -14,6 +14,14 @@ export interface EmergencyKit {
   instructions: string;
 }
 
+/** Touch ID availability + enrollment for the current vault (spec §4.7). */
+export interface BiometricStatus {
+  /** The sensor is present and a fingerprint is enrolled on this Mac. */
+  available: boolean;
+  /** This vault has Touch ID enrolled (container wrap + Keychain key both present). */
+  enrolled: boolean;
+}
+
 export const vaultApi = {
   /** Whether a vault file exists (onboarding vs. unlock on launch). */
   vaultExists: () => invoke<boolean>("vault_exists"),
@@ -37,6 +45,16 @@ export const vaultApi = {
   changeMaster: (newPassword: string) =>
     invoke<void>("change_master", { newPassword }),
   regenerateRecovery: () => invoke<EmergencyKit>("regenerate_recovery"),
+  /** Touch ID status: whether the sensor is available and this vault has it enrolled (§4.7). */
+  biometricStatus: () => invoke<BiometricStatus>("biometric_status"),
+  /** Enroll Touch ID unlock for this vault (requires unlocked). */
+  enableBiometric: () => invoke<void>("enable_biometric_unlock"),
+  /** Remove Touch ID unlock for this vault (requires unlocked). */
+  disableBiometric: () => invoke<void>("disable_biometric_unlock"),
+  /** Re-enroll ("update") Touch ID with a fresh key (requires unlocked). */
+  reenrollBiometric: () => invoke<void>("reenroll_biometric_unlock"),
+  /** Unlock via Touch ID (unlock path C, §4.7). */
+  unlockBiometric: () => invoke<void>("unlock_biometric"),
   /** The decrypted model projection as JSON; registered secret fields are redacted by Rust. */
   getVault: () => invoke<string>("get_vault"),
   saveVault: (json: string) => invoke<void>("save_vault", { json }),

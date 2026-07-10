@@ -1,8 +1,5 @@
 import { Select, type SelectProps } from "@/components/ui/select";
-import {
-  DEFAULT_CATEGORY,
-  optionsWithExtras,
-} from "@/vault/taxonomy";
+import { DEFAULT_CATEGORY, optionsWithExtras } from "@/vault/taxonomy";
 
 export function CategorySelect({
   "aria-label": ariaLabel,

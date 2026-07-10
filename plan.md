@@ -245,34 +245,34 @@ container gains only the **optional, additive** `wrapped_biometric`; it does **n
 `container.version` (older builds ignore it and still unlock via password/recovery). Document it as
 a reviewed, non-breaking container addition and keep `$verify` honest.*
 
-- [ ] **Envelope third wrap (Rust):** add optional `wrapped_biometric: Option<SealedBlob>` to
+- [x] **Envelope third wrap (Rust):** add optional `wrapped_biometric: Option<SealedBlob>` to
   `Container` (`src-tauri/src/container.rs`; `#[serde(default, skip_serializing_if = "Option::is_none")]`,
   **no `container.version` bump**). Add `envelope::wrap_biometric`, `envelope::unlock_with_biometric`,
   and `envelope::clear_biometric` (`src-tauri/src/envelope.rs`) — pure, unit-testable like the
   existing wraps.
-- [ ] **Keychain + LocalAuthentication shim (Rust):** a `src-tauri/src/biometric.rs` that stores /
+- [x] **Keychain + LocalAuthentication shim (Rust):** a `src-tauri/src/biometric.rs` that stores /
   reads / deletes a random 256-bit `KEK_biometric` as a Keychain item with
   `SecAccessControl(BiometryCurrentSet, WhenUnlockedThisDeviceOnly)`, non-synchronizable; prompts
   Touch ID via `LAContext` (reason "Unlock keystash"); and probes availability (`canEvaluatePolicy`).
   Crates: `security-framework` + `objc2-local-authentication` (macOS-only target, beside the Phase 3
   `objc2` clipboard shim). Put the OS calls behind a small trait so session/command logic stays
   testable without hardware.
-- [ ] **Session + commands (Rust):** `enable_biometric_unlock` (requires unlocked → gen key, store in
+- [x] **Session + commands (Rust):** `enable_biometric_unlock` (requires unlocked → gen key, store in
   Keychain, wrap DEK, persist), `disable_biometric_unlock` (delete Keychain item + clear wrap +
   persist), `reenroll_biometric_unlock` (disable → enable, for "update" / after a fingerprint-set
   change), `unlock_biometric` (prompt → Keychain → unwrap → decrypt, like `unlock_password`), and
   `biometric_status` → `{ available, enrolled }`. Wire into `session.rs` + `commands.rs`
   (`generate_handler!`).
-- [ ] **Backup/restore hygiene (Rust):** the backup commands (`backup_vault*`, plus pre-migration /
+- [x] **Backup/restore hygiene (Rust):** the backup commands (`backup_vault*`, plus pre-migration /
   pre-restore snapshots) write the container **without** `wrapped_biometric` (device-local, §4.7/§11);
   `restore_*` and `erase_vault` delete the local biometric Keychain item so no orphan key remains. A
   restored vault reports Touch ID *not enrolled* and can be re-enrolled fresh.
-- [ ] **Frontend API + store + lock screen:** add `biometricStatus`, `enableBiometric`,
+- [x] **Frontend API + store + lock screen:** add `biometricStatus`, `enableBiometric`,
   `disableBiometric`, `reenrollBiometric`, `unlockBiometric` to `src/vault/api.ts` and the vault
   store (keep `invoke` behind the api boundary). In `LockScreen.tsx`, when `available && enrolled`,
   show an **"Unlock with Touch ID"** button (optionally auto-prompt once); a failed/canceled prompt
   falls back to the password field. Master password + recovery stay always available.
-- [ ] **Settings control (System → Security):** in `SettingsPanel.tsx`, add a Touch ID control that
+- [x] **Settings control (System → Security):** in `SettingsPanel.tsx`, add a Touch ID control that
   **enables, disables, or re-enrolls ("update")** based on `biometric_status`; render an
   unavailable/hardware-missing state gracefully. In the **Backup & restore** section, show a
   **notice** — whenever Touch ID is enrolled — that biometric unlock isn't included in backups and
@@ -280,8 +280,10 @@ a reviewed, non-breaking container addition and keep `$verify` honest.*
 - [ ] **Packaging + docs:** ensure the app is **code-signed** so the Keychain item + LocalAuthentication
   behave (spec §12); document the reason string, the `WhenUnlockedThisDeviceOnly` attributes, and the
   re-sign / fingerprint-change invalidation caveat; record the additive container field per §11.2 and
-  bump `package.json.version` per the release-bookkeeping contract when shipping.
-- [ ] **Tests:** Rust — `wrap_biometric`/`unlock_with_biometric` recover the same DEK as
+  bump `package.json.version` per the release-bookkeeping contract when shipping. *(Docs done — spec
+  §4.7/§11.2/§12 written and the additive container field recorded; code-signing + notarization + the
+  version bump ride the Phase 11 release step, still pending.)*
+- [x] **Tests:** Rust — `wrap_biometric`/`unlock_with_biometric` recover the same DEK as
   password/recovery; `clear_biometric` disables path C while both other paths still unlock; the
   backup path **omits** `wrapped_biometric` and the result still restores via password/recovery; a
   container **without** the field parses (`None`) and one **with** it round-trips and is ignored by an

@@ -54,6 +54,7 @@ describe("guards", () => {
     expect(isFinanceEntry(null)).toBe(false);
 
     const good = snapshot("2026-07-01T00:00:00.000Z", []);
+    expect(isSnapshot(null)).toBe(false);
     expect(isSnapshot(good)).toBe(true);
     expect(isSnapshot({ id: "x" })).toBe(false);
     expect(
@@ -108,6 +109,20 @@ describe("computeSnapshotStats", () => {
     expect(stats.missingCurrencies).toEqual(["CNY"]);
   });
 
+  it("normalizes odd amounts and blank categories while retaining raw currency totals", () => {
+    const stats = computeSnapshotStats(
+      snapshot("2026-07-01T00:00:00.000Z", [
+        { place: "Cash", category: "  ", amount: Number.NaN, currency: "usd" },
+        { place: "Wallet", category: "  ", amount: 2.005, currency: " usd " },
+      ]),
+      { baseCurrency: "USD", rates: {} },
+    );
+
+    expect(stats.totalBase).toBe(2.01);
+    expect(stats.byCategory).toEqual({ uncategorized: 2.01 });
+    expect(stats.byCurrency).toEqual({ USD: 2.01 });
+  });
+
   it("re-totals when the FX rate changes (exit criterion)", () => {
     const sgd = snapshot("2026-07-01T00:00:00.000Z", [
       { place: "DBS", category: "bank", amount: 100, currency: "SGD" },
@@ -154,12 +169,35 @@ describe("index + sort", () => {
     expect(entry.type).toBe("finance");
     expect(entry.displayLine).toContain("1 place");
     expect(entry.searchString).toContain("DBS");
+
+    const [multiEntry] = buildFinanceIndex([
+      snapshot("2026-07-01T00:00:00.000Z", [
+        { place: "DBS", category: "bank", amount: 1, currency: "SGD" },
+        { place: "Chase", category: "bank", amount: 1, currency: "USD" },
+      ]),
+    ]);
+    expect(multiEntry.displayLine).toContain("2 places");
   });
 
   it("sorts snapshots newest first", () => {
     const jan = snapshot("2026-01-01T00:00:00.000Z", [], "jan");
     const mar = snapshot("2026-03-01T00:00:00.000Z", [], "mar");
     expect(sortSnapshots([jan, mar]).map((s) => s.id)).toEqual(["mar", "jan"]);
+
+    const first = {
+      ...jan,
+      id: "first",
+      updatedAt: "2026-01-01T01:00:00.000Z",
+    };
+    const second = {
+      ...jan,
+      id: "second",
+      updatedAt: "2026-01-01T02:00:00.000Z",
+    };
+    expect(sortSnapshots([first, second]).map((s) => s.id)).toEqual([
+      "second",
+      "first",
+    ]);
   });
 });
 
@@ -214,6 +252,15 @@ describe("snapshot forms", () => {
     expect(updated.note).toBe("changed");
     expect(updated.id).toBe("id1");
     expect(updated.updatedAt).toBe("2026-07-08T00:00:00.000Z");
+
+    const fallback = updateSnapshot(
+      { ...created, date: "2026-07-01T00:00:00.000Z", updatedAt: "" },
+      { ...form, date: "bad-date", note: " fallback " },
+      NOW,
+    );
+    expect(fallback.date).toBe("2026-07-01T00:00:00.000Z");
+    expect(fallback.updatedAt).toBe(NOW);
+    expect(fallback.note).toBe("fallback");
   });
 
   it("shows one blank row for an entry-less snapshot and the empty form", () => {
@@ -272,6 +319,7 @@ describe("formatting", () => {
     expect(formatSnapshotDate("2026-07-01T00:00:00.000Z")).toContain("2026");
     expect(formatSnapshotDate("nope")).toBe("Invalid date");
     expect(dateInputToIso("")).toBeNull();
+    expect(dateInputToIso("not-a-date")).toBeNull();
     expect(dateInputToIso("2026-07-01")).toBe("2026-07-01T00:00:00.000Z");
   });
 });

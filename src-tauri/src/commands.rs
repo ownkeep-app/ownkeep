@@ -13,6 +13,7 @@ use tauri::{AppHandle, Manager, State};
 use tauri_plugin_dialog::{DialogExt, MessageDialogKind};
 use tauri_plugin_notification::NotificationExt;
 
+use crate::biometric::{self, BiometricKeyStore};
 use crate::crypto::Argon2Params;
 use crate::recovery::EmergencyKit;
 use crate::session::{self, Session};
@@ -155,6 +156,74 @@ pub fn regenerate_recovery(
         .unwrap()
         .regenerate_recovery(&path)
         .map_err(|e| e.to_string())
+}
+
+/// Touch ID status for the current vault (spec §4.7): `{ available, enrolled }`. Reads only the
+/// public container header, so it needs no unlock and never prompts.
+#[tauri::command]
+pub fn biometric_status(app: AppHandle) -> Result<biometric::BiometricStatus, String> {
+    let path = vault_path(&app)?;
+    Ok(session::biometric_status(&path, &biometric::system_store()))
+}
+
+/// Enable Touch ID unlock: store a biometric-gated key and wrap the DEK (requires unlocked).
+#[tauri::command]
+pub fn enable_biometric_unlock(
+    app: AppHandle,
+    state: State<'_, SharedSession>,
+) -> Result<(), String> {
+    let path = vault_path(&app)?;
+    state
+        .lock()
+        .unwrap()
+        .enable_biometric(&path, &biometric::system_store())
+        .map_err(|e| e.to_string())
+}
+
+/// Disable Touch ID unlock: delete the Keychain key and drop the wrap (requires unlocked).
+#[tauri::command]
+pub fn disable_biometric_unlock(
+    app: AppHandle,
+    state: State<'_, SharedSession>,
+) -> Result<(), String> {
+    let path = vault_path(&app)?;
+    state
+        .lock()
+        .unwrap()
+        .disable_biometric(&path, &biometric::system_store())
+        .map_err(|e| e.to_string())
+}
+
+/// Re-enroll ("update") Touch ID with a fresh key + wrap (requires unlocked). Recovers after a
+/// fingerprint-set change invalidated the item (§4.7).
+#[tauri::command]
+pub fn reenroll_biometric_unlock(
+    app: AppHandle,
+    state: State<'_, SharedSession>,
+) -> Result<(), String> {
+    let path = vault_path(&app)?;
+    state
+        .lock()
+        .unwrap()
+        .reenroll_biometric(&path, &biometric::system_store())
+        .map_err(|e| e.to_string())
+}
+
+/// Unlock via Touch ID (path C, §4.7). Runs on a blocking thread since the prompt + Keychain read
+/// block; the master password and recovery code remain available if this fails.
+#[tauri::command]
+pub async fn unlock_biometric(app: AppHandle) -> Result<(), String> {
+    let path = vault_path(&app)?;
+    let app = app.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        app.state::<SharedSession>()
+            .lock()
+            .unwrap()
+            .unlock_biometric(&path, &biometric::system_store())
+            .map_err(|e| e.to_string())
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
 /// Return the decrypted vault model (JSON) for the frontend projection. Requires unlocked.
@@ -371,6 +440,9 @@ where
     })
     .await
     .map_err(|e| e.to_string())??;
+    // A restored vault carries no biometric wrap (§4.7); clear any stale Touch ID key on this Mac so
+    // it re-enrolls fresh.
+    let _ = biometric::system_store().delete_key();
     Ok(Some(restored_path))
 }
 
@@ -379,6 +451,8 @@ where
 pub fn erase_vault(app: AppHandle, state: State<'_, SharedSession>) -> Result<(), String> {
     let path = vault_path(&app)?;
     state.lock().unwrap().lock();
+    // Clear the device-local Touch ID key so no orphan remains after wiping the vault (§4.7).
+    let _ = biometric::system_store().delete_key();
     storage::remove_vault_file(&path).map_err(|e| e.to_string())
 }
 

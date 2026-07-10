@@ -1,6 +1,6 @@
 import { type FormEvent, useEffect, useRef, useState } from "react";
 import { flushSync } from "react-dom";
-import { Loader2 } from "lucide-react";
+import { Fingerprint, Loader2 } from "lucide-react";
 
 import { Screen } from "@/components/screen";
 import { Button } from "@/components/ui/button";
@@ -12,11 +12,14 @@ import { useVaultStore } from "@/stores/vault-store";
 export function LockScreen() {
   const unlock = useVaultStore((s) => s.unlock);
   const unlockRecovery = useVaultStore((s) => s.unlockRecovery);
+  const unlockBiometric = useVaultStore((s) => s.unlockBiometric);
+  const biometricStatus = useVaultStore((s) => s.biometricStatus);
   const busy = useVaultStore((s) => s.busy);
   const [recovery, setRecovery] = useState(false);
   const [value, setValue] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [unlocking, setUnlocking] = useState(false);
+  const [touchIdEnrolled, setTouchIdEnrolled] = useState(false);
   const loading = unlocking || busy;
   const passwordRef = useRef<HTMLInputElement>(null);
   const recoveryRef = useRef<HTMLTextAreaElement>(null);
@@ -26,6 +29,20 @@ export function LockScreen() {
       (recovery ? recoveryRef : passwordRef).current?.focus();
     });
   }, [recovery]);
+
+  // Offer Touch ID (unlock path C, §4.7) only when the sensor is available and this vault is
+  // enrolled; the master password + recovery code always remain the way in.
+  useEffect(() => {
+    let active = true;
+    void biometricStatus()
+      .then((status) => {
+        if (active) setTouchIdEnrolled(status.available && status.enrolled);
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, [biometricStatus]);
 
   async function onSubmit(event: FormEvent) {
     event.preventDefault();
@@ -41,6 +58,18 @@ export function LockScreen() {
       setError(
         recovery ? "That recovery code didn't work." : "Wrong password.",
       );
+    } finally {
+      setUnlocking(false);
+    }
+  }
+
+  async function onTouchId() {
+    setError(null);
+    flushSync(() => setUnlocking(true));
+    try {
+      await unlockBiometric();
+    } catch {
+      setError("Touch ID didn't work — enter your master password.");
     } finally {
       setUnlocking(false);
     }
@@ -84,6 +113,19 @@ export function LockScreen() {
           )}
         </Button>
       </form>
+      {touchIdEnrolled && !recovery && (
+        <Button
+          type="button"
+          variant="outline"
+          className="w-full"
+          disabled={loading}
+          aria-busy={loading}
+          onClick={() => void onTouchId()}
+        >
+          <Fingerprint aria-hidden />
+          Unlock with Touch ID
+        </Button>
+      )}
       <button
         type="button"
         className="text-sm text-muted-foreground underline disabled:pointer-events-none disabled:opacity-50"

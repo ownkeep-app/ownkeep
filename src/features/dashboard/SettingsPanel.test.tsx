@@ -27,6 +27,10 @@ vi.mock("@/vault/api", () => ({
       recovery_code: "fresh words",
       instructions: "Save it.",
     })),
+    biometricStatus: vi.fn(async () => ({ available: true, enrolled: false })),
+    enableBiometric: vi.fn(async () => {}),
+    disableBiometric: vi.fn(async () => {}),
+    reenrollBiometric: vi.fn(async () => {}),
   },
 }));
 
@@ -247,5 +251,66 @@ describe("SettingsPanel auto-lock", () => {
     const { container } = render(<SettingsPanel />);
 
     expect(container).toBeEmptyDOMElement();
+  });
+});
+
+describe("SettingsPanel Touch ID (§4.7)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    useVaultStore.setState({
+      status: "unlocked",
+      model: createDefaultModel("2026-07-07T00:00:00.000Z"),
+      migration: null,
+      postMigrationStatus: "unlocked",
+      incompatibleMessage: null,
+      pendingKit: null,
+      busy: false,
+      error: null,
+    });
+  });
+
+  it("enables Touch ID from the System → Security tab", async () => {
+    api.biometricStatus.mockResolvedValue({ available: true, enrolled: false });
+    const user = userEvent.setup();
+    render(<SettingsPanel />);
+    fireEvent.click(screen.getByRole("tab", { name: "System" }));
+
+    const toggle = await screen.findByRole("switch", {
+      name: "Unlock with Touch ID",
+    });
+    await user.click(toggle);
+    expect(api.enableBiometric).toHaveBeenCalled();
+  });
+
+  it("shows the backup-exclusion notice and can update or disable when enrolled", async () => {
+    api.biometricStatus.mockResolvedValue({ available: true, enrolled: true });
+    const user = userEvent.setup();
+    render(<SettingsPanel />);
+    fireEvent.click(screen.getByRole("tab", { name: "System" }));
+
+    expect(
+      await screen.findByText(/isn't included in backups/i),
+    ).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /update/i }));
+    expect(api.reenrollBiometric).toHaveBeenCalled();
+
+    await user.click(
+      screen.getByRole("switch", { name: "Unlock with Touch ID" }),
+    );
+    expect(api.disableBiometric).toHaveBeenCalled();
+  });
+
+  it("marks Touch ID unavailable when there is no sensor", async () => {
+    api.biometricStatus.mockResolvedValue({
+      available: false,
+      enrolled: false,
+    });
+    render(<SettingsPanel />);
+    fireEvent.click(screen.getByRole("tab", { name: "System" }));
+
+    expect(
+      await screen.findByText(/not available on this mac/i),
+    ).toBeInTheDocument();
   });
 });

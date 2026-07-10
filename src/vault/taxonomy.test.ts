@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { defaultSettings } from "@/vault/model";
 import {
   defaultCategory,
   defaultCategoryOptions,
@@ -8,6 +9,7 @@ import {
   normalizeTags,
   optionsWithExtras,
   parseOptionLines,
+  withTaxonomyDefaults,
 } from "./taxonomy";
 
 describe("taxonomy", () => {
@@ -31,6 +33,10 @@ describe("taxonomy", () => {
       "Personal",
       "Legacy",
     ]);
+    expect(optionsWithExtras(["Work"], ["Work", "Legacy", "  "])).toEqual([
+      "Work",
+      "Legacy",
+    ]);
   });
 
   it("normalizes tag selections", () => {
@@ -38,5 +44,38 @@ describe("taxonomy", () => {
       "React",
       "Bash",
     ]);
+  });
+
+  it("falls back when custom defaults omit the built-ins", () => {
+    expect(defaultCategory({ categoryOptions: ["Ops"], tagOptions: [] })).toBe(
+      "Ops",
+    );
+    expect(defaultCategory({ categoryOptions: [], tagOptions: [] })).toBe(
+      "Personal",
+    );
+    expect(defaultTags({ categoryOptions: [], tagOptions: ["Ops"] })).toEqual([
+      "Ops",
+    ]);
+    expect(defaultTags({ categoryOptions: [], tagOptions: [""] })).toEqual([]);
+  });
+
+  it("hydrates missing taxonomy settings from a base model", () => {
+    const base = defaultSettings();
+
+    expect(withTaxonomyDefaults(undefined, base)).toEqual(base);
+    expect(
+      withTaxonomyDefaults(
+        {
+          categoryOptions: [],
+          tagOptions: ["Ops"],
+          modules: { passwords: { enabled: false } },
+        },
+        base,
+      ),
+    ).toMatchObject({
+      categoryOptions: base.categoryOptions,
+      tagOptions: ["Ops"],
+      modules: { passwords: { enabled: false } },
+    });
   });
 });

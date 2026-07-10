@@ -26,6 +26,10 @@ pub enum Error {
     Io(std::io::Error),
     /// An operation required an unlocked vault, but none was loaded.
     Locked,
+    /// Biometric unlock (Touch ID) was requested, but this vault has no biometric wrap enrolled.
+    BiometricNotEnrolled,
+    /// A biometric / Keychain operation failed (sensor unavailable, prompt denied/canceled, etc.).
+    Biometric(String),
 }
 
 impl fmt::Display for Error {
@@ -45,6 +49,8 @@ impl fmt::Display for Error {
             Error::Recovery(m) => write!(f, "invalid recovery code: {m}"),
             Error::Io(e) => write!(f, "I/O error: {e}"),
             Error::Locked => write!(f, "vault is locked"),
+            Error::BiometricNotEnrolled => write!(f, "Touch ID is not set up for this vault"),
+            Error::Biometric(m) => write!(f, "biometric unlock failed: {m}"),
         }
     }
 }
@@ -72,6 +78,12 @@ mod tests {
             .to_string()
             .contains("oops"));
         assert_eq!(Error::Locked.to_string(), "vault is locked");
+        assert!(Error::BiometricNotEnrolled
+            .to_string()
+            .contains("Touch ID"));
+        assert!(Error::Biometric("no sensor".to_string())
+            .to_string()
+            .contains("no sensor"));
     }
 
     #[test]

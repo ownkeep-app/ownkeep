@@ -25,6 +25,11 @@ describe("vaultApi", () => {
     await vaultApi.setAutoLock(15);
     await vaultApi.setHotkeys("Cmd+Shift+Space", "Cmd+Shift+D");
     await vaultApi.regenerateRecovery();
+    await vaultApi.biometricStatus();
+    await vaultApi.enableBiometric();
+    await vaultApi.disableBiometric();
+    await vaultApi.reenrollBiometric();
+    await vaultApi.unlockBiometric();
     await vaultApi.getVault();
     await vaultApi.saveVault("{}");
     await vaultApi.copySecret("github", "password");
@@ -59,6 +64,11 @@ describe("vaultApi", () => {
         { globalHotkey: "Cmd+Shift+Space", dashboardHotkey: "Cmd+Shift+D" },
       ],
       ["regenerate_recovery"],
+      ["biometric_status"],
+      ["enable_biometric_unlock"],
+      ["disable_biometric_unlock"],
+      ["reenroll_biometric_unlock"],
+      ["unlock_biometric"],
       ["get_vault"],
       ["save_vault", { json: "{}" }],
       ["copy_secret", { id: "github", field: "password" }],

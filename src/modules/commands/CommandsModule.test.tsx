@@ -154,15 +154,9 @@ describe("CommandsListView", () => {
     await user.click(screen.getByRole("button", { name: "New" }));
 
     await user.type(screen.getByLabelText("Command title"), "List files");
-    await user.selectOptions(
-      screen.getByLabelText("Command category"),
-      "Dev",
-    );
+    await user.selectOptions(screen.getByLabelText("Command category"), "Dev");
     await user.type(screen.getByLabelText("Command description"), "list all");
-    await user.selectOptions(
-      screen.getByLabelText("Snippet language"),
-      "bash",
-    );
+    await user.selectOptions(screen.getByLabelText("Snippet language"), "bash");
     await user.type(screen.getByLabelText("Command code"), "ls -la");
     await user.type(screen.getByLabelText("Command arguments"), "path");
     await user.click(screen.getByRole("checkbox", { name: "Bash" }));
@@ -200,6 +194,38 @@ describe("CommandsListView", () => {
     const dialog = screen.getByRole("dialog", { name: "Rebase" });
     await user.click(within(dialog).getByRole("button", { name: "Copy" }));
     expect(clip).toHaveBeenCalledWith("git rebase");
+  });
+
+  it("runs detail edit, close, and delete actions", async () => {
+    const user = userEvent.setup();
+    render(<CommandsListView items={[cmd()]} />);
+
+    await user.click(screen.getByRole("button", { name: /view status/i }));
+    let dialog = screen.getByRole("dialog", { name: "Status" });
+    await user.click(within(dialog).getByRole("button", { name: "Edit" }));
+    expect(
+      screen.getByRole("heading", { name: /edit command/i }),
+    ).toBeInTheDocument();
+    await user.click(
+      screen.getByRole("button", { name: /cancel command edit/i }),
+    );
+    expect(screen.getByRole("heading", { name: "Commands" })).toBeVisible();
+
+    await user.click(screen.getByRole("button", { name: /view status/i }));
+    dialog = screen.getByRole("dialog", { name: "Status" });
+    await user.click(
+      within(dialog).getByRole("button", { name: /close details/i }),
+    );
+    await waitFor(() =>
+      expect(
+        screen.queryByRole("dialog", { name: "Status" }),
+      ).not.toBeInTheDocument(),
+    );
+
+    await user.click(screen.getByRole("button", { name: /view status/i }));
+    dialog = screen.getByRole("dialog", { name: "Status" });
+    await user.click(within(dialog).getByRole("button", { name: "Delete" }));
+    await waitFor(() => expect(api.saveVault).toHaveBeenCalled());
   });
 
   it("cancels the fill-in", async () => {

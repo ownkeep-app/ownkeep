@@ -28,7 +28,7 @@ import { financeSnapshots } from "@/modules/finance/logic";
 import { FINANCE_MODULE_ID, type Snapshot } from "@/modules/finance/types";
 import { todoEntries, toggleTodoDoneState } from "@/modules/todos/logic";
 import { TODOS_MODULE_ID, type TodoEntry } from "@/modules/todos/types";
-import { type EmergencyKit, vaultApi } from "@/vault/api";
+import { type BiometricStatus, type EmergencyKit, vaultApi } from "@/vault/api";
 import {
   preMigrationBackupName,
   preRestoreBackupName,
@@ -75,6 +75,11 @@ interface VaultState {
   create: (password: string) => Promise<EmergencyKit>;
   unlock: (password: string) => Promise<void>;
   unlockRecovery: (code: string) => Promise<void>;
+  unlockBiometric: () => Promise<void>;
+  biometricStatus: () => Promise<BiometricStatus>;
+  enableBiometric: () => Promise<void>;
+  disableBiometric: () => Promise<void>;
+  reenrollBiometric: () => Promise<void>;
   changeMaster: (newPassword: string) => Promise<void>;
   lock: () => Promise<void>;
   setAutoLock: (minutes: number) => Promise<void>;
@@ -296,6 +301,54 @@ export const useVaultStore = create<VaultState>((set, get) => ({
     } finally {
       set({ busy: false });
     }
+  },
+
+  unlockBiometric: async () => {
+    // Unlock path C (spec §4.7): Touch ID releases the biometric KEK inside Rust. Mirrors `unlock`;
+    // the master password and recovery code stay available if this is canceled or fails.
+    set({ busy: true, error: null });
+    try {
+      await vaultApi.unlockBiometric();
+      const loaded = await loadModel();
+      syncRuntimeSettings(loaded.model);
+      set({
+        status: loaded.migration ? "migration" : "unlocked",
+        model: loaded.model,
+        migration: loaded.migration,
+        postMigrationStatus: "unlocked",
+        incompatibleMessage: null,
+      });
+    } catch (e) {
+      if (e instanceof VaultCompatibilityError) {
+        await vaultApi.lock();
+        set({
+          status: "incompatible",
+          model: null,
+          migration: null,
+          incompatibleMessage: e.message,
+          error: null,
+        });
+        return;
+      }
+      set({ error: String(e) });
+      throw e;
+    } finally {
+      set({ busy: false });
+    }
+  },
+
+  biometricStatus: async () => vaultApi.biometricStatus(),
+
+  enableBiometric: async () => {
+    await vaultApi.enableBiometric();
+  },
+
+  disableBiometric: async () => {
+    await vaultApi.disableBiometric();
+  },
+
+  reenrollBiometric: async () => {
+    await vaultApi.reenrollBiometric();
   },
 
   changeMaster: async (newPassword) => {

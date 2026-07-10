@@ -51,7 +51,9 @@ describe("TodosListView toggle integration", () => {
     });
     expect(box).toHaveAttribute("aria-checked", "false");
     await user.click(box);
-    await waitFor(() => expect(box).toHaveAttribute("aria-checked", "true"));
+    await waitFor(() =>
+      expect(screen.getByText("No undone todos")).toBeVisible(),
+    );
     const savedTodos = stored.modules.todos;
     expect(Array.isArray(savedTodos) && savedTodos[0]).toMatchObject({
       id: "todo-1",

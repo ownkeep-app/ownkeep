@@ -4,6 +4,8 @@ import {
   buildPasswordIndex,
   createPasswordEntry,
   emptyPasswordForm,
+  isPasswordEntry,
+  passwordEntries,
   updatePasswordEntry,
   validatePasswordInput,
 } from "./logic";
@@ -27,18 +29,26 @@ describe("password module logic", () => {
   it("builds searchable entries without the secret value", () => {
     const index = buildPasswordIndex([
       { ...existing, password: "super-secret-value" },
+      { ...existing, id: "empty-user", username: "" },
     ]);
 
-    expect(index).toEqual([
+    expect(index[0]).toEqual(
       expect.objectContaining({
         id: "github",
         moduleId: "passwords",
         type: "password",
         displayLine: "GitHub - sha",
       }),
-    ]);
+    );
+    expect(index[1].displayLine).toBe("GitHub - no username");
     expect(index[0].searchString).toContain("GitHub");
     expect(index[0].searchString).not.toContain("super-secret-value");
+  });
+
+  it("filters invalid password-like values", () => {
+    expect(isPasswordEntry(null)).toBe(false);
+    expect(isPasswordEntry({ id: "missing" })).toBe(false);
+    expect(passwordEntries([existing, { id: "missing" }])).toEqual([existing]);
   });
 
   it("normalizes new entries and category", () => {
@@ -73,6 +83,16 @@ describe("password module logic", () => {
     expect(updated.updatedAt).toBe("2026-07-08T00:00:00.000Z");
   });
 
+  it("replaces the password when edits provide one", () => {
+    const updated = updatePasswordEntry(
+      existing,
+      { ...emptyPasswordForm(), name: "GitHub", password: " new-secret " },
+      "2026-07-08T00:00:00.000Z",
+    );
+
+    expect(updated.password).toBe(" new-secret ");
+  });
+
   it("validates required fields by mode", () => {
     expect(validatePasswordInput(emptyPasswordForm(), "create")).toMatch(
       /name/i,
@@ -83,6 +103,17 @@ describe("password module logic", () => {
         "create",
       ),
     ).toMatch(/password/i);
+    expect(
+      validatePasswordInput(
+        {
+          ...emptyPasswordForm(),
+          name: "GitHub",
+          password: "secret",
+          category: "",
+        },
+        "create",
+      ),
+    ).toMatch(/category/i);
     expect(
       validatePasswordInput({ ...emptyPasswordForm(), name: "GitHub" }, "edit"),
     ).toBeNull();
