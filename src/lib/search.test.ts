@@ -5,6 +5,7 @@ import {
   createDefaultModel,
   ensureModuleDefaults,
   setModuleEnabled,
+  setModuleSearchable,
 } from "@/vault/model";
 import {
   buildUnifiedIndex,
@@ -36,6 +37,7 @@ function fakeModule(
     title: id,
     icon: null,
     enabledByDefault: true,
+    searchableByDefault: true,
     scopePrefix: prefix,
     createEmpty: () => [],
     buildIndex: () => entries,
@@ -54,6 +56,20 @@ describe("buildUnifiedIndex", () => {
       mods,
     );
     model = setModuleEnabled(model, "b", false);
+    const index = buildUnifiedIndex(model, mods);
+    expect(index.map((e) => e.id)).toEqual(["a1"]);
+  });
+
+  it("excludes enabled modules that are not searchable", () => {
+    const mods = [
+      fakeModule("a", "a", [entry("a1", "alpha")]),
+      fakeModule("b", "b", [entry("b1", "bravo")]),
+    ];
+    let model = ensureModuleDefaults(
+      createDefaultModel("2026-07-07T00:00:00Z"),
+      mods,
+    );
+    model = setModuleSearchable(model, "b", false);
     const index = buildUnifiedIndex(model, mods);
     expect(index.map((e) => e.id)).toEqual(["a1"]);
   });
@@ -174,10 +190,23 @@ describe("runQuery", () => {
     mods,
   );
 
-  it("ranks across every enabled module for a global query", () => {
+  it("ranks across every searchable module for a global query", () => {
     const ids = runQuery(model, mods, "git", NOW).map((r) => r.entry.id);
     expect(ids).toContain("p1");
     expect(ids).toContain("c1");
+  });
+
+  it("ignores non-searchable modules even when enabled", () => {
+    const withTodos = [
+      ...mods,
+      fakeModule("todos", "t", [entryFor("todos", "t1", "git checkout todo")]),
+    ];
+    let next = ensureModuleDefaults(model, withTodos);
+    next = setModuleSearchable(next, "todos", false);
+    const ids = runQuery(next, withTodos, "git", NOW).map((r) => r.entry.id);
+    expect(ids).toContain("p1");
+    expect(ids).toContain("c1");
+    expect(ids).not.toContain("t1");
   });
 
   it("restricts results to the scoped module", () => {

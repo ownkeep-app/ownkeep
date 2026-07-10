@@ -216,6 +216,9 @@ changes, update migrations + the migration guide in the same release per spec §
   Dashboard. Add a **Help** row to the left sidebar’s bottom menu (with Settings and Lock), styled
   like other sidebar rows: `[Keyboard icon] Help` plus the shortcut label **`⌘/`** on the right.
   Clicking the row opens the same Hotkey Help modal; `⌘/` continues to toggle it globally.
+- [x] **Command-bar searchable modules:** per-module `searchable` setting (schema v9); defaults on
+  for passwords + commands only; Settings Modules row toggles Search + Enabled; unified index and
+  scope prefixes honor `searchable`.
 - **Exit:** manual test pass confirms the Dashboard is list-first and fast to scan; common actions
   (view/copy/edit) are reachable with fewer clicks; no regression in secrets exposure rules; `pnpm
   check` stays green.

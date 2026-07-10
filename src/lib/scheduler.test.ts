@@ -26,6 +26,7 @@ const dummyModule: FeatureModule = {
   title: "Dummy",
   icon: null,
   enabledByDefault: true,
+  searchableByDefault: false,
   createEmpty: () => [],
   buildIndex: () => [],
   ListView: () => null,

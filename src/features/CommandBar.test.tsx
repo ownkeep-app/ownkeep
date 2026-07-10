@@ -66,7 +66,10 @@ function withPasswords(items: ReturnType<typeof passwordItem>[]): VaultModel {
   const base = createDefaultModel(NOW);
   return {
     ...base,
-    settings: { ...base.settings, modules: { passwords: { enabled: true } } },
+    settings: {
+      ...base.settings,
+      modules: { passwords: { enabled: true, searchable: true } },
+    },
     modules: { [PASSWORDS_MODULE_ID]: items },
   };
 }
@@ -90,7 +93,10 @@ function withCommands(items: CommandEntry[]): VaultModel {
   const base = createDefaultModel(NOW);
   return {
     ...base,
-    settings: { ...base.settings, modules: { commands: { enabled: true } } },
+    settings: {
+      ...base.settings,
+      modules: { commands: { enabled: true, searchable: true } },
+    },
     modules: { [COMMANDS_MODULE_ID]: items },
   };
 }
@@ -115,7 +121,10 @@ function withTodos(items: TodoEntry[]): VaultModel {
   const base = createDefaultModel(NOW);
   return {
     ...base,
-    settings: { ...base.settings, modules: { todos: { enabled: true } } },
+    settings: {
+      ...base.settings,
+      modules: { todos: { enabled: true, searchable: true } },
+    },
     modules: { [TODOS_MODULE_ID]: items },
   };
 }
@@ -148,7 +157,7 @@ function withSubscriptions(items: SubscriptionEntry[]): VaultModel {
     ...base,
     settings: {
       ...base.settings,
-      modules: { subscriptions: { enabled: true } },
+      modules: { subscriptions: { enabled: true, searchable: true } },
     },
     modules: { [SUBSCRIPTIONS_MODULE_ID]: items },
   };
@@ -282,6 +291,7 @@ describe("CommandBar", () => {
       title: "Notes",
       icon: null,
       enabledByDefault: true,
+      searchableByDefault: true,
       scopePrefix: "n",
       createEmpty: () => [],
       buildIndex: () => [
@@ -298,7 +308,10 @@ describe("CommandBar", () => {
     const base = createDefaultModel(NOW);
     setModel({
       ...base,
-      settings: { ...base.settings, modules: { notes: { enabled: true } } },
+      settings: {
+        ...base.settings,
+        modules: { notes: { enabled: true, searchable: true } },
+      },
       modules: { notes: [] },
     });
     render(<CommandBar modules={[notesModule]} />);

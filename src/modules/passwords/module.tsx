@@ -14,6 +14,7 @@ export const passwordsModule: FeatureModule = {
   title: "Passwords",
   icon: <Key className="h-4 w-4" />,
   enabledByDefault: true,
+  searchableByDefault: true,
   scopePrefix: "p",
   secretFields: [PASSWORD_SECRET_FIELD],
   createEmpty: () => [],

@@ -101,7 +101,10 @@ describe("Dashboard", () => {
         settings: {
           ...model.settings,
           modules: Object.fromEntries(
-            MODULES.map((module) => [module.id, { enabled: false }]),
+            MODULES.map((module) => [
+              module.id,
+              { enabled: false, searchable: false },
+            ]),
           ),
         },
       },

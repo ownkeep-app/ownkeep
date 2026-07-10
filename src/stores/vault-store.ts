@@ -42,6 +42,7 @@ import {
   parseVaultJson,
   recordFrecency,
   setModuleEnabled,
+  setModuleSearchable,
   setModuleSettings,
   withUpdatedAt,
   type VaultSettings,
@@ -93,6 +94,7 @@ interface VaultState {
   quitApp: () => Promise<void>;
   save: (next: VaultModel) => Promise<void>;
   toggleModule: (id: string, enabled: boolean) => Promise<void>;
+  toggleModuleSearchable: (id: string, searchable: boolean) => Promise<void>;
   recordUse: (id: string) => Promise<void>;
   savePassword: (entry: PasswordEntry) => Promise<void>;
   deletePassword: (id: string) => Promise<void>;
@@ -581,6 +583,12 @@ export const useVaultStore = create<VaultState>((set, get) => ({
     const model = get().model;
     if (!model) return;
     await get().save(setModuleEnabled(model, id, enabled));
+  },
+
+  toggleModuleSearchable: async (id, searchable) => {
+    const model = get().model;
+    if (!model) return;
+    await get().save(setModuleSearchable(model, id, searchable));
   },
 
   recordUse: async (id) => {

@@ -392,6 +392,41 @@ const schemaSevenToEight: Migration = {
   },
 };
 
+/** Modules that default to command-bar search when `searchable` is first introduced. */
+const DEFAULT_SEARCHABLE_MODULE_IDS = new Set(["passwords", "commands"]);
+
+const schemaEightToNine: Migration = {
+  from: 8,
+  to: 9,
+  summary: "Add per-module searchable flag for the command bar.",
+  changes: [
+    {
+      kind: "added",
+      path: "settings.modules.*.searchable",
+      note: "Defaults true for passwords and commands; false for other modules.",
+    },
+  ],
+  apply: (model) => {
+    const modules = Object.fromEntries(
+      Object.entries(model.settings.modules).map(([id, settings]) => [
+        id,
+        {
+          ...settings,
+          searchable:
+            typeof settings.searchable === "boolean"
+              ? settings.searchable
+              : DEFAULT_SEARCHABLE_MODULE_IDS.has(id),
+        },
+      ]),
+    );
+    return {
+      ...model,
+      meta: { ...model.meta, schemaVersion: 9 },
+      settings: { ...model.settings, modules },
+    };
+  },
+};
+
 export const MIGRATIONS: Migration[] = [
   schemaOneToTwo,
   schemaTwoToThree,
@@ -400,6 +435,7 @@ export const MIGRATIONS: Migration[] = [
   schemaFiveToSix,
   schemaSixToSeven,
   schemaSevenToEight,
+  schemaEightToNine,
 ];
 
 function normalizePasswordMigrationItem(

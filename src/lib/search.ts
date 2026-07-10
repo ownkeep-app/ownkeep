@@ -8,16 +8,21 @@
 import Fuse from "fuse.js";
 
 import type { FeatureModule, IndexEntry } from "@/modules/types";
-import type { FrecencyEntry, VaultModel } from "@/vault/model";
+import {
+  isModuleEnabled,
+  isModuleSearchable,
+  type FrecencyEntry,
+  type VaultModel,
+} from "@/vault/model";
 
-/** Flatten every *enabled* module's search entries into one index. */
+/** Flatten every *enabled and searchable* module's search entries into one index. */
 export function buildUnifiedIndex(
   model: VaultModel,
   modules: FeatureModule[],
 ): IndexEntry[] {
   const entries: IndexEntry[] = [];
   for (const m of modules) {
-    if (model.settings.modules[m.id]?.enabled) {
+    if (isModuleEnabled(model, m.id) && isModuleSearchable(model, m.id)) {
       const slice = model.modules[m.id];
       const items = Array.isArray(slice) ? slice : [];
       entries.push(...m.buildIndex(items));
@@ -104,7 +109,7 @@ export function search(
 
 /**
  * End-to-end command-bar query (spec §7.2): parse a scope prefix, build the unified index across
- * enabled modules, restrict to the scoped module when one is given, then rank by fuzzy × frecency
+ * searchable modules, restrict to the scoped module when one is given, then rank by fuzzy × frecency
  * and cap at `settings.resultLimit`. Pure, so the whole bar pipeline is unit-tested off-DOM.
  */
 export function runQuery(
@@ -113,7 +118,10 @@ export function runQuery(
   query: string,
   now: number = Date.now(),
 ): RankedResult[] {
-  const scope = parseScope(query, modules);
+  const searchableModules = modules.filter(
+    (m) => isModuleEnabled(model, m.id) && isModuleSearchable(model, m.id),
+  );
+  const scope = parseScope(query, searchableModules);
   const entries = buildUnifiedIndex(model, modules).filter(
     (entry) => !scope.moduleId || entry.moduleId === scope.moduleId,
   );

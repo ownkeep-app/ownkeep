@@ -156,7 +156,8 @@ same DEK by a different unwrap; every step from *decrypt the vault body* onward 
 The whole app is a **thin core + a set of modules**. The core knows nothing about "passwords" or
 "todos" specifically; it iterates a registry. Adding a feature = writing one module and registering
 it. Disabling a feature = flipping `enabled: false` (data is preserved, just hidden from the index,
-nav, and scheduler).
+nav, and scheduler). Excluding a feature from the command bar = flipping `searchable: false`
+(Dashboard still shows it when enabled).
 
 **Core responsibilities (module-agnostic):** unlock/lock, the command bar + unified index,
 settings shell, backup/restore, the notification scheduler loop, global hotkey, theming.
@@ -169,6 +170,7 @@ interface FeatureModule<T = unknown> {
   title: string;                   // display name in settings/nav
   icon?: ReactNode;
   enabledByDefault: boolean;
+  searchableByDefault: boolean;   // command-bar index; true only for passwords + commands by default
   scopePrefix?: string;            // command-bar scope, e.g. "p", "c", "t"
   secretFields?: (keyof T)[];      // fields Rust must redact + serve only via copy_secret (§4.5)
 
@@ -198,7 +200,7 @@ export const MODULES: FeatureModule[] = [
 ```
 
 **How the core uses it:**
-- **Unified index** = `flatMap(enabledModules, m => m.buildIndex(slice[m.id]))` → fed to Fuse.js + frecency.
+- **Unified index** = `flatMap(enabledAndSearchableModules, m => m.buildIndex(slice[m.id]))` → fed to Fuse.js + frecency.
 - **Dashboard** = the sidebar lists one row per enabled module; selecting one renders its `ListView` in the right pane (§7.5).
 - **Nav / settings tabs** = one entry per enabled module with a `SettingsPanel`.
 - **Scheduler** = `flatMap(enabledModules, m => m.collectReminders?.(...))` → dedupe → notify.
@@ -354,7 +356,7 @@ never migrates another module's slice.
 
 ```jsonc
 {
-  "meta": { "schemaVersion": 8, "appVersion": "0.1", "createdAt": "ISO", "updatedAt": "ISO" },
+  "meta": { "schemaVersion": 9, "appVersion": "0.1", "createdAt": "ISO", "updatedAt": "ISO" },
 
   "settings": {
     "globalHotkey": "Cmd+Shift+Space",       // activate/toggle the search window
@@ -368,12 +370,12 @@ never migrates another module's slice.
     "resultLimit": 9,
     "categoryOptions": ["Work", "Personal", "Dev", "Finance", "Casual", "Misc"], // single-select labels; default Personal
     "tagOptions": ["React", "Bash", "Git", "TypeScript", "AI", "MongoDB", "PostgreSQL", "CSS", "HTML", "JavaScript", "Network", "Crypto"], // multi-select labels; default React
-    "modules": {                              // per-module enable flag + settings live here
-      "passwords":     { "enabled": true },
-      "commands":      { "enabled": true, "placeholderSyntax": "{{ }}", "defaultCopyMode": "fill" },
-      "todos":         { "enabled": true,  "scopePrefix": "t", "defaultLeadMinutes": 30 },
-      "subscriptions": { "enabled": true,  "scopePrefix": "s", "defaultLeadDays": 3 },
-      "finance":       { "enabled": true,  "scopePrefix": "f", "baseCurrency": "CNY", "fxRates": { "USD": 7.2, "SGD": 5.3 } }
+    "modules": {                              // per-module enable + searchable flags + settings live here
+      "passwords":     { "enabled": true, "searchable": true },
+      "commands":      { "enabled": true, "searchable": true, "placeholderSyntax": "{{ }}", "defaultCopyMode": "fill" },
+      "todos":         { "enabled": true, "searchable": false, "scopePrefix": "t", "defaultLeadMinutes": 30 },
+      "subscriptions": { "enabled": true, "searchable": false, "scopePrefix": "s", "defaultLeadDays": 3 },
+      "finance":       { "enabled": true, "searchable": false, "scopePrefix": "f", "baseCurrency": "CNY", "fxRates": { "USD": 7.2, "SGD": 5.3 } }
     }
   },
 
@@ -481,7 +483,7 @@ so editing a rate re-totals every snapshot. Future calendar/notes modules add th
 - Simple checklist: **title**, optional notes, **done** flag, optional **due date/time**, **priority** (low/normal/high), **category**, and a per-item **reminder lead** (minutes before due).
 - Optional lightweight **recurrence** (`none` | `daily` | `weekly`) — keep minimal; no full RRULE.
 - **Notifications** fire at `dueAt − notifyLeadMinutes` via the shared scheduler (§8). Completing or snoozing a todo from the notification is a nice-to-have.
-- Searchable/toggle-done from the command bar (scope `t `).
+- Optional command-bar search / toggle-done when `searchable` is on (off by default; scope `t `). Dashboard is the primary surface.
 - **Acceptance:** add/complete/delete; due todos notify once per window; recurring todos roll forward on completion.
 
 #### M2 — Subscriptions tracker (module `subscriptions`)
@@ -519,11 +521,11 @@ On activation the window is **just a search input** (plus a thin results list on
 chrome, no sidebar. Escape or blur hides it.
 
 ### 7.2 Searching & ranking
-- As you type, **fuzzy-match across all enabled modules** using the unified index (each entry exposes `searchString`, `displayLine`, `type`, `actions`).
+- As you type, **fuzzy-match across enabled modules that are also `searchable`** using the unified index (each entry exposes `searchString`, `displayLine`, `type`, `actions`). By default only **passwords** and **commands** are searchable; todos / subscriptions / finance stay Dashboard-first (toggleable in Settings).
 - **Ranking = Fuse.js fuzzy score × frecency boost.** Frecency (frequency + recency of past copies/opens) is tracked per item in `frecency` and nudges your habitual items up — this is how Raycast/Alfred actually feel smart. Cheap to implement.
 - **Implementation:** the bar is shadcn's **`command`** component (built on `cmdk`) as the palette shell + keyboard nav, with its built-in filter disabled (`shouldFilter={false}`) so **Fuse.js + frecency drive ranking** over the unified index; row icons via Lucide.
 - Results are **one line each**, ranked, capped at `resultLimit` (default 9), numbered `1..9`.
-- **Optional scope prefixes** (Alfred/Raycast-style, per-module configurable): `p ` passwords, `c ` commands, `t ` todos, `s ` subscriptions, `f ` finance. Typing `c branch` searches only commands.
+- **Optional scope prefixes** (Alfred/Raycast-style, per-module configurable): `p ` passwords, `c ` commands, `t ` todos, `s ` subscriptions, `f ` finance. Typing `c branch` searches only commands. Scope prefixes only apply to modules that are currently searchable.
 - **Enter** opens the **Dashboard** focused on that item's module with the item selected (§7.5); the **numbered copy hotkey** performs the item's primary action without opening.
 
 ### 7.3 Numbered copy + interactive fill-in
@@ -579,7 +581,7 @@ All user-editable, stored inside the encrypted vault:
 global hotkey; dashboard hotkey; numbered-copy hotkey; auto-lock timeout (preset minutes/hours or
 never) + lock-on-blur; clipboard auto-clear
 seconds; theme + accent; result limit; **category/tag option lists** (editable in Settings — one
-label per line; used by item edit forms); **per-module enable toggles + scope prefixes + module
+label per line; used by item edit forms); **per-module enable + searchable toggles + scope prefixes + module
 settings** (command placeholder/copy mode; todo default lead; subscription default lead days;
 finance base currency + FX table); Emergency Kit regeneration; **Touch ID / biometric unlock**
 enable / disable / re-enroll (§4.7 — device-local; state derived in Rust, not stored in the encrypted model).
@@ -588,7 +590,8 @@ The default Settings menu stays focused on **Modules**, **Hotkeys**, **Categorie
 Advanced app/runtime controls — security (incl. Touch ID / biometric unlock, §4.7), appearance,
 backup/restore, and Emergency Kit — live in a
 secondary **System** menu under Settings. Settings is itself rendered from the registry: the
-**Modules** section lists every module with an enable toggle, and each enabled module contributes its
+**Modules** section lists every module with an enable toggle and a searchable toggle (command-bar
+inclusion; defaults on for passwords + commands), and each enabled module contributes its
 own `SettingsPanel`.
 
 ---
@@ -710,7 +713,7 @@ This is the payoff of the module registry — the flexibility you asked for:
 1. Create `modules/<feature>/` with an object implementing `FeatureModule` (§3.4): `id`, `buildIndex`, `ListView` (dashboard content), `DetailView`, `EditView`, optional `SettingsPanel`, optional `collectReminders`, and `secretFields` if it holds secrets.
 2. Add its initial slice via `createEmpty()`; the model gains `modules.<id>` with **no migration to other slices**.
 3. Register it in `modules/index.ts`.
-4. It automatically appears in: the unified search index, the **Dashboard sidebar** (its `ListView` in the right pane), the Modules settings tab (with enable toggle + its panel), the scheduler (if it has reminders), and scope-prefix routing.
+4. It automatically appears in: the **Dashboard sidebar** (its `ListView` in the right pane), the Modules settings tab (with enable + searchable toggles + its panel), the scheduler (if it has reminders), and — when `searchable` — the unified search index and scope-prefix routing.
 
 **UI & tests:** build the module's `ListView` / `DetailView` / `EditView` from the shared **shadcn/ui** primitives + **Lucide** icons so it matches the app automatically, and add a **Vitest** test file covering its pure logic (index / parse / math / reminders) — see §2.1–2.2.
 

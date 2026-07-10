@@ -14,6 +14,7 @@ export const commandsModule: FeatureModule = {
   title: "Commands",
   icon: <Terminal className="h-4 w-4" />,
   enabledByDefault: true,
+  searchableByDefault: true,
   scopePrefix: "c",
   createEmpty: () => [],
   buildIndex: (items) => buildCommandIndex(commandEntries(items)),

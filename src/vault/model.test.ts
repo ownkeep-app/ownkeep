@@ -4,9 +4,11 @@ import {
   createDefaultModel,
   ensureModuleDefaults,
   isModuleEnabled,
+  isModuleSearchable,
   parseVaultJson,
   recordFrecency,
   setModuleEnabled,
+  setModuleSearchable,
   APP_VERSION,
   SCHEMA_VERSION,
   type ModuleDefaults,
@@ -17,10 +19,16 @@ import {
 const NOW = "2026-07-07T00:00:00.000Z";
 
 const stubModules: ModuleDefaults[] = [
-  { id: "passwords", enabledByDefault: true, createEmpty: () => [] },
+  {
+    id: "passwords",
+    enabledByDefault: true,
+    searchableByDefault: true,
+    createEmpty: () => [],
+  },
   {
     id: "finance",
     enabledByDefault: false,
+    searchableByDefault: false,
     createEmpty: () => ({ snapshots: [] }),
   },
 ];
@@ -64,8 +72,14 @@ describe("parseVaultJson", () => {
 describe("ensureModuleDefaults", () => {
   it("adds missing module settings + slices from the registry", () => {
     const model = ensureModuleDefaults(createDefaultModel(NOW), stubModules);
-    expect(model.settings.modules.passwords).toEqual({ enabled: true });
-    expect(model.settings.modules.finance).toEqual({ enabled: false });
+    expect(model.settings.modules.passwords).toEqual({
+      enabled: true,
+      searchable: true,
+    });
+    expect(model.settings.modules.finance).toEqual({
+      enabled: false,
+      searchable: false,
+    });
     expect(model.modules.passwords).toEqual([]);
     expect(model.modules.finance).toEqual({ snapshots: [] });
   });
@@ -85,7 +99,10 @@ describe("ensureModuleDefaults", () => {
       scopePrefix: "p",
     });
     expect(model.modules.passwords).toEqual([{ id: "keep" }]);
-    expect(model.settings.modules.finance).toEqual({ enabled: false }); // newly added
+    expect(model.settings.modules.finance).toEqual({
+      enabled: false,
+      searchable: false,
+    }); // newly added
   });
 });
 
@@ -102,6 +119,23 @@ describe("module enable toggle", () => {
 
   it("defaults to false for an unknown module", () => {
     expect(isModuleEnabled(createDefaultModel(NOW), "nope")).toBe(false);
+  });
+});
+
+describe("module searchable toggle", () => {
+  it("reads and flips searchable without touching enabled or other modules", () => {
+    let model = ensureModuleDefaults(createDefaultModel(NOW), stubModules);
+    expect(isModuleSearchable(model, "passwords")).toBe(true);
+    expect(isModuleSearchable(model, "finance")).toBe(false);
+
+    model = setModuleSearchable(model, "finance", true);
+    expect(isModuleSearchable(model, "finance")).toBe(true);
+    expect(isModuleEnabled(model, "finance")).toBe(false);
+    expect(isModuleSearchable(model, "passwords")).toBe(true);
+  });
+
+  it("defaults to false for an unknown module", () => {
+    expect(isModuleSearchable(createDefaultModel(NOW), "nope")).toBe(false);
   });
 });
 

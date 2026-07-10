@@ -19,6 +19,7 @@ export const subscriptionsModule: FeatureModule = {
   title: "Subscriptions",
   icon: <CreditCard className="h-4 w-4" />,
   enabledByDefault: true,
+  searchableByDefault: false,
   scopePrefix: "s",
   createEmpty: () => [],
   buildIndex: (items) => buildSubscriptionIndex(subscriptionEntries(items)),

@@ -11,7 +11,7 @@ import {
   withTaxonomyDefaults,
 } from "./taxonomy";
 
-export const SCHEMA_VERSION = 8;
+export const SCHEMA_VERSION = 9;
 export const APP_VERSION = __KEYSTASH_APP_VERSION__;
 
 export type Theme = "system" | "light" | "dark";
@@ -23,9 +23,14 @@ export interface VaultMeta {
   updatedAt: string;
 }
 
-/** Per-module settings: the enable flag plus arbitrary module-specific keys. */
+/** Per-module settings: enable + command-bar search flags, plus arbitrary module-specific keys. */
 export interface ModuleSettings {
   enabled: boolean;
+  /**
+   * When true (and enabled), this module contributes to the command-bar index (§7.2).
+   * Absent/`false` means Dashboard-only; migration + `ensureModuleDefaults` fill defaults.
+   */
+  searchable?: boolean;
   [key: string]: unknown;
 }
 
@@ -63,6 +68,8 @@ export interface VaultModel {
 export interface ModuleDefaults {
   id: string;
   enabledByDefault: boolean;
+  /** Whether new vaults include this module in the command-bar index (default: passwords + commands). */
+  searchableByDefault: boolean;
   createEmpty: () => unknown;
 }
 
@@ -128,7 +135,10 @@ export function ensureModuleDefaults(
   const moduleData = { ...model.modules };
   for (const m of modules) {
     if (!moduleSettings[m.id]) {
-      moduleSettings[m.id] = { enabled: m.enabledByDefault };
+      moduleSettings[m.id] = {
+        enabled: m.enabledByDefault,
+        searchable: m.searchableByDefault,
+      };
     }
     if (!(m.id in moduleData)) {
       moduleData[m.id] = m.createEmpty();
@@ -145,18 +155,47 @@ export function isModuleEnabled(model: VaultModel, id: string): boolean {
   return model.settings.modules[id]?.enabled ?? false;
 }
 
+export function isModuleSearchable(model: VaultModel, id: string): boolean {
+  return model.settings.modules[id]?.searchable === true;
+}
+
 /** Toggle a module's enable flag, preserving its other settings and every other module's entry. */
 export function setModuleEnabled(
   model: VaultModel,
   id: string,
   enabled: boolean,
 ): VaultModel {
-  const existing = model.settings.modules[id] ?? { enabled };
+  const existing = model.settings.modules[id] ?? {
+    enabled,
+    searchable: false,
+  };
   return {
     ...model,
     settings: {
       ...model.settings,
       modules: { ...model.settings.modules, [id]: { ...existing, enabled } },
+    },
+  };
+}
+
+/** Toggle whether an enabled module appears in the command-bar search index. */
+export function setModuleSearchable(
+  model: VaultModel,
+  id: string,
+  searchable: boolean,
+): VaultModel {
+  const existing = model.settings.modules[id] ?? {
+    enabled: false,
+    searchable,
+  };
+  return {
+    ...model,
+    settings: {
+      ...model.settings,
+      modules: {
+        ...model.settings.modules,
+        [id]: { ...existing, searchable },
+      },
     },
   };
 }
@@ -170,7 +209,10 @@ export function setModuleSettings(
   id: string,
   patch: Record<string, unknown>,
 ): VaultModel {
-  const existing = model.settings.modules[id] ?? { enabled: false };
+  const existing = model.settings.modules[id] ?? {
+    enabled: false,
+    searchable: false,
+  };
   return {
     ...model,
     settings: {

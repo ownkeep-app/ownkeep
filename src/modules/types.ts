@@ -42,6 +42,11 @@ export interface FeatureModule<T = unknown> {
   title: string;
   icon: ReactNode;
   enabledByDefault: boolean;
+  /**
+   * Whether new vaults include this module in the command-bar index (§7.2).
+   * Defaults true only for passwords + commands; other modules are Dashboard-first.
+   */
+  searchableByDefault: boolean;
   /** Command-bar scope prefix, e.g. "p " for passwords (§7.2). */
   scopePrefix?: string;
   /** Fields Rust must redact from the projection + serve only via copy_secret (§4.5). */

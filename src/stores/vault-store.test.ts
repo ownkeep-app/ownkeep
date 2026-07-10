@@ -491,6 +491,24 @@ describe("vault store", () => {
     ).toBe(false);
   });
 
+  it("toggleModuleSearchable persists the flipped flag", async () => {
+    api.isUnlocked.mockResolvedValue(true);
+    api.getVault.mockResolvedValue("{}");
+    await useVaultStore.getState().init();
+
+    expect(
+      useVaultStore.getState().model?.settings.modules.passwords.searchable,
+    ).toBe(true);
+
+    await useVaultStore.getState().toggleModuleSearchable("passwords", false);
+
+    const saved = JSON.parse(api.saveVault.mock.calls[0][0] as string);
+    expect(saved.settings.modules.passwords.searchable).toBe(false);
+    expect(
+      useVaultStore.getState().model?.settings.modules.passwords.searchable,
+    ).toBe(false);
+  });
+
   it("saveSnapshot adds then updates a finance snapshot", async () => {
     api.isUnlocked.mockResolvedValue(true);
     api.getVault.mockResolvedValue("{}");

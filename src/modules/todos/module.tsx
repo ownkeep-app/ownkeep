@@ -15,6 +15,7 @@ export const todosModule: FeatureModule = {
   title: "Todos",
   icon: <ListTodo className="h-4 w-4" />,
   enabledByDefault: true,
+  searchableByDefault: false,
   scopePrefix: "t",
   createEmpty: () => [],
   buildIndex: (items) => buildTodoIndex(todoEntries(items)),

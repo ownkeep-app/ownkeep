@@ -20,10 +20,16 @@ import {
 const NOW = "2026-07-07T00:00:00.000Z";
 
 const modules: ModuleDefaults[] = [
-  { id: "passwords", enabledByDefault: true, createEmpty: () => [] },
+  {
+    id: "passwords",
+    enabledByDefault: true,
+    searchableByDefault: true,
+    createEmpty: () => [],
+  },
   {
     id: "finance",
     enabledByDefault: false,
+    searchableByDefault: false,
     createEmpty: () => ({ snapshots: [] }),
   },
 ];
@@ -73,6 +79,7 @@ describe("migration registry", () => {
       [5, 6],
       [6, 7],
       [7, 8],
+      [8, 9],
     ]);
   });
 
@@ -97,6 +104,9 @@ describe("migration registry", () => {
     expect(plan?.migratedModel.meta.schemaVersion).toBe(SCHEMA_VERSION);
     expect(plan?.migratedModel.settings.dashboardHotkey).toBe("Cmd+Shift+D");
     expect(plan?.migratedModel.settings.modules.passwords.enabled).toBe(false);
+    expect(plan?.migratedModel.settings.modules.passwords.searchable).toBe(
+      true,
+    );
     expect(plan?.migratedModel.modules.passwords).toEqual([
       {
         id: "keep",
@@ -345,6 +355,49 @@ describe("migration registry", () => {
         updatedAt: NOW,
       },
     ]);
+  });
+
+  it("adds searchable defaults during the v8 to v9 migration", () => {
+    const model = {
+      ...createDefaultModel(NOW),
+      meta: {
+        schemaVersion: 8,
+        appVersion: "0.0",
+        createdAt: NOW,
+        updatedAt: NOW,
+      },
+      settings: {
+        ...createDefaultModel(NOW).settings,
+        modules: {
+          passwords: { enabled: true },
+          commands: { enabled: true },
+          todos: { enabled: true },
+          finance: { enabled: false },
+        },
+      },
+    };
+
+    const prepared = prepareVaultModel(model, modules);
+
+    expect(prepared.migration?.changes.map((c) => c.path)).toContain(
+      "settings.modules.*.searchable",
+    );
+    expect(prepared.model.settings.modules.passwords).toEqual({
+      enabled: true,
+      searchable: true,
+    });
+    expect(prepared.model.settings.modules.commands).toEqual({
+      enabled: true,
+      searchable: true,
+    });
+    expect(prepared.model.settings.modules.todos).toEqual({
+      enabled: true,
+      searchable: false,
+    });
+    expect(prepared.model.settings.modules.finance).toEqual({
+      enabled: false,
+      searchable: false,
+    });
   });
 
   it("returns no migration for current-schema vaults", () => {

@@ -76,6 +76,7 @@ export function SettingsPanel() {
   const regenerateRecovery = useVaultStore((s) => s.regenerateRecovery);
   const dismissKit = useVaultStore((s) => s.dismissKit);
   const toggleModule = useVaultStore((s) => s.toggleModule);
+  const toggleModuleSearchable = useVaultStore((s) => s.toggleModuleSearchable);
   const biometricStatus = useVaultStore((s) => s.biometricStatus);
   const enableBiometric = useVaultStore((s) => s.enableBiometric);
   const disableBiometric = useVaultStore((s) => s.disableBiometric);
@@ -233,18 +234,33 @@ export function SettingsPanel() {
                 {MODULES.map((m) => {
                   const enabled =
                     model.settings.modules[m.id]?.enabled ?? false;
+                  const searchable =
+                    model.settings.modules[m.id]?.searchable === true;
                   return (
                     <li
                       key={m.id}
                       className="flex items-center gap-3 px-3 py-2.5"
                     >
                       {m.icon}
-                      <span className="flex-1 text-sm">{m.title}</span>
-                      <Switch
-                        aria-label={`Enable ${m.title}`}
-                        checked={enabled}
-                        onCheckedChange={(v) => void toggleModule(m.id, v)}
-                      />
+                      <span className="min-w-0 flex-1 text-sm">{m.title}</span>
+                      <label className="flex items-center gap-2 text-xs text-muted-foreground">
+                        Search
+                        <Switch
+                          aria-label={`Include ${m.title} in search`}
+                          checked={searchable}
+                          onCheckedChange={(v) =>
+                            void toggleModuleSearchable(m.id, v)
+                          }
+                        />
+                      </label>
+                      <label className="flex items-center gap-2 text-xs text-muted-foreground">
+                        Enabled
+                        <Switch
+                          aria-label={`Enable ${m.title}`}
+                          checked={enabled}
+                          onCheckedChange={(v) => void toggleModule(m.id, v)}
+                        />
+                      </label>
                     </li>
                   );
                 })}

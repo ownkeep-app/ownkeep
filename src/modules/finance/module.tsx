@@ -10,6 +10,7 @@ export const financeModule: FeatureModule = {
   title: "Finance",
   icon: <TrendingUp className="h-4 w-4" />,
   enabledByDefault: true,
+  searchableByDefault: false,
   scopePrefix: "f",
   createEmpty: () => [],
   buildIndex: (items) => buildFinanceIndex(financeSnapshots(items)),

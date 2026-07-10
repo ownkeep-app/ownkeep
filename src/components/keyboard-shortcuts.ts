@@ -12,7 +12,7 @@ export interface ShortcutGroup {
 export const COMMAND_BAR_SHORTCUTS: ShortcutGroup = {
   title: "Command bar",
   shortcuts: [
-    { keys: ["Type"], label: "Search across every enabled module" },
+    { keys: ["Type"], label: "Search across searchable modules" },
     { keys: ["⌘", "1–9"], label: "Run a result's primary action" },
     { keys: ["⌥", "⌘", "1–9"], label: "Copy a command's raw template" },
     { keys: ["↵"], label: "Run the selected result" },
