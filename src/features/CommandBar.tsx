@@ -8,6 +8,7 @@ import {
   CommandItem,
   CommandList,
 } from "@/components/ui/command";
+import { AboutDialog } from "@/components/AboutDialog";
 import { KeyboardHelp } from "@/components/KeyboardHelp";
 import {
   COMMAND_BAR_SHORTCUTS,
@@ -301,6 +302,7 @@ export function CommandBar({
         groups={[COMMAND_BAR_SHORTCUTS, GLOBAL_SHORTCUTS]}
         showTrigger={false}
       />
+      <AboutDialog showTrigger={false} />
     </main>
   );
 }

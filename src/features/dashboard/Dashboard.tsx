@@ -2,8 +2,9 @@ import { type ReactNode, useEffect, useMemo, useState } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { motion, useReducedMotion } from "motion/react";
 
-import { Keyboard, Lock, Settings as SettingsIcon } from "lucide-react";
+import { Keyboard, Lock, Settings as SettingsIcon, Info } from "lucide-react";
 
+import { AboutDialog } from "@/components/AboutDialog";
 import { KeyboardHelp } from "@/components/KeyboardHelp";
 import {
   DASHBOARD_SHORTCUTS,
@@ -41,6 +42,7 @@ export function Dashboard() {
   const lock = useVaultStore((s) => s.lock);
   const [selected, setSelected] = useState<string>("");
   const [helpOpen, setHelpOpen] = useState(false);
+  const [aboutOpen, setAboutOpen] = useState(false);
 
   const enabledModules = useMemo(
     () =>
@@ -182,8 +184,14 @@ export function Dashboard() {
           <SidebarRow
             icon={<Keyboard className="h-4 w-4" />}
             label="Help"
-            shortcut="⌘/"
+            shortcut="⌘H"
             onClick={() => setHelpOpen(true)}
+          />
+          <SidebarRow
+            icon={<Info className="h-4 w-4" />}
+            label="About"
+            shortcut="⌘/"
+            onClick={() => setAboutOpen(true)}
           />
           <SidebarRow
             icon={<Lock className="h-4 w-4" />}
@@ -202,6 +210,11 @@ export function Dashboard() {
         groups={[DASHBOARD_SHORTCUTS, GLOBAL_SHORTCUTS]}
         onOpenChange={setHelpOpen}
         open={helpOpen}
+        showTrigger={false}
+      />
+      <AboutDialog
+        onOpenChange={setAboutOpen}
+        open={aboutOpen}
         showTrigger={false}
       />
     </div>

@@ -28,25 +28,25 @@ describe("KeyboardHelp", () => {
     expect(screen.getByText("Summon the command bar")).toBeInTheDocument();
   });
 
-  it("toggles with Cmd+/", async () => {
+  it("toggles with Cmd+H", async () => {
     render(<KeyboardHelp groups={[DASHBOARD_SHORTCUTS]} />);
 
-    fireEvent.keyDown(window, { key: "/", metaKey: true });
+    fireEvent.keyDown(window, { key: "h", metaKey: true });
     expect(screen.getByRole("dialog")).toBeInTheDocument();
 
-    fireEvent.keyDown(window, { key: "/", metaKey: true });
+    fireEvent.keyDown(window, { key: "h", metaKey: true });
     await waitFor(() =>
       expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
     );
   });
 
-  it("can be opened via Ctrl+/ even without a trigger button", () => {
+  it("can be opened via Ctrl+H even without a trigger button", () => {
     render(<KeyboardHelp groups={[GLOBAL_SHORTCUTS]} showTrigger={false} />);
 
     expect(
       screen.queryByRole("button", { name: "Keyboard shortcuts" }),
     ).not.toBeInTheDocument();
-    fireEvent.keyDown(window, { key: "/", ctrlKey: true });
+    fireEvent.keyDown(window, { key: "h", ctrlKey: true });
     expect(screen.getByRole("dialog")).toBeInTheDocument();
   });
 
@@ -134,7 +134,7 @@ describe("KeyboardHelp", () => {
 
     await waitFor(() => expect(screen.getByRole("dialog")).toBeInTheDocument());
 
-    fireEvent.keyDown(window, { key: "/", metaKey: true });
+    fireEvent.keyDown(window, { key: "h", metaKey: true });
     await waitFor(() =>
       expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
     );

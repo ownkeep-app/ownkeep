@@ -553,10 +553,10 @@ non-command result (§7.3). Mutually exclusive with the command bar (§7.6).
 Layout: **left sidebar + right content pane.**
 
 - **When locked:** opening the Dashboard shows the same master-password unlock form as the launcher — users can unlock in place without switching to the command bar.
-- **Left sidebar (modules):** one row per *enabled* module — icon + title + item count — rendered straight from the registry, plus pinned **Settings**, **Help** (`⌘/`), and **Lock** rows. The bottom footer shows the current app version (`keystash v0.1`) so the user can confirm which build is running after a manual upgrade. Navigate with `↑/↓` or `⌥⇧1..9`; the selection persists across opens.
+- **Left sidebar (modules):** one row per *enabled* module — icon + title + item count — rendered straight from the registry, plus pinned **Settings**, **Help** (`⌘H`), **About** (`⌘/`), and **Lock** rows. The bottom footer shows the current app version (`keystash v0.1`) so the user can confirm which build is running after a manual upgrade. Navigate with `↑/↓` or `⌥⇧1..9`; the selection persists across opens.
 - **Right pane (all content):** renders the selected module's **`ListView`** — the full list/table of its items (all passwords; all commands grouped by category with title, description, and highlighted snippet per card; the todo list; all subscriptions; the finance snapshot table + trend chart). Includes a per-module filter box, **sortable table headers** (passwords, todos, subscriptions, finance), and **New / Edit / Delete**. Row **View** opens that module's `DetailView` in a dismissible two-column modal (Esc + click-away); **New / Edit** open the module's `EditView` in a modal-style elevated card over a dimmed pane (Creating/Editing badge, Esc + backdrop dismiss). Table columns use fixed proportional widths so headers and common values (e.g. email usernames) stay readable without manual resizing.
 - **Secrets stay protected:** the passwords `ListView` shows metadata only (name, username, category) with masked passwords; clicking the mask reveals via Rust `reveal_secret` (native dialog — plaintext never enters the WebView); copy buttons in the password column and actions column route through `copy_secret` (§4.5).
-- **Sidebar footer:** Settings, **Help** (`⌘/` opens the keyboard-shortcut sheet), and Lock sit below the module list; the floating help trigger is not shown on the Dashboard (the command bar keeps its own).
+- **Sidebar footer:** Settings, **Help** (`⌘H` opens the keyboard-shortcut sheet), **About** (`⌘/` opens product info: features, developer email, version, release date, website), and Lock sit below the module list; the floating help trigger is not shown on the Dashboard (the command bar keeps its own).
 - **Registry-driven, so it scales:** a newly added module appears in the sidebar automatically via its `ListView`; a disabled module disappears but keeps its data (§3.4). No dashboard code changes per feature.
 - **Empty states:** every module ships a `ListView`; an empty module shows a friendly empty state + **New**.
 
@@ -591,7 +591,7 @@ finance base currency + FX table); Emergency Kit regeneration; **Touch ID / biom
 enable / disable / re-enroll (§4.7 — device-local; state derived in Rust, not stored in the encrypted model).
 
 The default Settings menu stays focused on **Modules**, **Hotkeys**, **Categories**, and **Tags**.
-Advanced app/runtime controls — security (incl. Touch ID / biometric unlock, §4.7), appearance,
+Advanced app/runtime controls — security (Touch ID / biometric unlock UI deferred until after v1.0; Rust §4.7 remains), appearance,
 **vault file path** (read-only), backup/restore, and Emergency Kit — live in a
 secondary **System** menu under Settings. Settings is itself rendered from the registry: the
 **Modules** section lists every module with an enable toggle and a searchable toggle (command-bar

@@ -29,8 +29,8 @@ Use the lightweight spec-driven loop:
 
 Tool-specific entry points:
 
-- **Codex:** use repo skills from `.agents/skills/` with `$plan-feature`, `$implement`, and `$verify` (or open `/skills` and select them). Codex does **not** load Claude slash commands like `/plan-feature`. The verifier agent is configured at `.codex/agents/verifier.toml`.
-- **Claude Code:** use the matching project commands in `.claude/commands/` (`/plan-feature`, `/implement`, `/verify`) plus `.claude/agents/verifier.md`.
-- **Cursor:** follows `.cursor/rules/core-development-principles.mdc`; ask it to follow the same Plan -> Implement -> Verify loop explicitly.
+- **Codex:** use repo skills from `.agents/skills/` with `$plan-feature`, `$implement`, `$verify`, and `$coverage` (or open `/skills` and select them). Codex does **not** load Claude slash commands like `/plan-feature`. The verifier agent is configured at `.codex/agents/verifier.toml`.
+- **Claude Code:** use the matching project commands in `.claude/commands/` (`/plan-feature`, `/implement`, `/verify`, `/coverage`) plus `.claude/agents/verifier.md`.
+- **Cursor:** follows `.cursor/rules/core-development-principles.mdc`; use `/coverage` (`.cursor/skills/coverage`) to measure and fix the >95% bar; ask it to follow the same Plan -> Implement -> Verify loop explicitly.
 
 Keep rules general; concrete stack, versions, and per-module details live in `spec.md`.

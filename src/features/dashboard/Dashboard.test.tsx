@@ -246,12 +246,26 @@ describe("Dashboard", () => {
       screen.queryByRole("button", { name: "Keyboard shortcuts" }),
     ).not.toBeInTheDocument();
 
-    await user.click(screen.getByRole("button", { name: /help/i }));
+    await user.click(screen.getByRole("button", { name: /^help/i }));
 
     await waitFor(() =>
       expect(
         screen.getByRole("dialog", { name: "Keyboard shortcuts" }),
       ).toBeVisible(),
     );
+  });
+
+  it("opens About from the sidebar About row", async () => {
+    const user = userEvent.setup();
+    render(<Dashboard />);
+
+    await user.click(screen.getByRole("button", { name: /^about/i }));
+
+    await waitFor(() =>
+      expect(
+        screen.getByRole("dialog", { name: "About keystash" }),
+      ).toBeInTheDocument(),
+    );
+    expect(screen.getByText(/caishaojiang@gmail.com/i)).toBeInTheDocument();
   });
 });

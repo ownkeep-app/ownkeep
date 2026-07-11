@@ -64,17 +64,19 @@ The vault lives at `~/Library/Application Support/com.shaojiang.keystash/vault.d
 
 ### Keyboard shortcuts
 
-keystash is keyboard-first. Press **`⌘/`** on either surface to open the in-app shortcut cheat
-sheet (also reachable from the ⌨ button in the Dashboard). The essentials:
+keystash is keyboard-first. Press **`⌘H`** on either surface to open the in-app shortcut cheat
+sheet (also reachable from the Help row in the Dashboard sidebar). The essentials:
 
 | Where | Keys | Action |
 |---|---|---|
 | Anywhere | `⌘⇧Space` | Summon the command bar |
 | Anywhere | `⌘⇧D` | Toggle the Dashboard window |
+| Anywhere | `⌘H` | Show keyboard shortcuts |
+| Anywhere | `⌘/` | About keystash |
 | Command bar | `⌥⇧1`–`⌥⇧9` | Run a result's primary action (e.g. copy password) |
 | Command bar | `⌥⌘1`–`⌥⌘9` | Copy a command's raw template |
 | Command bar | `Esc` | Hide the launcher |
-| Dashboard | `⌘1`–`⌘9` / `↑ ↓` | Switch modules in the sidebar |
+| Dashboard | `⌥⇧1`–`⌥⇧9` / `↑ ↓` | Switch modules in the sidebar |
 
 Copy and clipboard actions confirm with a toast; secret copies note when the clipboard auto-clears.
 

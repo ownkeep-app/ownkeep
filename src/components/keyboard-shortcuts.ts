@@ -33,6 +33,7 @@ export const GLOBAL_SHORTCUTS: ShortcutGroup = {
   shortcuts: [
     { keys: ["⌘", "⇧", "Space"], label: "Summon the command bar" },
     { keys: ["⌘", "⇧", "D"], label: "Toggle the Dashboard window" },
-    { keys: ["⌘", "/"], label: "Show this shortcut help" },
+    { keys: ["⌘", "H"], label: "Show this shortcut help" },
+    { keys: ["⌘", "/"], label: "About keystash" },
   ],
 };

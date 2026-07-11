@@ -18,7 +18,7 @@ import { cn } from "@/lib/utils";
 
 /**
  * A keyboard-shortcut cheat sheet (spec §10 lists the key maps; Phase 11 surfaces them in-app).
- * Toggle with ⌘/ (works even while a search input is focused). The overlay owns its Escape/⌘/
+ * Toggle with ⌘H (works even while a search input is focused). The overlay owns its Escape/⌘H
  * handling and stops those keys from reaching the surface below so closing help never also hides
  * the launcher.
  */
@@ -44,7 +44,12 @@ export function KeyboardHelp({
 
   useEffect(() => {
     function onKey(event: KeyboardEvent) {
-      if ((event.metaKey || event.ctrlKey) && event.key === "/") {
+      if (
+        (event.metaKey || event.ctrlKey) &&
+        !event.altKey &&
+        !event.shiftKey &&
+        event.key.toLowerCase() === "h"
+      ) {
         event.preventDefault();
         if (onOpenChange) onOpenChange(!open);
         else setInternalOpen((value) => !value);

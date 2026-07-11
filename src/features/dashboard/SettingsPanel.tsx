@@ -1,9 +1,9 @@
-import { type FormEvent, useCallback, useEffect, useState } from "react";
+import { type FormEvent, useEffect, useState } from "react";
 
 import {
   AlertTriangle,
   Download,
-  Fingerprint,
+  // Fingerprint, // Touch ID UI hidden until after v1.0 (spec §4.7)
   KeyRound,
   Monitor,
   RotateCcw,
@@ -24,7 +24,7 @@ import { VaultPathHint } from "@/components/VaultPathHint";
 import { toastSuccess } from "@/lib/toast";
 import { MODULES } from "@/modules/registry";
 import { useVaultStore } from "@/stores/vault-store";
-import type { BiometricStatus } from "@/vault/api";
+// import type { BiometricStatus } from "@/vault/api"; // Touch ID UI hidden until after v1.0
 import type { Theme } from "@/vault/model";
 import { parseOptionLines } from "@/vault/taxonomy";
 
@@ -78,10 +78,11 @@ export function SettingsPanel() {
   const dismissKit = useVaultStore((s) => s.dismissKit);
   const toggleModule = useVaultStore((s) => s.toggleModule);
   const toggleModuleSearchable = useVaultStore((s) => s.toggleModuleSearchable);
-  const biometricStatus = useVaultStore((s) => s.biometricStatus);
-  const enableBiometric = useVaultStore((s) => s.enableBiometric);
-  const disableBiometric = useVaultStore((s) => s.disableBiometric);
-  const reenrollBiometric = useVaultStore((s) => s.reenrollBiometric);
+  // Touch ID Settings UI deferred until after v1.0 (spec §4.7 still implemented in Rust).
+  // const biometricStatus = useVaultStore((s) => s.biometricStatus);
+  // const enableBiometric = useVaultStore((s) => s.enableBiometric);
+  // const disableBiometric = useVaultStore((s) => s.disableBiometric);
+  // const reenrollBiometric = useVaultStore((s) => s.reenrollBiometric);
   const [globalHotkey, setGlobalHotkey] = useState("");
   const [dashboardHotkey, setDashboardHotkey] = useState("");
   const [restoreMode, setRestoreMode] = useState<RestoreMode>("password");
@@ -91,8 +92,8 @@ export function SettingsPanel() {
   const [categoryOptionsText, setCategoryOptionsText] = useState("");
   const [tagOptionsText, setTagOptionsText] = useState("");
   const [activeMenu, setActiveMenu] = useState<SettingsMenu>("settings");
-  const [biometric, setBiometric] = useState<BiometricStatus | null>(null);
-  const [biometricBusy, setBiometricBusy] = useState(false);
+  // const [biometric, setBiometric] = useState<BiometricStatus | null>(null);
+  // const [biometricBusy, setBiometricBusy] = useState(false);
 
   useEffect(() => {
     if (!model) return;
@@ -103,17 +104,17 @@ export function SettingsPanel() {
   }, [model]);
 
   // Touch ID status is device-local (spec §4.7), not part of the vault model, so query Rust for it.
-  const refreshBiometric = useCallback(async () => {
-    try {
-      setBiometric(await biometricStatus());
-    } catch {
-      setBiometric(null);
-    }
-  }, [biometricStatus]);
-
-  useEffect(() => {
-    void refreshBiometric();
-  }, [refreshBiometric]);
+  // const refreshBiometric = useCallback(async () => {
+  //   try {
+  //     setBiometric(await biometricStatus());
+  //   } catch {
+  //     setBiometric(null);
+  //   }
+  // }, [biometricStatus]);
+  //
+  // useEffect(() => {
+  //   void refreshBiometric();
+  // }, [refreshBiometric]);
 
   if (!model) return null;
 
@@ -157,7 +158,11 @@ export function SettingsPanel() {
   async function onBackup() {
     setMessage(null);
     const path = await backupVault();
-    setMessage(path ? `Backup saved to ${path}` : "Backup canceled.");
+    if (path) {
+      toastSuccess(`Backup saved to ${path}`);
+    } else {
+      setMessage("Backup canceled.");
+    }
   }
 
   async function onRestore(event: FormEvent<HTMLFormElement>) {
@@ -170,41 +175,43 @@ export function SettingsPanel() {
         ? await restoreVaultWithPassword(secret)
         : await restoreVaultWithRecovery(secret);
     setRestoreSecret("");
-    setMessage(restoredPath ? `Vault restored from ${restoredPath}` : null);
-  }
-
-  async function onToggleBiometric(next: boolean) {
-    setMessage(null);
-    setBiometricBusy(true);
-    try {
-      if (next) {
-        await enableBiometric();
-        toastSuccess("Touch ID unlock enabled.");
-      } else {
-        await disableBiometric();
-        toastSuccess("Touch ID unlock disabled.");
-      }
-    } catch {
-      setMessage("Touch ID change didn't complete.");
-    } finally {
-      setBiometricBusy(false);
-      await refreshBiometric();
+    if (restoredPath) {
+      toastSuccess(`Vault restored from ${restoredPath}`);
     }
   }
 
-  async function onReenrollBiometric() {
-    setMessage(null);
-    setBiometricBusy(true);
-    try {
-      await reenrollBiometric();
-      toastSuccess("Touch ID re-enrolled.");
-    } catch {
-      setMessage("Couldn't update Touch ID.");
-    } finally {
-      setBiometricBusy(false);
-      await refreshBiometric();
-    }
-  }
+  // async function onToggleBiometric(next: boolean) {
+  //   setMessage(null);
+  //   setBiometricBusy(true);
+  //   try {
+  //     if (next) {
+  //       await enableBiometric();
+  //       toastSuccess("Touch ID unlock enabled.");
+  //     } else {
+  //       await disableBiometric();
+  //       toastSuccess("Touch ID unlock disabled.");
+  //     }
+  //   } catch {
+  //     setMessage("Touch ID change didn't complete.");
+  //   } finally {
+  //     setBiometricBusy(false);
+  //     await refreshBiometric();
+  //   }
+  // }
+  //
+  // async function onReenrollBiometric() {
+  //   setMessage(null);
+  //   setBiometricBusy(true);
+  //   try {
+  //     await reenrollBiometric();
+  //     toastSuccess("Touch ID re-enrolled.");
+  //   } catch {
+  //     setMessage("Couldn't update Touch ID.");
+  //   } finally {
+  //     setBiometricBusy(false);
+  //     await refreshBiometric();
+  //   }
+  // }
 
   return (
     <div className="p-6">
@@ -381,6 +388,7 @@ export function SettingsPanel() {
                     ))}
                   </Select>
                 </label>
+                {/* Touch ID Settings UI deferred until after v1.0 (spec §4.7).
                 <div className="flex items-center gap-3 px-3 py-2.5">
                   <span className="flex-1 text-sm">Unlock with Touch ID</span>
                   {biometric?.available ? (
@@ -412,11 +420,12 @@ export function SettingsPanel() {
                     </span>
                   )}
                 </div>
+                */}
               </div>
-              <p className="mt-2 text-xs text-muted-foreground">
+              {/* <p className="mt-2 text-xs text-muted-foreground">
                 Touch ID is an optional shortcut — your master password and
                 recovery code always unlock the vault.
-              </p>
+              </p> */}
               {autoLockMinutes === 0 && (
                 <p className="mt-2 text-xs text-destructive">
                   With auto-lock off, the vault stays unlocked until you lock it
@@ -506,6 +515,7 @@ export function SettingsPanel() {
                   <Download className="h-4 w-4" />
                   Back up vault
                 </Button>
+                {/* Touch ID backup notice deferred with Settings UI until after v1.0.
                 {biometric?.enrolled && (
                   <p className="flex items-start gap-2 text-xs text-muted-foreground">
                     <Fingerprint className="mt-0.5 h-3.5 w-3.5 shrink-0" />
@@ -515,6 +525,7 @@ export function SettingsPanel() {
                     </span>
                   </p>
                 )}
+                */}
                 <form className="flex flex-col gap-2" onSubmit={onRestore}>
                   <div className="flex gap-2">
                     <Select

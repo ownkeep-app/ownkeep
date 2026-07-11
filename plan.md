@@ -175,7 +175,7 @@ with a **browsable Dashboard** (sidebar + content pane) and a safe upgrade path 
 - **Deps:** P2 (data), independent of P7–P9.
 
 ### Phase 11 — ✨ Polish + ship · 2–4 d
-- [x] Theming pass (light/dark/accent), empty states, error toasts, keyboard-map help. *(Theming was wired earlier; later polish locked Color Hunt periwinkle-mist light + midnight-navy dark tokens with default accent `#5B6CFF`, per-module empty states + in-panel New, CommandBar no-results, sonner toasts, and a `⌘/` keyboard-shortcut cheat sheet on both surfaces.)*
+- [x] Theming pass (light/dark/accent), empty states, error toasts, keyboard-map help. *(Theming was wired earlier; later polish locked Color Hunt periwinkle-mist light + midnight-navy dark tokens with default accent `#5B6CFF`, per-module empty states + in-panel New, CommandBar no-results, sonner toasts, and a `⌘H` keyboard-shortcut cheat sheet on both surfaces.)*
 - [ ] Accessibility check; performance check (<300 ms to bar, <30 ms keystroke). *(In progress: added `nav`/`aria-current` on the Dashboard sidebar, `scope="col"` on module tables, `role="status"`/`aria-live` feedback via toasts + the no-results region, and `aria-busy`/`role="alert"` on onboarding. Performance measurement still pending.)*
 - [x] Motion UI polish: calm press/presence animations on shared primitives (`button`, `switch`, `select`, `checkbox`, `ButtonGroup` active pill), EmptyState / KeyboardHelp overlays, CommandBar result stagger, and Dashboard sidebar taps (shared sliding active pill) — all reduced-motion aware via `useReducedMotion` ([Motion](https://motion.dev/)). *(Input stays a plain native field — focus scale made the placeholder jump.)*
 - [x] **Create/edit form chrome:** shared `ItemFormShell` — dimmed pane + elevated dialog card with Creating/Editing badge; Esc + backdrop dismiss (all module New/Edit flows).
@@ -216,8 +216,11 @@ changes, update migrations + the migration guide in the same release per spec §
   - [x] Keep the existing filter box and “New” affordance.
 - [x] **Help in the Dashboard sidebar:** remove the floating bottom-right keyboard-help icon on the
   Dashboard. Add a **Help** row to the left sidebar’s bottom menu (with Settings and Lock), styled
-  like other sidebar rows: `[Keyboard icon] Help` plus the shortcut label **`⌘/`** on the right.
-  Clicking the row opens the same Hotkey Help modal; `⌘/` continues to toggle it globally.
+  like other sidebar rows: `[Keyboard icon] Help` plus the shortcut label **`⌘H`** on the right.
+  Clicking the row opens the same Hotkey Help modal; `⌘H` continues to toggle it globally.
+- [x] **About in the Dashboard sidebar:** **About** row below Help (`⌘/`) opens a modal with
+  features, developer email, version, release date, and website (`https://keystash.info`); hotkey
+  works on the command bar too.
 - [x] **Command-bar searchable modules:** per-module `searchable` setting (schema v9); defaults on
   for passwords + commands only; Settings Modules row toggles Search + Enabled; unified index and
   scope prefixes honor `searchable`.
