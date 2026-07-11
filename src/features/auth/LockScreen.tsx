@@ -14,8 +14,13 @@ export function LockScreen() {
   const unlockRecovery = useVaultStore((s) => s.unlockRecovery);
   const unlockBiometric = useVaultStore((s) => s.unlockBiometric);
   const biometricStatus = useVaultStore((s) => s.biometricStatus);
+  const backupLockedVaultAndStartFresh = useVaultStore(
+    (s) => s.backupLockedVaultAndStartFresh,
+  );
   const busy = useVaultStore((s) => s.busy);
   const [recovery, setRecovery] = useState(false);
+  const [startFresh, setStartFresh] = useState(false);
+  const [confirmFresh, setConfirmFresh] = useState(false);
   const [value, setValue] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [unlocking, setUnlocking] = useState(false);
@@ -75,45 +80,59 @@ export function LockScreen() {
     }
   }
 
+  async function onBackupAndStartFresh() {
+    setError(null);
+    try {
+      const path = await backupLockedVaultAndStartFresh();
+      if (!path) {
+        setError(null);
+      }
+    } catch {
+      setError("Couldn't back up or erase the vault.");
+    }
+  }
+
   return (
     <Screen>
       <h1 className="text-xl font-semibold">keystash is locked</h1>
-      <form onSubmit={onSubmit} className="flex w-full flex-col gap-3">
-        {recovery ? (
-          <textarea
-            ref={recoveryRef}
-            aria-label="Recovery code"
-            rows={3}
-            disabled={loading}
-            className="rounded-md border border-border bg-transparent p-2 font-mono text-sm"
-            placeholder="Your 12-word recovery code"
-            value={value}
-            onChange={(e) => setValue(e.target.value)}
-          />
-        ) : (
-          <Input
-            ref={passwordRef}
-            type="password"
-            aria-label="Master password"
-            placeholder="Master password"
-            disabled={loading}
-            value={value}
-            onChange={(e) => setValue(e.target.value)}
-          />
-        )}
-        {error && <p className="text-sm text-destructive">{error}</p>}
-        <Button type="submit" disabled={loading} aria-busy={loading}>
-          {loading ? (
-            <>
-              <Loader2 className="animate-spin" aria-hidden />
-              Unlocking…
-            </>
+      {!startFresh && (
+        <form onSubmit={onSubmit} className="flex w-full flex-col gap-3">
+          {recovery ? (
+            <textarea
+              ref={recoveryRef}
+              aria-label="Recovery code"
+              rows={3}
+              disabled={loading}
+              className="rounded-md border border-border bg-transparent p-2 font-mono text-sm"
+              placeholder="Your 12-word recovery code"
+              value={value}
+              onChange={(e) => setValue(e.target.value)}
+            />
           ) : (
-            "Unlock"
+            <Input
+              ref={passwordRef}
+              type="password"
+              aria-label="Master password"
+              placeholder="Master password"
+              disabled={loading}
+              value={value}
+              onChange={(e) => setValue(e.target.value)}
+            />
           )}
-        </Button>
-      </form>
-      {touchIdEnrolled && !recovery && (
+          {error && <p className="text-sm text-destructive">{error}</p>}
+          <Button type="submit" disabled={loading} aria-busy={loading}>
+            {loading ? (
+              <>
+                <Loader2 className="animate-spin" aria-hidden />
+                Unlocking…
+              </>
+            ) : (
+              "Unlock"
+            )}
+          </Button>
+        </form>
+      )}
+      {touchIdEnrolled && !recovery && !startFresh && (
         <Button
           type="button"
           variant="outline"
@@ -126,20 +145,96 @@ export function LockScreen() {
           Unlock with Touch ID
         </Button>
       )}
-      <button
-        type="button"
-        className="text-sm text-muted-foreground underline disabled:pointer-events-none disabled:opacity-50"
-        disabled={loading}
-        onClick={() => {
-          setRecovery(!recovery);
-          setValue("");
-          setError(null);
-        }}
-      >
-        {recovery
-          ? "Use master password"
-          : "Forgot password? Use recovery code"}
-      </button>
+      {!startFresh && (
+        <button
+          type="button"
+          className="text-sm text-muted-foreground underline disabled:pointer-events-none disabled:opacity-50"
+          disabled={loading}
+          onClick={() => {
+            setRecovery(!recovery);
+            setValue("");
+            setError(null);
+          }}
+        >
+          {recovery
+            ? "Use master password"
+            : "Forgot password? Use recovery code"}
+        </button>
+      )}
+      {recovery && !startFresh && (
+        <button
+          type="button"
+          className="text-sm text-muted-foreground underline disabled:pointer-events-none disabled:opacity-50"
+          disabled={loading}
+          onClick={() => {
+            setStartFresh(true);
+            setConfirmFresh(false);
+            setError(null);
+          }}
+        >
+          Lost recovery code too?
+        </button>
+      )}
+      {startFresh && (
+        <div className="flex w-full flex-col gap-3 rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm">
+          <p className="font-medium text-destructive">
+            Back up this vault, then start fresh
+          </p>
+          <p className="text-muted-foreground">
+            Save a copy of the encrypted vault file somewhere safe first. Then
+            keystash erases the local vault so you can create a new empty one.
+            Without the master password or recovery code, the backup stays
+            encrypted and unreadable.
+          </p>
+          {error && <p className="text-destructive">{error}</p>}
+          <div className="flex flex-wrap gap-2">
+            {confirmFresh ? (
+              <>
+                <Button
+                  type="button"
+                  variant="destructive"
+                  disabled={loading}
+                  aria-busy={loading}
+                  onClick={() => void onBackupAndStartFresh()}
+                >
+                  {loading ? "Working…" : "Save copy & erase vault"}
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={loading}
+                  onClick={() => setConfirmFresh(false)}
+                >
+                  Cancel
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button
+                  type="button"
+                  variant="destructive"
+                  disabled={loading}
+                  onClick={() => setConfirmFresh(true)}
+                >
+                  Back up & start fresh
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={loading}
+                  onClick={() => {
+                    setStartFresh(false);
+                    setConfirmFresh(false);
+                    setError(null);
+                  }}
+                >
+                  Back
+                </Button>
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </Screen>
   );
 }

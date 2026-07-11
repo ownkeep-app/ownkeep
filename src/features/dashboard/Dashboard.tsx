@@ -10,6 +10,12 @@ import {
   GLOBAL_SHORTCUTS,
 } from "@/components/keyboard-shortcuts";
 import { LockScreen } from "@/features/auth/LockScreen";
+import { OnboardingScreen } from "@/features/auth/OnboardingScreen";
+import { ResetMasterScreen } from "@/features/auth/ResetMasterScreen";
+import {
+  IncompatibleVaultScreen,
+  MigrationGuideScreen,
+} from "@/features/migration/MigrationGuideScreen";
 import {
   TAP_SCALE,
   fadeTransition,
@@ -77,12 +83,7 @@ export function Dashboard() {
         return;
       }
       // Same chord as the command-bar result hotkeys; use event.code so Option glyphs still map.
-      if (
-        event.altKey &&
-        event.shiftKey &&
-        !event.metaKey &&
-        !event.ctrlKey
-      ) {
+      if (event.altKey && event.shiftKey && !event.metaKey && !event.ctrlKey) {
         const match = /^Digit([1-9])$/.exec(event.code);
         if (match) {
           const target = enabledModules[Number(match[1]) - 1];
@@ -120,6 +121,22 @@ export function Dashboard() {
 
   if (status === "locked") {
     return <LockScreen />;
+  }
+
+  if (status === "onboarding") {
+    return <OnboardingScreen />;
+  }
+
+  if (status === "reset") {
+    return <ResetMasterScreen />;
+  }
+
+  if (status === "migration") {
+    return <MigrationGuideScreen />;
+  }
+
+  if (status === "incompatible") {
+    return <IncompatibleVaultScreen />;
   }
 
   if (status !== "unlocked" || !model) {

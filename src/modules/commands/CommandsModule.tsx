@@ -13,10 +13,8 @@ import {
 } from "@/components/detail-fields";
 import { EmptyState } from "@/components/EmptyState";
 import { ItemFormShell } from "@/components/ItemFormShell";
-import {
-  LanguageSelect,
-  snippetLanguageLabel,
-} from "@/components/language-select";
+import { LanguageSelect } from "@/components/language-select";
+import { snippetLanguageLabel } from "@/components/snippet-languages";
 import { TagMultiSelect } from "@/components/tag-multi-select";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";

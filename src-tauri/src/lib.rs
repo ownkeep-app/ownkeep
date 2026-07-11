@@ -219,10 +219,13 @@ pub fn run() {
         .manage(std::sync::Mutex::new(session::Session::new(Some(
             session::DEFAULT_AUTO_LOCK,
         ))))
-        .manage(MainWindowBehavior(std::sync::Mutex::new(true)))
+        // Blur-to-hide stays off until the compact command bar enables it — otherwise startup
+        // focus churn (tray/hotkeys) hides onboarding / lock before React can resize.
+        .manage(MainWindowBehavior(std::sync::Mutex::new(false)))
         .manage(PendingDashboardModule(std::sync::Mutex::new(None)))
         .invoke_handler(tauri::generate_handler![
             commands::vault_exists,
+            commands::vault_path,
             commands::vault_incompatibility,
             commands::is_unlocked,
             commands::create_vault,
@@ -257,7 +260,12 @@ pub fn run() {
         .setup(|app| {
             spawn_auto_lock(app.handle().clone());
             #[cfg(desktop)]
-            setup_desktop(app)?;
+            {
+                setup_desktop(app)?;
+                // Cold start always surfaces the main window so first-run onboarding and the
+                // lock screen are visible (tray/hotkey still work after the user hides it).
+                show_and_focus_main(app.handle());
+            }
             Ok(())
         })
         .on_window_event(|window, event| {

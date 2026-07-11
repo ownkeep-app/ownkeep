@@ -1,4 +1,4 @@
-import { DEFAULT_SNIPPET_LANGUAGE } from "@/components/language-select";
+import { DEFAULT_SNIPPET_LANGUAGE } from "@/components/snippet-languages";
 import type { IndexEntry } from "@/modules/types";
 import {
   defaultCategory,

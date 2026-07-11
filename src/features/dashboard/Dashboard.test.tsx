@@ -12,6 +12,23 @@ import { Dashboard } from "./Dashboard";
 vi.mock("@/vault/api", () => ({
   vaultApi: {
     lock: vi.fn(async () => {}),
+    vaultPath: vi.fn(async () => "/tmp/vault.dat"),
+    vaultExists: vi.fn(async () => false),
+    createVault: vi.fn(async () => ({
+      app: "keystash",
+      recovery_code: "a b c",
+      instructions: "store it",
+    })),
+    saveVault: vi.fn(async () => {}),
+    changeMaster: vi.fn(async () => {}),
+    quitApp: vi.fn(async () => {}),
+    backupVault: vi.fn(async () => "/tmp/backup.dat"),
+    backupVaultToChosenLocation: vi.fn(async () => "/tmp/chosen-backup.dat"),
+    eraseVault: vi.fn(async () => {}),
+    unlock: vi.fn(async () => {}),
+    unlockRecovery: vi.fn(async () => {}),
+    unlockBiometric: vi.fn(async () => {}),
+    biometricStatus: vi.fn(async () => ({ available: false, enrolled: false })),
   },
 }));
 
@@ -56,6 +73,47 @@ describe("Dashboard", () => {
     expect(
       screen.getByRole("button", { name: /^unlock$/i }),
     ).toBeInTheDocument();
+  });
+
+  it("shows onboarding, reset, migration, and incompatible auth screens", () => {
+    useVaultStore.setState({ status: "onboarding", model: null });
+    const { rerender } = render(<Dashboard />);
+    expect(
+      screen.getByRole("heading", { name: /welcome to keystash/i }),
+    ).toBeVisible();
+
+    useVaultStore.setState({ status: "reset", model: null });
+    rerender(<Dashboard />);
+    expect(
+      screen.getByRole("heading", { name: /set a new master password/i }),
+    ).toBeVisible();
+
+    useVaultStore.setState({
+      status: "migration",
+      model: null,
+      migration: {
+        fromSchemaVersion: 1,
+        toSchemaVersion: 2,
+        fromAppVersion: "0.1",
+        toAppVersion: "0.2",
+        steps: [],
+        migratedModel: createDefaultModel("2026-07-07T00:00:00.000Z"),
+        changes: [],
+      },
+    });
+    rerender(<Dashboard />);
+    expect(
+      screen.getByRole("heading", { name: /upgrade vault data/i }),
+    ).toBeVisible();
+
+    useVaultStore.setState({
+      status: "incompatible",
+      model: null,
+      migration: null,
+      incompatibleMessage: "Please upgrade keystash.",
+    });
+    rerender(<Dashboard />);
+    expect(screen.getByText(/please upgrade keystash/i)).toBeVisible();
   });
 
   it("renders the first enabled module by default and switches panes by click", async () => {

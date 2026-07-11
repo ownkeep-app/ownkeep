@@ -529,9 +529,7 @@ export function SubscriptionEditView({
           aria-label="Subscription custom interval days"
           disabled={form.cycle !== "custom"}
           min={1}
-          onChange={(event) =>
-            update("customIntervalDays", event.target.value)
-          }
+          onChange={(event) => update("customIntervalDays", event.target.value)}
           type="number"
           value={form.customIntervalDays}
         />
@@ -597,7 +595,6 @@ export function SubscriptionEditView({
     </ItemFormShell>
   );
 }
-
 
 function SummaryStrip({
   summary,

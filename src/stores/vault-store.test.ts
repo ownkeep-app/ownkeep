@@ -10,6 +10,7 @@ vi.mock("@/vault/api", () => ({
   vaultApi: {
     isUnlocked: vi.fn(),
     vaultExists: vi.fn(),
+    vaultPath: vi.fn(async () => "/tmp/vault.dat"),
     vaultIncompatibility: vi.fn(async () => null),
     getVault: vi.fn(),
     saveVault: vi.fn(async () => {}),
@@ -248,7 +249,7 @@ describe("vault store", () => {
 
     expect(backupPath).toBe("/tmp/chosen-backup.dat");
     expect(api.backupVaultToChosenLocation).toHaveBeenCalledWith(
-      expect.stringMatching(/^keystash-v0\.1-/),
+      expect.stringMatching(/^keystash-v\d+\.\d+-/),
     );
     expect(useVaultStore.getState().busy).toBe(false);
   });
@@ -365,6 +366,49 @@ describe("vault store", () => {
     expect(api.eraseVault).toHaveBeenCalled();
     expect(useVaultStore.getState().status).toBe("onboarding");
     expect(useVaultStore.getState().model).toBeNull();
+  });
+
+  it("backupLockedVaultAndStartFresh saves a copy then erases the vault", async () => {
+    useVaultStore.setState({ status: "locked" });
+
+    const path = await useVaultStore
+      .getState()
+      .backupLockedVaultAndStartFresh();
+
+    expect(path).toBe("/tmp/chosen-backup.dat");
+    expect(api.backupVaultToChosenLocation).toHaveBeenCalledWith(
+      expect.stringMatching(/^keystash-abandoned-\d{8}-\d{4}\.dat$/),
+    );
+    expect(api.eraseVault).toHaveBeenCalled();
+    expect(useVaultStore.getState().status).toBe("onboarding");
+  });
+
+  it("backupLockedVaultAndStartFresh leaves the vault alone when the picker is canceled", async () => {
+    api.backupVaultToChosenLocation.mockResolvedValueOnce(null);
+    useVaultStore.setState({ status: "locked" });
+
+    const path = await useVaultStore
+      .getState()
+      .backupLockedVaultAndStartFresh();
+
+    expect(path).toBeNull();
+    expect(api.eraseVault).not.toHaveBeenCalled();
+    expect(useVaultStore.getState().status).toBe("locked");
+  });
+
+  it("backupLockedVaultAndStartFresh surfaces backup failures", async () => {
+    api.backupVaultToChosenLocation.mockRejectedValueOnce(
+      new Error("no permission"),
+    );
+    useVaultStore.setState({ status: "locked" });
+
+    await expect(
+      useVaultStore.getState().backupLockedVaultAndStartFresh(),
+    ).rejects.toThrow(/no permission/);
+
+    expect(api.eraseVault).not.toHaveBeenCalled();
+    expect(useVaultStore.getState().error).toMatch(/no permission/);
+    expect(useVaultStore.getState().status).toBe("locked");
   });
 
   it("refuses a vault written by a newer app", async () => {

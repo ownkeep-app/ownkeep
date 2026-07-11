@@ -671,6 +671,11 @@ export function preRestoreBackupName(date = new Date()): string {
   return `keystash-pre-restore-${backupTimestamp(date)}.dat`;
 }
 
+/** Suggested name when backing up a locked vault before erasing it (lost credentials). */
+export function abandonedVaultBackupName(date = new Date()): string {
+  return `keystash-abandoned-${backupTimestamp(date)}.dat`;
+}
+
 export function vaultBackupName(appVersion: string, date = new Date()): string {
   return `keystash-v${appVersion}-${backupTimestamp(date)}.dat`;
 }

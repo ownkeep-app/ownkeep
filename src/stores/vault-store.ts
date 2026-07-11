@@ -30,6 +30,7 @@ import { todoEntries, toggleTodoDoneState } from "@/modules/todos/logic";
 import { TODOS_MODULE_ID, type TodoEntry } from "@/modules/todos/types";
 import { type BiometricStatus, type EmergencyKit, vaultApi } from "@/vault/api";
 import {
+  abandonedVaultBackupName,
   preMigrationBackupName,
   preRestoreBackupName,
   prepareVaultModel,
@@ -91,6 +92,8 @@ interface VaultState {
   restoreVaultWithPassword: (password: string) => Promise<string | null>;
   restoreVaultWithRecovery: (code: string) => Promise<string | null>;
   eraseVaultAndStartFresh: () => Promise<void>;
+  /** Save a copy of the locked vault, then erase it and return to onboarding. */
+  backupLockedVaultAndStartFresh: () => Promise<string | null>;
   quitApp: () => Promise<void>;
   save: (next: VaultModel) => Promise<void>;
   toggleModule: (id: string, enabled: boolean) => Promise<void>;
@@ -561,6 +564,31 @@ export const useVaultStore = create<VaultState>((set, get) => ({
         incompatibleMessage: null,
         pendingKit: null,
       });
+    } catch (e) {
+      set({ error: String(e) });
+      throw e;
+    } finally {
+      set({ busy: false });
+    }
+  },
+
+  backupLockedVaultAndStartFresh: async () => {
+    set({ busy: true, error: null });
+    try {
+      const backupPath = await vaultApi.backupVaultToChosenLocation(
+        abandonedVaultBackupName(new Date()),
+      );
+      if (!backupPath) return null;
+
+      await vaultApi.eraseVault();
+      set({
+        status: "onboarding",
+        model: null,
+        migration: null,
+        incompatibleMessage: null,
+        pendingKit: null,
+      });
+      return backupPath;
     } catch (e) {
       set({ error: String(e) });
       throw e;

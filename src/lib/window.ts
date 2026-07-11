@@ -7,7 +7,7 @@ import type { VaultStatus } from "@/stores/vault-store";
 export const MAIN_WINDOW_COMPACT = { width: 720, height: 520 } as const;
 
 /** Tall enough for onboarding, lock/recovery, and the Emergency Kit on the main window. */
-export const MAIN_WINDOW_EXPANDED = { width: 720, height: 560 } as const;
+export const MAIN_WINDOW_EXPANDED = { width: 720, height: 640 } as const;
 
 export type MainWindowMode = "compact" | "expanded";
 

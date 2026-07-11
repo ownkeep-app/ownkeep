@@ -459,7 +459,8 @@ so editing a rate re-totals every snapshot. Future calendar/notes modules add th
 #### Master-password gate + recovery (F7)
 - Every launch requires the **master password** before any decryption.
 - If forgotten, enter the **recovery code** → recovery-path unlock → **force a new master password** (§4.1). Emergency Kit is re-generatable from Settings.
-- **Acceptance:** wrong password/code reveals nothing; recovery flow works end-to-end; regenerating the kit re-wraps the recovery key.
+- If **both** the master password and recovery code are lost: from the lock screen, **save a copy** of the encrypted vault file to a chosen location, then **erase the local vault** and return to onboarding to create a new empty vault. The saved copy stays encrypted and is unreadable without credentials.
+- **Acceptance:** wrong password/code reveals nothing; recovery flow works end-to-end; regenerating the kit re-wraps the recovery key; lost-credentials path requires an explicit backup before erase.
 
 #### Biometric unlock — Touch ID (F12) — *optional, macOS-only, off by default*
 - **Master password + recovery code are the ultimate, authoritative credentials — they always unlock.** On a Touch ID Mac, Touch ID adds a fingerprint shortcut via **unlock path C** (§4.7): a third DEK wrap under a Keychain-held, biometric-gated key. It **never replaces** the password/recovery, enrolling requires an already-unlocked vault, and losing or disabling Touch ID never locks the user out.
@@ -591,7 +592,7 @@ enable / disable / re-enroll (§4.7 — device-local; state derived in Rust, not
 
 The default Settings menu stays focused on **Modules**, **Hotkeys**, **Categories**, and **Tags**.
 Advanced app/runtime controls — security (incl. Touch ID / biometric unlock, §4.7), appearance,
-backup/restore, and Emergency Kit — live in a
+**vault file path** (read-only), backup/restore, and Emergency Kit — live in a
 secondary **System** menu under Settings. Settings is itself rendered from the registry: the
 **Modules** section lists every module with an enable toggle and a searchable toggle (command-bar
 inclusion; defaults on for passwords + commands), and each enabled module contributes its
@@ -607,7 +608,8 @@ own `SettingsPanel`.
 - **Aesthetic:** calm dual themes (periwinkle mist light / midnight navy dark) with one accent (`#5B6CFF` default), generous spacing, high-contrast text.
 - **Component system:** UI built from **shadcn/ui** primitives (Radix + Tailwind, copied into `components/ui/`, à la carte) with **Lucide** icons. Light/dark + accent map to shadcn's CSS-variable tokens, so theming is one token swap (§2.1).
 - **Version visibility:** the Dashboard left-sidebar footer shows the current app version from `APP_VERSION`, which is injected from `package.json.version`, for quick upgrade/debug confirmation.
-- **Onboarding (first run):** create master password → **show Emergency Kit (recovery code)** → set global hotkey → done. No security questions. *(Touch ID is optional and enabled later from Settings → System → Security, §4.7 — not part of first-run setup; it may be offered once after the first successful unlock.)*
+- **Onboarding (first run):** cold start **shows and focuses** the main window with the master-password setup form (blur-to-hide is off until the compact command bar). Create master password → **show Emergency Kit (recovery code)** → set global hotkey → done. The form shows the vault file path (`~/Library/Application Support/com.shaojiang.keystash/vault.dat` in production; `vault-dev.dat` in debug). No security questions. *(Touch ID is optional and enabled later from Settings → System → Security, §4.7 — not part of first-run setup; it may be offered once after the first successful unlock.)*
+- **Vault path in Settings:** Settings → System shows the vault file path as read-only text (same location as §11.1).
 
 ---
 

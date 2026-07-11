@@ -1,6 +1,7 @@
 import { type FormEvent, useEffect, useRef, useState } from "react";
 
 import { Screen } from "@/components/screen";
+import { VaultPathHint } from "@/components/VaultPathHint";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { whenMainWindowReady } from "@/lib/window";
@@ -45,6 +46,7 @@ export function OnboardingScreen() {
         the only other way in is the recovery code you'll see next, so pick
         something strong and memorable.
       </p>
+      <VaultPathHint className="text-xs text-muted-foreground" />
       <form onSubmit={onSubmit} className="flex w-full flex-col gap-3">
         <Input
           ref={passwordRef}

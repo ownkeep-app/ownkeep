@@ -563,7 +563,6 @@ export function FinanceEditView({
   );
 }
 
-
 export function FxRatesView({ onClose }: { onClose: () => void }) {
   const model = useVaultStore((s) => s.model);
   const updateFinanceSettings = useVaultStore((s) => s.updateFinanceSettings);

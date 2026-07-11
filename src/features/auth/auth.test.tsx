@@ -33,6 +33,7 @@ vi.mock("@/vault/api", () => ({
     getVault: vi.fn(async () => "{}"),
     isUnlocked: vi.fn(async () => false),
     vaultExists: vi.fn(async () => false),
+    vaultPath: vi.fn(async () => "/tmp/vault.dat"),
     backupVault: vi.fn(async () => "/tmp/backup.dat"),
     backupVaultToChosenLocation: vi.fn(async () => "/tmp/chosen-backup.dat"),
     eraseVault: vi.fn(async () => {}),
@@ -74,6 +75,7 @@ describe("OnboardingScreen", () => {
     expect(
       screen.getByRole("heading", { name: /welcome to keystash/i }),
     ).toBeVisible();
+    expect(screen.getByText(/vault file:/i)).toBeVisible();
     expect(screen.getByLabelText("Master password")).toBeVisible();
     expect(screen.getByLabelText("Confirm password")).toBeVisible();
     expect(screen.getByRole("button", { name: /create vault/i })).toBeVisible();
@@ -247,6 +249,113 @@ describe("LockScreen", () => {
     );
     expect(await screen.findByText(/touch id didn't work/i)).toBeVisible();
     expect(screen.getByLabelText("Master password")).toBeInTheDocument();
+  });
+
+  it("backs up and erases the vault when credentials are lost", async () => {
+    useVaultStore.setState({ status: "locked" });
+    const user = userEvent.setup();
+    render(<LockScreen />);
+
+    await user.click(screen.getByRole("button", { name: /recovery code/i }));
+    await user.click(
+      screen.getByRole("button", { name: /lost recovery code too/i }),
+    );
+    await user.click(
+      screen.getByRole("button", { name: /back up & start fresh/i }),
+    );
+    await user.click(
+      screen.getByRole("button", { name: /save copy & erase vault/i }),
+    );
+
+    await waitFor(() => {
+      expect(api.backupVaultToChosenLocation).toHaveBeenCalled();
+      expect(api.eraseVault).toHaveBeenCalled();
+    });
+    expect(useVaultStore.getState().status).toBe("onboarding");
+  });
+
+  it("lets the user back out of the start-fresh flow", async () => {
+    const user = userEvent.setup();
+    render(<LockScreen />);
+
+    await user.click(screen.getByRole("button", { name: /recovery code/i }));
+    await user.click(
+      screen.getByRole("button", { name: /lost recovery code too/i }),
+    );
+    expect(screen.getByText(/back up this vault/i)).toBeVisible();
+
+    await user.click(screen.getByRole("button", { name: /^back$/i }));
+    expect(screen.getByLabelText("Recovery code")).toBeVisible();
+    expect(screen.queryByText(/back up this vault/i)).toBeNull();
+  });
+
+  it("cancels the start-fresh confirm step without erasing", async () => {
+    const user = userEvent.setup();
+    render(<LockScreen />);
+
+    await user.click(screen.getByRole("button", { name: /recovery code/i }));
+    await user.click(
+      screen.getByRole("button", { name: /lost recovery code too/i }),
+    );
+    await user.click(
+      screen.getByRole("button", { name: /back up & start fresh/i }),
+    );
+    await user.click(screen.getByRole("button", { name: /^cancel$/i }));
+
+    expect(
+      screen.getByRole("button", { name: /back up & start fresh/i }),
+    ).toBeVisible();
+    expect(api.eraseVault).not.toHaveBeenCalled();
+  });
+
+  it("stays on the lock screen when the backup picker is canceled", async () => {
+    api.backupVaultToChosenLocation.mockResolvedValueOnce(null);
+    useVaultStore.setState({ status: "locked" });
+    const user = userEvent.setup();
+    render(<LockScreen />);
+
+    await user.click(screen.getByRole("button", { name: /recovery code/i }));
+    await user.click(
+      screen.getByRole("button", { name: /lost recovery code too/i }),
+    );
+    await user.click(
+      screen.getByRole("button", { name: /back up & start fresh/i }),
+    );
+    await user.click(
+      screen.getByRole("button", { name: /save copy & erase vault/i }),
+    );
+
+    await waitFor(() =>
+      expect(api.backupVaultToChosenLocation).toHaveBeenCalled(),
+    );
+    expect(api.eraseVault).not.toHaveBeenCalled();
+    expect(useVaultStore.getState().status).toBe("locked");
+    expect(screen.getByText(/back up this vault/i)).toBeVisible();
+  });
+
+  it("shows an error when backup-and-erase fails", async () => {
+    api.backupVaultToChosenLocation.mockRejectedValueOnce(
+      new Error("disk full"),
+    );
+    useVaultStore.setState({ status: "locked" });
+    const user = userEvent.setup();
+    render(<LockScreen />);
+
+    await user.click(screen.getByRole("button", { name: /recovery code/i }));
+    await user.click(
+      screen.getByRole("button", { name: /lost recovery code too/i }),
+    );
+    await user.click(
+      screen.getByRole("button", { name: /back up & start fresh/i }),
+    );
+    await user.click(
+      screen.getByRole("button", { name: /save copy & erase vault/i }),
+    );
+
+    expect(
+      await screen.findByText(/couldn't back up or erase the vault/i),
+    ).toBeVisible();
+    expect(useVaultStore.getState().status).toBe("locked");
   });
 });
 

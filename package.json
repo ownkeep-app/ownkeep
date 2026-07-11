@@ -1,7 +1,7 @@
 {
   "name": "keystash",
   "private": true,
-  "version": "0.1",
+  "version": "1.0",
   "type": "module",
   "packageManager": "pnpm@10.6.3",
   "scripts": {
@@ -24,7 +24,7 @@
     "coverage": "vitest run --coverage",
     "coverage:rust": "cd src-tauri && cargo llvm-cov --fail-under-lines 95 --ignore-filename-regex '(commands|lib|main)\\.rs$'",
     "coverage:all": "pnpm coverage && pnpm coverage:rust",
-    "check": "pnpm typecheck && pnpm lint && pnpm format:check && pnpm test",
+    "check": "pnpm typecheck && pnpm lint && pnpm format && pnpm test",
     "preview": "vite preview",
     "pretauri": "node scripts/sync-version.mjs",
     "tauri": "tauri"

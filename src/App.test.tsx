@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { currentWindowLabel, setMainWindowMode } from "@/lib/window";
 import { useVaultStore } from "@/stores/vault-store";
 import { vaultApi } from "@/vault/api";
-import { createDefaultModel } from "@/vault/model";
+import { createDefaultModel, APP_VERSION } from "@/vault/model";
 import type { MigrationPlan } from "@/vault/migrations";
 import App from "./App";
 
@@ -26,6 +26,7 @@ vi.mock("@/vault/api", () => ({
   vaultApi: {
     isUnlocked: vi.fn(async () => true),
     vaultExists: vi.fn(async () => true),
+    vaultPath: vi.fn(async () => "/tmp/vault.dat"),
     vaultIncompatibility: vi.fn(async () => null),
     getVault: vi.fn(async () => "{}"),
     createVault: vi.fn(),
@@ -147,7 +148,9 @@ describe("App routing", () => {
     mockLabel.mockReturnValue("dashboard");
     render(<App />);
     expect(await screen.findByText("Modules")).toBeInTheDocument();
-    expect(await screen.findByText("keystash v0.1")).toBeInTheDocument();
+    expect(
+      await screen.findByText(`keystash v${APP_VERSION}`),
+    ).toBeInTheDocument();
   });
 
   it("routes main-window reset, migration, incompatible, and Emergency Kit states", async () => {

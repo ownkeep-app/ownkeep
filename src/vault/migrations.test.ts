@@ -6,6 +6,7 @@ import {
   type ModuleDefaults,
 } from "./model";
 import {
+  abandonedVaultBackupName,
   buildMigrationPlan,
   compareAppVersions,
   parseAppVersion,
@@ -435,6 +436,9 @@ describe("backup names", () => {
     );
     expect(preRestoreBackupName(date)).toBe(
       "keystash-pre-restore-20260707-1530.dat",
+    );
+    expect(abandonedVaultBackupName(date)).toBe(
+      "keystash-abandoned-20260707-1530.dat",
     );
     expect(vaultBackupName("0.1", date)).toBe(
       "keystash-v0.1-20260707-1530.dat",

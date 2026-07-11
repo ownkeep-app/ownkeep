@@ -85,8 +85,8 @@ with a **browsable Dashboard** (sidebar + content pane) and a safe upgrade path 
 - [x] `FeatureModule` interface (incl. `ListView`) + `MODULES` registry (§3.4); Zustand store for the decrypted projection.
 - [x] Unified-index plumbing (empty until modules land) with Fuse.js + a frecency booster stub.
 - [x] **Dashboard shell (§7.5):** left sidebar (one row per enabled module, from the registry) + right content pane rendering the selected module's `ListView`; `Cmd+Shift+D` toggles the window; sidebar nav (`↑/↓`, `⌥⇧1..9`).
-- [x] Lock screen + **onboarding**: set master password → **show Emergency Kit** → confirm hotkeys (rebinding lands with the Settings polish).
-- [x] Settings shell with a **Modules** tab (enable toggles) rendered from the registry.
+- [x] Lock screen + **onboarding**: cold start shows the main window; set master password (with vault path shown) → **show Emergency Kit** → confirm hotkeys (rebinding lands with the Settings polish). Lock screen offers recovery unlock, plus backup-then-erase when both credentials are lost.
+- [x] Settings shell with a **Modules** tab (enable toggles) rendered from the registry; System shows the vault file path.
 - **Exit:** first-run onboarding completes; lock/unlock cycles; the Dashboard sidebar lists enabled modules and switches panes (empty `ListView`s OK until modules land).
 - **Deps:** P1.
 

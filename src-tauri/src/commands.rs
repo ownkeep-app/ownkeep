@@ -23,7 +23,7 @@ use crate::storage;
 pub type SharedSession = Mutex<Session>;
 
 /// Resolve the vault file path inside the OS app-data directory.
-fn vault_path(app: &AppHandle) -> Result<PathBuf, String> {
+fn resolve_vault_path(app: &AppHandle) -> Result<PathBuf, String> {
     let dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
     Ok(dir.join(storage::VAULT_FILE))
 }
@@ -31,7 +31,13 @@ fn vault_path(app: &AppHandle) -> Result<PathBuf, String> {
 /// Whether a vault already exists (drives onboarding vs. unlock on launch).
 #[tauri::command]
 pub fn vault_exists(app: AppHandle) -> Result<bool, String> {
-    Ok(storage::vault_exists(&vault_path(&app)?))
+    Ok(storage::vault_exists(&resolve_vault_path(&app)?))
+}
+
+/// Absolute path of the active vault file (for onboarding / Settings display).
+#[tauri::command]
+pub fn vault_path(app: AppHandle) -> Result<String, String> {
+    Ok(resolve_vault_path(&app)?.display().to_string())
 }
 
 /// Pre-unlock compatibility check (spec §11.2 step 1): returns the incompatibility message if this
@@ -39,7 +45,7 @@ pub fn vault_exists(app: AppHandle) -> Result<bool, String> {
 /// vault is refused before any password entry or key derivation.
 #[tauri::command]
 pub fn vault_incompatibility(app: AppHandle) -> Result<Option<String>, String> {
-    Ok(storage::incompatibility_message(&vault_path(&app)?))
+    Ok(storage::incompatibility_message(&resolve_vault_path(&app)?))
 }
 
 /// Whether the session is currently unlocked.
@@ -55,7 +61,7 @@ pub fn create_vault(
     state: State<'_, SharedSession>,
     password: String,
 ) -> Result<EmergencyKit, String> {
-    let path = vault_path(&app)?;
+    let path = resolve_vault_path(&app)?;
     if storage::vault_exists(&path) {
         return Err("a vault already exists at this location".to_string());
     }
@@ -69,7 +75,7 @@ pub fn create_vault(
 /// Unlock with the master password.
 #[tauri::command]
 pub async fn unlock(app: AppHandle, password: String) -> Result<(), String> {
-    let path = vault_path(&app)?;
+    let path = resolve_vault_path(&app)?;
     let delay = {
         let session = app.state::<SharedSession>();
         let delay = session.lock().unwrap().backoff_delay();
@@ -93,7 +99,7 @@ pub async fn unlock(app: AppHandle, password: String) -> Result<(), String> {
 /// Unlock with the recovery code. The caller must then set a new master password (§4.1 path B).
 #[tauri::command]
 pub async fn unlock_recovery(app: AppHandle, code: String) -> Result<(), String> {
-    let path = vault_path(&app)?;
+    let path = resolve_vault_path(&app)?;
     let delay = {
         let session = app.state::<SharedSession>();
         let delay = session.lock().unwrap().backoff_delay();
@@ -136,7 +142,7 @@ pub fn change_master(
     state: State<'_, SharedSession>,
     new_password: String,
 ) -> Result<(), String> {
-    let path = vault_path(&app)?;
+    let path = resolve_vault_path(&app)?;
     state
         .lock()
         .unwrap()
@@ -150,7 +156,7 @@ pub fn regenerate_recovery(
     app: AppHandle,
     state: State<'_, SharedSession>,
 ) -> Result<EmergencyKit, String> {
-    let path = vault_path(&app)?;
+    let path = resolve_vault_path(&app)?;
     state
         .lock()
         .unwrap()
@@ -162,7 +168,7 @@ pub fn regenerate_recovery(
 /// public container header, so it needs no unlock and never prompts.
 #[tauri::command]
 pub fn biometric_status(app: AppHandle) -> Result<biometric::BiometricStatus, String> {
-    let path = vault_path(&app)?;
+    let path = resolve_vault_path(&app)?;
     Ok(session::biometric_status(&path, &biometric::system_store()))
 }
 
@@ -172,7 +178,7 @@ pub fn enable_biometric_unlock(
     app: AppHandle,
     state: State<'_, SharedSession>,
 ) -> Result<(), String> {
-    let path = vault_path(&app)?;
+    let path = resolve_vault_path(&app)?;
     state
         .lock()
         .unwrap()
@@ -186,7 +192,7 @@ pub fn disable_biometric_unlock(
     app: AppHandle,
     state: State<'_, SharedSession>,
 ) -> Result<(), String> {
-    let path = vault_path(&app)?;
+    let path = resolve_vault_path(&app)?;
     state
         .lock()
         .unwrap()
@@ -201,7 +207,7 @@ pub fn reenroll_biometric_unlock(
     app: AppHandle,
     state: State<'_, SharedSession>,
 ) -> Result<(), String> {
-    let path = vault_path(&app)?;
+    let path = resolve_vault_path(&app)?;
     state
         .lock()
         .unwrap()
@@ -213,7 +219,7 @@ pub fn reenroll_biometric_unlock(
 /// block; the master password and recovery code remain available if this fails.
 #[tauri::command]
 pub async fn unlock_biometric(app: AppHandle) -> Result<(), String> {
-    let path = vault_path(&app)?;
+    let path = resolve_vault_path(&app)?;
     let app = app.clone();
     tauri::async_runtime::spawn_blocking(move || {
         app.state::<SharedSession>()
@@ -243,7 +249,7 @@ pub fn save_vault(
     state: State<'_, SharedSession>,
     json: String,
 ) -> Result<(), String> {
-    let path = vault_path(&app)?;
+    let path = resolve_vault_path(&app)?;
     state
         .lock()
         .unwrap()
@@ -295,7 +301,7 @@ pub fn reveal_secret(
 /// Copy the encrypted active vault to a versioned sibling backup file.
 #[tauri::command]
 pub fn backup_vault(app: AppHandle, file_name: String) -> Result<String, String> {
-    let path = vault_path(&app)?;
+    let path = resolve_vault_path(&app)?;
     let backup_path = storage::backup_vault_file(&path, &file_name).map_err(|e| e.to_string())?;
     Ok(backup_path.display().to_string())
 }
@@ -307,7 +313,7 @@ pub async fn backup_vault_to_chosen_location(
     file_name: String,
 ) -> Result<Option<String>, String> {
     storage::validate_backup_file_name(&file_name).map_err(|e| e.to_string())?;
-    let path = vault_path(&app)?;
+    let path = resolve_vault_path(&app)?;
     let destination = app
         .dialog()
         .file()
@@ -422,7 +428,7 @@ where
         + Send
         + 'static,
 {
-    let active_path = vault_path(&app)?;
+    let active_path = resolve_vault_path(&app)?;
     let restored_path = backup_path.display().to_string();
     let delay = {
         let session = app.state::<SharedSession>();
@@ -449,7 +455,7 @@ where
 /// Permanently erase the active vault file and lock any decrypted in-memory state.
 #[tauri::command]
 pub fn erase_vault(app: AppHandle, state: State<'_, SharedSession>) -> Result<(), String> {
-    let path = vault_path(&app)?;
+    let path = resolve_vault_path(&app)?;
     state.lock().unwrap().lock();
     // Clear the device-local Touch ID key so no orphan remains after wiping the vault (§4.7).
     let _ = biometric::system_store().delete_key();

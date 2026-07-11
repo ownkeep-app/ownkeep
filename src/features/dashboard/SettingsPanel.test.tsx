@@ -15,6 +15,7 @@ vi.mock("@/vault/api", () => ({
     setAutoLock: vi.fn(async () => {}),
     setHotkeys: vi.fn(async () => {}),
     backupVaultToChosenLocation: vi.fn(async () => "/tmp/backup.dat"),
+    vaultPath: vi.fn(async () => "/tmp/vault.dat"),
     restoreVaultFromChosenLocationWithPassword: vi.fn(
       async () => "/tmp/restored.dat",
     ),
@@ -99,6 +100,8 @@ describe("SettingsPanel auto-lock", () => {
 
     expect(screen.getByLabelText("Auto-lock timeout")).toBeVisible();
     expect(screen.getByLabelText("Theme")).toBeVisible();
+    expect(screen.getByRole("heading", { name: "Vault file" })).toBeVisible();
+    expect(screen.getByText(/vault file:/i)).toBeVisible();
     expect(
       screen.getByRole("button", { name: /back up vault/i }),
     ).toBeVisible();
@@ -171,7 +174,7 @@ describe("SettingsPanel auto-lock", () => {
     await user.click(screen.getByRole("tab", { name: "System" }));
     await user.click(screen.getByRole("button", { name: /back up vault/i }));
     expect(api.backupVaultToChosenLocation).toHaveBeenCalledWith(
-      expect.stringMatching(/^keystash-v0\.1-/),
+      expect.stringMatching(/^keystash-v\d+\.\d+-/),
     );
     expect(await screen.findByText(/backup saved/i)).toBeVisible();
 

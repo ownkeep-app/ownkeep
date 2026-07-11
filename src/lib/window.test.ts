@@ -14,7 +14,7 @@ import {
 const mockSetSize = vi.fn(async () => {});
 const mockSetResizable = vi.fn(async () => {});
 const mockHide = vi.fn(async () => {});
-const mockInvoke = vi.fn(async (...args: unknown[]) => args);
+const mockInvoke = vi.fn(async (...args: unknown[]): Promise<unknown> => args);
 let mockWindowLabel = "main";
 let mockGetWindowThrows = false;
 

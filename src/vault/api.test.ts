@@ -16,6 +16,7 @@ describe("vaultApi", () => {
     const { vaultApi } = await import("./api");
 
     await vaultApi.vaultExists();
+    await vaultApi.vaultPath();
     await vaultApi.isUnlocked();
     await vaultApi.createVault("master");
     await vaultApi.unlock("master");
@@ -52,6 +53,7 @@ describe("vaultApi", () => {
 
     expect(mockInvoke.mock.calls).toEqual([
       ["vault_exists"],
+      ["vault_path"],
       ["is_unlocked"],
       ["create_vault", { password: "master" }],
       ["unlock", { password: "master" }],

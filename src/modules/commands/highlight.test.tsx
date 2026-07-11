@@ -2,7 +2,8 @@ import { render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { codeToHtml } from "shiki";
-import { highlightCode, SnippetView } from "./highlight";
+import { highlightCode } from "./highlight-code";
+import { SnippetView } from "./highlight";
 
 vi.mock("shiki", () => ({ codeToHtml: vi.fn() }));
 const mockCodeToHtml = vi.mocked(codeToHtml);

@@ -25,6 +25,8 @@ export interface BiometricStatus {
 export const vaultApi = {
   /** Whether a vault file exists (onboarding vs. unlock on launch). */
   vaultExists: () => invoke<boolean>("vault_exists"),
+  /** Absolute path of the active vault file (onboarding / Settings). */
+  vaultPath: () => invoke<string>("vault_path"),
   /**
    * Pre-unlock compatibility check (spec §11.2 step 1): the incompatibility message if this build is
    * too old to read the on-disk container, else null. Checked at launch, before password entry.

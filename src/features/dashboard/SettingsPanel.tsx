@@ -20,6 +20,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
+import { VaultPathHint } from "@/components/VaultPathHint";
 import { toastSuccess } from "@/lib/toast";
 import { MODULES } from "@/modules/registry";
 import { useVaultStore } from "@/stores/vault-store";
@@ -475,6 +476,19 @@ export function SettingsPanel() {
                     ))}
                   </Select>
                 </label>
+              </div>
+            </section>
+
+            <section>
+              <h2 className="mb-3 text-sm font-medium text-muted-foreground">
+                Vault file
+              </h2>
+              <div className="rounded-md border border-border p-3">
+                <VaultPathHint className="text-sm text-muted-foreground" />
+                <p className="mt-2 text-xs text-muted-foreground">
+                  This encrypted file is outside the app bundle. Backups and
+                  upgrades never move it — keep a separate copy somewhere safe.
+                </p>
               </div>
             </section>
 
