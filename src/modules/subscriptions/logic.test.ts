@@ -90,7 +90,7 @@ describe("subscription module logic", () => {
         currency: "SGD",
         cycle: "custom",
         customIntervalDays: 45,
-        nextDueDate: "2026-07-15T00:00:00.000Z",
+        nextDueDate: new Date(2026, 6, 15, 23, 59, 59, 0).toISOString(),
         autoRenew: false,
         notifyLeadDays: 7,
         notes: "team",
@@ -387,7 +387,9 @@ describe("subscription module logic", () => {
         subscription({ id: "apple", service: "Apple" }),
       ]).map((item) => item.id),
     ).toEqual(["apple", "zoom"]);
-    expect(dateInputToIso("2026-07-09")).toBe("2026-07-09T00:00:00.000Z");
+    expect(dateInputToIso("2026-07-09")).toBe(
+      new Date(2026, 6, 9, 23, 59, 59, 0).toISOString(),
+    );
     expect(dateInputToIso("")).toBeNull();
     expect(isoToDateInput("bad")).toBe("");
     expect(formatDate("bad")).toBe("Invalid date");

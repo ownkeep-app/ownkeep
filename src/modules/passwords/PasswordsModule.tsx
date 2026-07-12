@@ -1,6 +1,6 @@
 import { type FormEvent, type ReactNode, useMemo, useState } from "react";
 
-import { Copy, Eye, Pencil, Plus, Search, Trash2 } from "lucide-react";
+import { Copy, ExternalLink, Eye, Pencil, Plus, Search, Trash2 } from "lucide-react";
 
 import { CategorySelect } from "@/components/category-select";
 import { DetailModal } from "@/components/DetailModal";
@@ -14,6 +14,7 @@ import {
 } from "@/components/detail-fields";
 import { EmptyState } from "@/components/EmptyState";
 import { ItemFormShell } from "@/components/ItemFormShell";
+import { RowActionsMenu } from "@/components/RowActionsMenu";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -24,6 +25,7 @@ import {
   Table,
   TableBody,
   TableCell,
+  TableHead,
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
@@ -35,6 +37,7 @@ import {
 } from "@/lib/table-sort";
 import { writeClipboard } from "@/lib/clipboard";
 import { toastClipboard, toastError, toastSecretCopied } from "@/lib/toast";
+import { isHttpUrl, openExternalUrl } from "@/lib/url";
 import { cn } from "@/lib/utils";
 import { useTaxonomySettings } from "@/hooks/use-taxonomy-settings";
 import type { ListViewProps } from "@/modules/types";
@@ -219,7 +222,10 @@ export function PasswordsListView({ items }: ListViewProps<PasswordEntry>) {
                   onSort={handleSort}
                   sort={sortState}
                 />
-                <ActionsTableHead className="w-36 px-4" />
+                <TableHead className="w-12 px-2 text-right" scope="col">
+                  <span className="sr-only">Login URL</span>
+                </TableHead>
+                <ActionsTableHead />
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -273,45 +279,44 @@ export function PasswordsListView({ items }: ListViewProps<PasswordEntry>) {
                   <TableCell className="truncate px-4 py-3 text-muted-foreground">
                     {item.category || "-"}
                   </TableCell>
-                  <TableCell className="px-4 py-2">
-                    <div className="flex justify-end gap-1">
-                      <Button
-                        aria-label={`View ${item.name}`}
-                        onClick={() => setViewing(item)}
-                        size="icon"
-                        type="button"
-                        variant="ghost"
-                      >
-                        <Eye className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        aria-label={`Copy password for ${item.name}`}
-                        onClick={() => void handleCopy(item.id)}
-                        size="icon"
-                        type="button"
-                        variant="ghost"
-                      >
-                        <Copy className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        aria-label={`Edit ${item.name}`}
-                        onClick={() => setEditing(item)}
-                        size="icon"
-                        type="button"
-                        variant="ghost"
-                      >
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        aria-label={`Delete ${item.name}`}
-                        onClick={() => void handleDelete(item.id)}
-                        size="icon"
-                        type="button"
-                        variant="ghost"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                  <TableCell className="px-2 py-2">
+                    <div className="flex justify-end">
+                      {isHttpUrl(item.loginUrl) ? (
+                        <Button
+                          aria-label={`Open login URL for ${item.name}`}
+                          onClick={() => void openExternalUrl(item.loginUrl)}
+                          size="icon"
+                          title={item.loginUrl}
+                          type="button"
+                          variant="ghost"
+                        >
+                          <ExternalLink className="h-4 w-4" />
+                        </Button>
+                      ) : null}
                     </div>
+                  </TableCell>
+                  <TableCell className="px-2 py-2">
+                    <RowActionsMenu
+                      label={`Actions for ${item.name}`}
+                      actions={[
+                        {
+                          label: "View",
+                          icon: <Eye className="h-4 w-4" />,
+                          onSelect: () => setViewing(item),
+                        },
+                        {
+                          label: "Edit",
+                          icon: <Pencil className="h-4 w-4" />,
+                          onSelect: () => setEditing(item),
+                        },
+                        {
+                          label: "Delete",
+                          icon: <Trash2 className="h-4 w-4" />,
+                          destructive: true,
+                          onSelect: () => void handleDelete(item.id),
+                        },
+                      ]}
+                    />
                   </TableCell>
                 </TableRow>
               ))}

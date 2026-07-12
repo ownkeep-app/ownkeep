@@ -2,6 +2,8 @@ import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { chooseRowAction } from "@/test/row-actions";
+import { pickDate } from "@/test/date-picker";
 import { useVaultStore } from "@/stores/vault-store";
 import { createDefaultModel } from "@/vault/model";
 import {
@@ -198,10 +200,7 @@ describe("SubscriptionsListView", () => {
       screen.getByLabelText("Subscription custom interval days"),
       "45",
     );
-    await user.type(
-      screen.getByLabelText("Subscription next due date"),
-      "2026-07-15",
-    );
+    await pickDate(user, "Subscription next due date", "2026-07-15");
     await user.clear(screen.getByLabelText("Subscription reminder lead days"));
     await user.type(
       screen.getByLabelText("Subscription reminder lead days"),
@@ -220,7 +219,7 @@ describe("SubscriptionsListView", () => {
         currency: "USD",
         cycle: "custom",
         customIntervalDays: 45,
-        nextDueDate: "2026-07-15T00:00:00.000Z",
+        nextDueDate: new Date(2026, 6, 15, 23, 59, 59, 0).toISOString(),
         autoRenew: false,
         notifyLeadDays: 7,
         notes: "team",
@@ -243,7 +242,7 @@ describe("SubscriptionsListView", () => {
     const user = userEvent.setup();
     render(<SubscriptionsListView items={[item]} />);
 
-    await user.click(screen.getByRole("button", { name: /edit linode/i }));
+    await chooseRowAction(user, "Linode", "Edit");
     await user.clear(screen.getByLabelText("Subscription service"));
     await user.type(
       screen.getByLabelText("Subscription service"),
@@ -253,22 +252,18 @@ describe("SubscriptionsListView", () => {
       screen.getByLabelText("Subscription cycle"),
       "yearly",
     );
-    await user.clear(screen.getByLabelText("Subscription next due date"));
-    await user.type(
-      screen.getByLabelText("Subscription next due date"),
-      "2026-08-01",
-    );
+    await pickDate(user, "Subscription next due date", "2026-08-01");
     await user.click(screen.getByRole("button", { name: "Save" }));
     expect(saveSubscription).toHaveBeenCalledWith(
       expect.objectContaining({
         id: "sub-1",
         service: "Linode Pro",
         cycle: "yearly",
-        nextDueDate: "2026-08-01T00:00:00.000Z",
+        nextDueDate: new Date(2026, 7, 1, 23, 59, 59, 0).toISOString(),
       }),
     );
 
-    await user.click(screen.getByRole("button", { name: /advance linode/i }));
+    await chooseRowAction(user, "Linode", "Advance due date");
     expect(saveSubscription).toHaveBeenLastCalledWith(
       expect.objectContaining({
         id: "sub-1",
@@ -276,7 +271,7 @@ describe("SubscriptionsListView", () => {
       }),
     );
 
-    await user.click(screen.getByRole("button", { name: /delete linode/i }));
+    await chooseRowAction(user, "Linode", "Delete");
     expect(deleteSubscription).toHaveBeenCalledWith("sub-1");
   });
 
@@ -284,7 +279,7 @@ describe("SubscriptionsListView", () => {
     const user = userEvent.setup();
     render(<SubscriptionsListView items={[item]} />);
 
-    await user.click(screen.getByRole("button", { name: /view linode/i }));
+    await chooseRowAction(user, "Linode", "View");
     let dialog = screen.getByRole("dialog", { name: "Linode" });
     await user.click(
       within(dialog).getByRole("button", { name: /advance due date/i }),
@@ -306,7 +301,7 @@ describe("SubscriptionsListView", () => {
       screen.getByRole("heading", { name: "Subscriptions" }),
     ).toBeVisible();
 
-    await user.click(screen.getByRole("button", { name: /view linode/i }));
+    await chooseRowAction(user, "Linode", "View");
     dialog = screen.getByRole("dialog", { name: "Linode" });
     await user.click(
       within(dialog).getByRole("button", { name: /close details/i }),
@@ -317,7 +312,7 @@ describe("SubscriptionsListView", () => {
       ).not.toBeInTheDocument(),
     );
 
-    await user.click(screen.getByRole("button", { name: /view linode/i }));
+    await chooseRowAction(user, "Linode", "View");
     dialog = screen.getByRole("dialog", { name: "Linode" });
     await user.click(within(dialog).getByRole("button", { name: "Delete" }));
     expect(deleteSubscription).toHaveBeenCalledWith("sub-1");

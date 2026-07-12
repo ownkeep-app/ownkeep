@@ -14,6 +14,7 @@ import {
 import { EmptyState } from "@/components/EmptyState";
 import { ItemFormShell } from "@/components/ItemFormShell";
 import { LanguageSelect } from "@/components/language-select";
+import { RowActionsMenu } from "@/components/RowActionsMenu";
 import { snippetLanguageLabel } from "@/components/snippet-languages";
 import { TagMultiSelect } from "@/components/tag-multi-select";
 import { Button } from "@/components/ui/button";
@@ -173,43 +174,33 @@ export function CommandsListView({ items }: ListViewProps<CommandEntry>) {
                               </div>
                             )}
                           </div>
-                          <div className="flex shrink-0 gap-1">
-                            <Button
-                              aria-label={`View ${command.title}`}
-                              onClick={() => setViewing(command)}
-                              size="icon"
-                              type="button"
-                              variant="ghost"
-                            >
-                              <Eye className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              aria-label={`Copy ${command.title}`}
-                              onClick={() => startCopy(command)}
-                              size="icon"
-                              type="button"
-                              variant="ghost"
-                            >
-                              <Copy className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              aria-label={`Edit ${command.title}`}
-                              onClick={() => setEditing(command)}
-                              size="icon"
-                              type="button"
-                              variant="ghost"
-                            >
-                              <Pencil className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              aria-label={`Delete ${command.title}`}
-                              onClick={() => void handleDelete(command.id)}
-                              size="icon"
-                              type="button"
-                              variant="ghost"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
+                          <div className="shrink-0">
+                            <RowActionsMenu
+                              label={`Actions for ${command.title}`}
+                              actions={[
+                                {
+                                  label: "View",
+                                  icon: <Eye className="h-4 w-4" />,
+                                  onSelect: () => setViewing(command),
+                                },
+                                {
+                                  label: "Copy",
+                                  icon: <Copy className="h-4 w-4" />,
+                                  onSelect: () => startCopy(command),
+                                },
+                                {
+                                  label: "Edit",
+                                  icon: <Pencil className="h-4 w-4" />,
+                                  onSelect: () => setEditing(command),
+                                },
+                                {
+                                  label: "Delete",
+                                  icon: <Trash2 className="h-4 w-4" />,
+                                  destructive: true,
+                                  onSelect: () => void handleDelete(command.id),
+                                },
+                              ]}
+                            />
                           </div>
                         </div>
                       </li>
@@ -369,20 +360,12 @@ export function CommandEditView({
       onSubmit={submit}
       title={item ? "Edit command" : "New command"}
     >
-      <Field label="Title">
+      <Field className="col-span-2" label="Title">
         <Input
           aria-label="Command title"
           autoFocus
           onChange={(event) => update("title", event.target.value)}
           value={form.title}
-        />
-      </Field>
-      <Field label="Category">
-        <CategorySelect
-          aria-label="Command category"
-          onChange={(event) => update("category", event.target.value)}
-          options={categoryOptions}
-          value={form.category}
         />
       </Field>
       <Field className="col-span-2" label="Description">
@@ -399,7 +382,15 @@ export function CommandEditView({
           value={form.language}
         />
       </Field>
-      <Field label="Tags">
+      <Field label="Category">
+        <CategorySelect
+          aria-label="Command category"
+          onChange={(event) => update("category", event.target.value)}
+          options={categoryOptions}
+          value={form.category}
+        />
+      </Field>
+      <Field className="col-span-2" label="Tags">
         <TagMultiSelect
           aria-label="Command tags"
           onChange={(tags) => update("tags", tags)}

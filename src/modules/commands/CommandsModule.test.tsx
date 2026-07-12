@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { writeClipboard } from "@/lib/clipboard";
 import { toastClipboard } from "@/lib/toast";
+import { chooseRowAction } from "@/test/row-actions";
 import { useVaultStore } from "@/stores/vault-store";
 import { vaultApi } from "@/vault/api";
 import { createDefaultModel } from "@/vault/model";
@@ -96,7 +97,7 @@ describe("CommandsListView", () => {
     await user.type(screen.getByLabelText("Filter commands"), "rebase");
     expect(screen.getAllByText("Rebase").length).toBeGreaterThan(0);
     expect(
-      screen.queryByRole("button", { name: /copy status/i }),
+      screen.queryByRole("button", { name: /actions for status/i }),
     ).not.toBeInTheDocument();
   });
 
@@ -110,7 +111,7 @@ describe("CommandsListView", () => {
   it("copies a placeholder-free command immediately", async () => {
     const user = userEvent.setup();
     render(<CommandsListView items={[cmd()]} />);
-    await user.click(screen.getByRole("button", { name: /copy status/i }));
+    await chooseRowAction(user, "Status", "Copy");
     expect(clip).toHaveBeenCalledWith("git status");
     await waitFor(() =>
       expect(toastClip).toHaveBeenCalledWith(true, "Command copied"),
@@ -129,7 +130,7 @@ describe("CommandsListView", () => {
         ]}
       />,
     );
-    await user.click(screen.getByRole("button", { name: /copy push/i }));
+    await chooseRowAction(user, "Push", "Copy");
 
     await user.type(screen.getByLabelText("branch"), "main");
     await user.click(screen.getByRole("button", { name: /^copy$/i }));
@@ -143,7 +144,7 @@ describe("CommandsListView", () => {
         items={[cmd({ primaryCopyTemplate: "git push origin {{branch}}" })]}
       />,
     );
-    await user.click(screen.getByRole("button", { name: /copy status/i }));
+    await chooseRowAction(user, "Status", "Copy");
     await user.click(screen.getByRole("button", { name: /copy raw/i }));
     expect(clip).toHaveBeenCalledWith("git push origin {{branch}}");
   });
@@ -176,7 +177,7 @@ describe("CommandsListView", () => {
   it("deletes a command", async () => {
     const user = userEvent.setup();
     render(<CommandsListView items={[cmd()]} />);
-    await user.click(screen.getByRole("button", { name: /delete status/i }));
+    await chooseRowAction(user, "Status", "Delete");
     await waitFor(() => expect(api.saveVault).toHaveBeenCalled());
   });
 
@@ -190,7 +191,7 @@ describe("CommandsListView", () => {
         ]}
       />,
     );
-    await user.click(screen.getByRole("button", { name: /view rebase/i }));
+    await chooseRowAction(user, "Rebase", "View");
     const dialog = screen.getByRole("dialog", { name: "Rebase" });
     await user.click(within(dialog).getByRole("button", { name: "Copy" }));
     expect(clip).toHaveBeenCalledWith("git rebase");
@@ -200,7 +201,7 @@ describe("CommandsListView", () => {
     const user = userEvent.setup();
     render(<CommandsListView items={[cmd()]} />);
 
-    await user.click(screen.getByRole("button", { name: /view status/i }));
+    await chooseRowAction(user, "Status", "View");
     let dialog = screen.getByRole("dialog", { name: "Status" });
     await user.click(within(dialog).getByRole("button", { name: "Edit" }));
     expect(
@@ -211,7 +212,7 @@ describe("CommandsListView", () => {
     );
     expect(screen.getByRole("heading", { name: "Commands" })).toBeVisible();
 
-    await user.click(screen.getByRole("button", { name: /view status/i }));
+    await chooseRowAction(user, "Status", "View");
     dialog = screen.getByRole("dialog", { name: "Status" });
     await user.click(
       within(dialog).getByRole("button", { name: /close details/i }),
@@ -222,7 +223,7 @@ describe("CommandsListView", () => {
       ).not.toBeInTheDocument(),
     );
 
-    await user.click(screen.getByRole("button", { name: /view status/i }));
+    await chooseRowAction(user, "Status", "View");
     dialog = screen.getByRole("dialog", { name: "Status" });
     await user.click(within(dialog).getByRole("button", { name: "Delete" }));
     await waitFor(() => expect(api.saveVault).toHaveBeenCalled());
@@ -235,7 +236,7 @@ describe("CommandsListView", () => {
         items={[cmd({ primaryCopyTemplate: "git push {{branch}}" })]}
       />,
     );
-    await user.click(screen.getByRole("button", { name: /copy status/i }));
+    await chooseRowAction(user, "Status", "Copy");
     await screen.findByLabelText("branch");
     await user.click(screen.getByRole("button", { name: /cancel/i }));
     await waitFor(() =>

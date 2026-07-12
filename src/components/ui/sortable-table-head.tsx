@@ -65,18 +65,10 @@ export function SortableTableHead<Column extends string>({
   );
 }
 
-export function ActionsTableHead({
-  label = "Actions",
-  className,
-}: {
-  label?: string;
-  className?: string;
-}) {
+export function ActionsTableHead({ className }: { className?: string }) {
   return (
-    <TableHead className={className} scope="col">
-      <span className="whitespace-nowrap text-xs font-medium uppercase text-muted-foreground">
-        {label}
-      </span>
+    <TableHead className={cn("w-12 px-2 text-right", className)} scope="col">
+      <span className="sr-only">Actions</span>
     </TableHead>
   );
 }

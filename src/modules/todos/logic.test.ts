@@ -1,15 +1,17 @@
 import { describe, expect, it, vi } from "vitest";
+import dayjs from "dayjs";
 
 import {
   buildTodoIndex,
   collectTodoReminders,
   createTodoEntry,
+  dateTimeInputToIso,
   emptyTodoForm,
   formatDateTime,
-  isoToLocalDateTimeInput,
-  localDateTimeInputToIso,
+  isoToDateTimeInput,
   nextRecurringDueAt,
   sortTodos,
+  todoDueStatus,
   todoEntries,
   toggleTodoDoneState,
   updateTodoEntry,
@@ -63,7 +65,7 @@ describe("todo module logic", () => {
       ...emptyTodoForm(),
       title: "  Pay rent  ",
       notes: " monthly ",
-      dueAt: "2026-07-09T09:30",
+      dueAt: "2026-07-09T09:30:00",
       notifyLeadMinutes: "45",
       priority: "high" as const,
       recurrence: "weekly" as const,
@@ -83,7 +85,9 @@ describe("todo module logic", () => {
         recurrence: "weekly",
       }),
     );
-    expect(created.dueAt).toBe(new Date("2026-07-09T09:30").toISOString());
+    expect(created.dueAt).toBe(
+      new Date(2026, 6, 9, 9, 30, 0, 0).toISOString(),
+    );
 
     expect(
       updateTodoEntry(created, { ...emptyTodoForm(), title: "Paid" }, NOW),
@@ -189,10 +193,34 @@ describe("todo module logic", () => {
       createTodoEntry({ ...emptyTodoForm(), title: "Fallback" }, NOW, "x")
         .notifyLeadMinutes,
     ).toBe(30);
-    expect(isoToLocalDateTimeInput(null)).toBe("");
-    expect(isoToLocalDateTimeInput("bad")).toBe("");
-    expect(localDateTimeInputToIso("bad")).toBeNull();
+    expect(isoToDateTimeInput(null)).toBe("");
+    expect(isoToDateTimeInput("bad")).toBe("");
+    expect(dateTimeInputToIso("bad")).toBeNull();
     expect(formatDateTime("bad")).toBe("Invalid date");
+  });
+
+  it("labels open todos as overdue, due today, or due in N days", () => {
+    // Local calendar days — avoid UTC fixtures that flip day at Asia/Shanghai.
+    const now = dayjs("2026-07-08T15:00:00");
+    expect(todoDueStatus(null, false, now.toDate())).toBeNull();
+    expect(todoDueStatus("bad", false, now.toDate())).toBeNull();
+    expect(
+      todoDueStatus(now.toISOString(), true, now.toDate()),
+    ).toBeNull();
+
+    expect(
+      todoDueStatus(now.subtract(1, "day").toISOString(), false, now.toDate()),
+    ).toEqual({ kind: "overdue", label: "Overdue" });
+    expect(todoDueStatus(now.toISOString(), false, now.toDate())).toEqual({
+      kind: "today",
+      label: "Due today",
+    });
+    expect(
+      todoDueStatus(now.add(1, "day").toISOString(), false, now.toDate()),
+    ).toEqual({ kind: "upcoming", label: "Due in 1 day" });
+    expect(
+      todoDueStatus(now.add(3, "day").toISOString(), false, now.toDate()),
+    ).toEqual({ kind: "upcoming", label: "Due in 3 days" });
   });
 
   it("filters invalid records and sorts by due date ascending", () => {

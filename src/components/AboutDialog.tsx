@@ -20,6 +20,7 @@ import {
   fadeTransition,
   motionOrUndefined,
 } from "@/lib/motion";
+import { openExternalUrl } from "@/lib/url";
 import { cn } from "@/lib/utils";
 
 /**
@@ -186,6 +187,10 @@ export function AboutDialog({
                     <a
                       className="text-primary underline-offset-2 hover:underline"
                       href={`mailto:${APP_DEVELOPER_EMAIL}`}
+                      onClick={(event) => {
+                        event.preventDefault();
+                        void openExternalUrl(`mailto:${APP_DEVELOPER_EMAIL}`);
+                      }}
                     >
                       {APP_DEVELOPER_EMAIL}
                     </a>
@@ -199,8 +204,11 @@ export function AboutDialog({
                     <a
                       className="text-primary underline-offset-2 hover:underline"
                       href={APP_WEBSITE}
+                      onClick={(event) => {
+                        event.preventDefault();
+                        void openExternalUrl(APP_WEBSITE);
+                      }}
                       rel="noopener noreferrer"
-                      target="_blank"
                     >
                       {APP_WEBSITE}
                     </a>

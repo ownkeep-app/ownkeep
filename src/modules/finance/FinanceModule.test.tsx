@@ -2,6 +2,8 @@ import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { chooseRowAction } from "@/test/row-actions";
+import { pickDate } from "@/test/date-picker";
 import { useVaultStore } from "@/stores/vault-store";
 import { createDefaultModel } from "@/vault/model";
 import { FinanceListView } from "./FinanceModule";
@@ -131,13 +133,16 @@ describe("FinanceListView", () => {
     const user = userEvent.setup();
     render(<FinanceListView items={snapshots} />);
     await user.click(screen.getByRole("button", { name: /new snapshot/i }));
-    await user.type(screen.getByLabelText("Snapshot date"), "2026-08-01");
+    await pickDate(user, "Snapshot date", "2026-08-01");
     await user.type(screen.getByLabelText("Entry 1 place"), "Cash");
     await user.type(screen.getByLabelText("Entry 1 amount"), "500");
     await user.click(screen.getByRole("button", { name: "Save" }));
 
     expect(saveSnapshot).toHaveBeenCalledTimes(1);
     const saved = saveSnapshot.mock.calls[0][0];
+    expect(saved.date).toBe(
+      new Date(2026, 7, 1, 23, 59, 59, 0).toISOString(),
+    );
     expect(saved.entries[0]).toMatchObject({ place: "Cash", amount: 500 });
   });
 
@@ -159,9 +164,7 @@ describe("FinanceListView", () => {
   it("deletes a snapshot", async () => {
     const user = userEvent.setup();
     render(<FinanceListView items={snapshots} />);
-    await user.click(
-      screen.getByRole("button", { name: /delete snapshot jul/i }),
-    );
+    await chooseRowAction(user, "snapshot Jul", "Delete");
     expect(deleteSnapshot).toHaveBeenCalledWith("s2");
   });
 
@@ -169,9 +172,7 @@ describe("FinanceListView", () => {
     const user = userEvent.setup();
     render(<FinanceListView items={snapshots} />);
 
-    await user.click(
-      screen.getByRole("button", { name: /view snapshot jul 1, 2026/i }),
-    );
+    await chooseRowAction(user, "snapshot Jul 1, 2026", "View");
     let dialog = screen.getByRole("dialog", { name: /jul 1, 2026/i });
     await user.click(
       within(dialog).getByRole("button", { name: /close details/i }),
@@ -182,9 +183,7 @@ describe("FinanceListView", () => {
       ).not.toBeInTheDocument(),
     );
 
-    await user.click(
-      screen.getByRole("button", { name: /view snapshot jul 1, 2026/i }),
-    );
+    await chooseRowAction(user, "snapshot Jul 1, 2026", "View");
     dialog = screen.getByRole("dialog", { name: /jul 1, 2026/i });
     await user.click(within(dialog).getByRole("button", { name: "Delete" }));
     expect(deleteSnapshot).toHaveBeenCalledWith("s2");
@@ -205,9 +204,7 @@ describe("FinanceListView", () => {
     ];
     render(<FinanceListView items={withEur} />);
 
-    await user.click(
-      screen.getByRole("button", { name: /view snapshot aug 1, 2026/i }),
-    );
+    await chooseRowAction(user, "snapshot Aug 1, 2026", "View");
     const dialog = screen.getByRole("dialog", { name: /aug 1, 2026/i });
     expect(within(dialog).getByText(/no fx rate for eur/i)).toBeInTheDocument();
     expect(within(dialog).getByText("aug note")).toBeInTheDocument();

@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 
 import { CategorySelect } from "@/components/category-select";
+import { DatePicker } from "@/components/date-picker";
 import { DetailModal } from "@/components/DetailModal";
 import {
   DetailField,
@@ -19,9 +20,11 @@ import {
   DetailFieldSpan,
   DetailModalBody,
   DetailModalHero,
+  DetailUrlField,
 } from "@/components/detail-fields";
 import { EmptyState } from "@/components/EmptyState";
 import { ItemFormShell } from "@/components/ItemFormShell";
+import { RowActionsMenu } from "@/components/RowActionsMenu";
 import { TagMultiSelect } from "@/components/tag-multi-select";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -242,7 +245,7 @@ export function SubscriptionsListView({
                   onSort={handleSort}
                   sort={sortState}
                 />
-                <ActionsTableHead className="w-40 px-4" />
+                <ActionsTableHead />
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -266,45 +269,33 @@ export function SubscriptionsListView({
                   <TableCell className="px-4 py-3 text-muted-foreground">
                     {item.autoRenew ? "Auto" : "Manual"}
                   </TableCell>
-                  <TableCell className="px-4 py-2">
-                    <div className="flex justify-end gap-1">
-                      <Button
-                        aria-label={`View ${item.service}`}
-                        onClick={() => setViewing(item)}
-                        size="icon"
-                        type="button"
-                        variant="ghost"
-                      >
-                        <Eye className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        aria-label={`Advance ${item.service}`}
-                        onClick={() => void handleAdvance(item)}
-                        size="icon"
-                        type="button"
-                        variant="ghost"
-                      >
-                        <CalendarDays className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        aria-label={`Edit ${item.service}`}
-                        onClick={() => setEditing(item)}
-                        size="icon"
-                        type="button"
-                        variant="ghost"
-                      >
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        aria-label={`Delete ${item.service}`}
-                        onClick={() => void handleDelete(item.id)}
-                        size="icon"
-                        type="button"
-                        variant="ghost"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
+                  <TableCell className="px-2 py-2">
+                    <RowActionsMenu
+                      label={`Actions for ${item.service}`}
+                      actions={[
+                        {
+                          label: "View",
+                          icon: <Eye className="h-4 w-4" />,
+                          onSelect: () => setViewing(item),
+                        },
+                        {
+                          label: "Advance due date",
+                          icon: <CalendarDays className="h-4 w-4" />,
+                          onSelect: () => void handleAdvance(item),
+                        },
+                        {
+                          label: "Edit",
+                          icon: <Pencil className="h-4 w-4" />,
+                          onSelect: () => setEditing(item),
+                        },
+                        {
+                          label: "Delete",
+                          icon: <Trash2 className="h-4 w-4" />,
+                          destructive: true,
+                          onSelect: () => void handleDelete(item.id),
+                        },
+                      ]}
+                    />
                   </TableCell>
                 </TableRow>
               ))}
@@ -407,7 +398,7 @@ export function SubscriptionDetailView({ item }: { item: SubscriptionEntry }) {
         />
         <DetailField label="Category" value={item.category} />
         <DetailField label="Tags" value={item.tags.join(", ") || "-"} />
-        <DetailField label="Billing URL" value={item.url || "-"} />
+        <DetailUrlField label="Billing URL" value={item.url} />
         <DetailField
           label="Updated"
           value={new Date(item.updatedAt).toLocaleString()}
@@ -536,16 +527,12 @@ export function SubscriptionEditView({
       </label>
       <label className="space-y-1 text-sm font-medium">
         Next due
-        <div className="relative">
-          <CalendarDays className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-          <Input
-            aria-label="Subscription next due date"
-            className="pl-9"
-            onChange={(event) => update("nextDueDate", event.target.value)}
-            type="date"
-            value={form.nextDueDate}
-          />
-        </div>
+        <DatePicker
+          aria-label="Subscription next due date"
+          onChange={(nextDueDate) => update("nextDueDate", nextDueDate)}
+          placeholder="Pick a due date"
+          value={form.nextDueDate}
+        />
       </label>
       <label className="space-y-1 text-sm font-medium">
         Reminder lead

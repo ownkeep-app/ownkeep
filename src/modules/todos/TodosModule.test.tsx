@@ -1,7 +1,9 @@
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import dayjs from "dayjs";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { chooseRowAction } from "@/test/row-actions";
 import { useVaultStore } from "@/stores/vault-store";
 import { TodoDetailView, TodosListView } from "./TodosModule";
 import type { TodoEntry } from "./types";
@@ -92,6 +94,72 @@ describe("TodosListView", () => {
     expect(screen.getByText("Done task")).toBeVisible();
   });
 
+  it("shows a due-status badge for open dated todos", () => {
+    const now = dayjs();
+    render(
+      <TodosListView
+        items={[
+          {
+            ...item,
+            id: "overdue",
+            title: "Overdue task",
+            dueAt: now.subtract(2, "day").toISOString(),
+          },
+          {
+            ...item,
+            id: "today",
+            title: "Today task",
+            dueAt: now.toISOString(),
+          },
+          {
+            ...item,
+            id: "soon",
+            title: "Soon task",
+            dueAt: now.add(2, "day").toISOString(),
+          },
+          {
+            ...item,
+            id: "done",
+            title: "Done task",
+            done: true,
+            dueAt: now.subtract(1, "day").toISOString(),
+          },
+        ]}
+      />,
+    );
+
+    expect(screen.getByText("Overdue")).toBeVisible();
+    expect(screen.getByText("Due today")).toBeVisible();
+    expect(screen.getByText("Due in 2 days")).toBeVisible();
+    // Open dated rows show the badge only — not the absolute due datetime.
+    expect(screen.queryByText(/at \d/i)).not.toBeInTheDocument();
+
+    // Done rows are hidden by the default Undone filter, so no overdue badge for them.
+    expect(screen.queryByText("Done task")).not.toBeInTheDocument();
+  });
+
+  it("shows colorful priority badges in the list", () => {
+    render(
+      <TodosListView
+        items={[
+          { ...item, id: "high", title: "Urgent", priority: "high" },
+          { ...item, id: "normal", title: "Routine", priority: "normal" },
+          {
+            ...item,
+            id: "low",
+            title: "Later",
+            priority: "low",
+            dueAt: null,
+          },
+        ]}
+      />,
+    );
+
+    expect(screen.getByText("High")).toHaveClass("font-medium");
+    expect(screen.getByText("Normal")).toHaveClass("font-medium");
+    expect(screen.getByText("Low")).toHaveClass("font-medium");
+  });
+
   it("sorts rows by clicked table headers", async () => {
     const user = userEvent.setup();
     render(
@@ -166,9 +234,7 @@ describe("TodosListView", () => {
 
     await user.click(screen.getByRole("radio", { name: "Done" }));
     expect(screen.getByLabelText("Toggle Renew passport")).toBeChecked();
-    await user.click(
-      screen.getByRole("button", { name: /view renew passport/i }),
-    );
+    await chooseRowAction(user, "Renew passport", "View");
     const dialog = screen.getByRole("dialog", { name: "Renew passport" });
     expect(
       within(dialog).getByRole("button", { name: "Mark open" }),
@@ -185,7 +251,7 @@ describe("TodosListView", () => {
     const user = userEvent.setup();
     render(<TodosListView items={[item]} />);
 
-    await user.click(screen.getByRole("button", { name: /view renew/i }));
+    await chooseRowAction(user, "Renew", "View");
     let dialog = screen.getByRole("dialog", { name: "Renew passport" });
     await user.click(within(dialog).getByRole("button", { name: "Edit" }));
     expect(
@@ -195,7 +261,7 @@ describe("TodosListView", () => {
     await user.click(cancelButtons[cancelButtons.length - 1]);
     expect(screen.getByRole("heading", { name: "Todos" })).toBeVisible();
 
-    await user.click(screen.getByRole("button", { name: /view renew/i }));
+    await chooseRowAction(user, "Renew", "View");
     dialog = screen.getByRole("dialog", { name: "Renew passport" });
     await user.click(
       within(dialog).getByRole("button", { name: /close details/i }),
@@ -206,7 +272,7 @@ describe("TodosListView", () => {
       ).not.toBeInTheDocument(),
     );
 
-    await user.click(screen.getByRole("button", { name: /view renew/i }));
+    await chooseRowAction(user, "Renew", "View");
     dialog = screen.getByRole("dialog", { name: "Renew passport" });
     await user.click(within(dialog).getByRole("button", { name: "Delete" }));
     expect(deleteTodo).toHaveBeenCalledWith("todo-1");
@@ -258,7 +324,7 @@ describe("TodosListView", () => {
     const user = userEvent.setup();
     render(<TodosListView items={[item]} />);
 
-    await user.click(screen.getByRole("button", { name: /edit renew/i }));
+    await chooseRowAction(user, "Renew", "Edit");
     await user.clear(screen.getByLabelText("Todo title"));
     await user.type(screen.getByLabelText("Todo title"), "Renew passport soon");
     await user.click(screen.getByRole("button", { name: "Save" }));
@@ -269,7 +335,7 @@ describe("TodosListView", () => {
     await user.click(screen.getByLabelText("Toggle Renew passport"));
     expect(toggleTodoDone).toHaveBeenCalledWith("todo-1");
 
-    await user.click(screen.getByRole("button", { name: /delete renew/i }));
+    await chooseRowAction(user, "Renew", "Delete");
     expect(deleteTodo).toHaveBeenCalledWith("todo-1");
   });
 });

@@ -1,10 +1,13 @@
 import { type FormEvent, useMemo, useState } from "react";
 
 import {
-  CalendarClock,
+  ArrowDown,
+  ArrowUp,
+  Bell,
   CheckCircle2,
   Circle,
   Eye,
+  Minus,
   Pencil,
   Plus,
   Search,
@@ -12,6 +15,7 @@ import {
 } from "lucide-react";
 
 import { CategorySelect } from "@/components/category-select";
+import { DateTimePicker } from "@/components/date-time-picker";
 import { DetailModal } from "@/components/DetailModal";
 import {
   DetailField,
@@ -22,6 +26,7 @@ import {
 } from "@/components/detail-fields";
 import { EmptyState } from "@/components/EmptyState";
 import { ItemFormShell } from "@/components/ItemFormShell";
+import { RowActionsMenu } from "@/components/RowActionsMenu";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
@@ -47,18 +52,23 @@ import {
   type SortState,
   type SortValue,
 } from "@/lib/table-sort";
+import { cn } from "@/lib/utils";
 import { useTaxonomySettings } from "@/hooks/use-taxonomy-settings";
 import type { ListViewProps } from "@/modules/types";
+import { toastError, toastSuccess } from "@/lib/toast";
 import { useVaultStore } from "@/stores/vault-store";
+import { vaultApi } from "@/vault/api";
 import {
   createTodoEntry,
   emptyTodoForm,
   formatDateTime,
   formFromTodo,
   sortTodos,
+  todoDueStatus,
   todoEntries,
   updateTodoEntry,
   validateTodoInput,
+  type TodoDueStatus,
 } from "./logic";
 import {
   TODO_PRIORITIES,
@@ -143,6 +153,26 @@ export function TodosListView({ items }: ListViewProps<TodoEntry>) {
       : undefined;
     if (updated) {
       setViewing((current) => (current?.id === id ? updated : current));
+    }
+  }
+
+  // TEMP: manual notification trigger for desktop testing — remove after verifying.
+  async function handleTestNotify(item: TodoEntry) {
+    try {
+      const permission = await vaultApi.requestNotificationPermission();
+      if (permission === "denied") {
+        toastError("Notification permission denied");
+        return;
+      }
+      await vaultApi.sendNotification(
+        `Todo due: ${item.title}`,
+        item.dueAt ? `Due ${formatDateTime(item.dueAt)}` : "No due date",
+      );
+      toastSuccess("Notification sent");
+    } catch (error) {
+      toastError(
+        error instanceof Error ? error.message : "Couldn't send notification",
+      );
     }
   }
 
@@ -255,7 +285,7 @@ export function TodosListView({ items }: ListViewProps<TodoEntry>) {
                   onSort={handleSort}
                   sort={sortState}
                 />
-                <ActionsTableHead className="w-32 px-4" />
+                <ActionsTableHead />
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -282,8 +312,14 @@ export function TodosListView({ items }: ListViewProps<TodoEntry>) {
                   >
                     {item.title}
                   </TableCell>
-                  <TableCell className="truncate px-4 py-3 text-muted-foreground">
-                    {formatDateTime(item.dueAt)}
+                  <TableCell className="px-4 py-3">
+                    {item.done || !item.dueAt ? (
+                      <span className="truncate text-muted-foreground">
+                        {formatDateTime(item.dueAt)}
+                      </span>
+                    ) : (
+                      <DueStatusBadge done={item.done} dueAt={item.dueAt} />
+                    )}
                   </TableCell>
                   <TableCell className="px-4 py-3">
                     <PriorityPill priority={item.priority} />
@@ -291,35 +327,39 @@ export function TodosListView({ items }: ListViewProps<TodoEntry>) {
                   <TableCell className="truncate px-4 py-3 text-muted-foreground">
                     {item.category || "-"}
                   </TableCell>
-                  <TableCell className="px-4 py-2">
-                    <div className="flex justify-end gap-1">
+                  <TableCell className="px-2 py-2">
+                    <div className="flex items-center justify-end gap-1">
                       <Button
-                        aria-label={`View ${item.title}`}
-                        onClick={() => setViewing(item)}
+                        aria-label={`Test notify ${item.title}`}
+                        onClick={() => void handleTestNotify(item)}
                         size="icon"
+                        title="TEMP: fire desktop notification"
                         type="button"
                         variant="ghost"
                       >
-                        <Eye className="h-4 w-4" />
+                        <Bell className="h-4 w-4" />
                       </Button>
-                      <Button
-                        aria-label={`Edit ${item.title}`}
-                        onClick={() => setEditing(item)}
-                        size="icon"
-                        type="button"
-                        variant="ghost"
-                      >
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        aria-label={`Delete ${item.title}`}
-                        onClick={() => void handleDelete(item.id)}
-                        size="icon"
-                        type="button"
-                        variant="ghost"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                      <RowActionsMenu
+                        label={`Actions for ${item.title}`}
+                        actions={[
+                          {
+                            label: "View",
+                            icon: <Eye className="h-4 w-4" />,
+                            onSelect: () => setViewing(item),
+                          },
+                          {
+                            label: "Edit",
+                            icon: <Pencil className="h-4 w-4" />,
+                            onSelect: () => setEditing(item),
+                          },
+                          {
+                            label: "Delete",
+                            icon: <Trash2 className="h-4 w-4" />,
+                            destructive: true,
+                            onSelect: () => void handleDelete(item.id),
+                          },
+                        ]}
+                      />
                     </div>
                   </TableCell>
                 </TableRow>
@@ -404,12 +444,21 @@ export function TodoDetailView({ item }: { item: TodoEntry }) {
       </DetailModalHero>
       <DetailFields>
         <DetailField label="Status" value={item.done ? "Done" : "Open"} />
-        <DetailField label="Due" value={formatDateTime(item.dueAt)} />
+        <DetailField label="Due">
+          <div className="mt-1 flex flex-wrap items-center gap-2 text-sm">
+            <span>{formatDateTime(item.dueAt)}</span>
+            <DueStatusBadge done={item.done} dueAt={item.dueAt} />
+          </div>
+        </DetailField>
         <DetailField
           label="Reminder"
           value={`${item.notifyLeadMinutes} minutes before due`}
         />
-        <DetailField label="Priority" value={item.priority} />
+        <DetailField label="Priority">
+          <div className="mt-1">
+            <PriorityPill priority={item.priority} />
+          </div>
+        </DetailField>
         <DetailField label="Category" value={item.category} />
         <DetailField label="Recurrence" value={item.recurrence} />
         <DetailField
@@ -477,16 +526,13 @@ export function TodoEditView({
       </label>
       <label className="space-y-1 text-sm font-medium">
         Due
-        <div className="relative">
-          <CalendarClock className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-          <Input
-            aria-label="Todo due"
-            className="pl-9"
-            onChange={(event) => update("dueAt", event.target.value)}
-            type="datetime-local"
-            value={form.dueAt}
-          />
-        </div>
+        <DateTimePicker
+          aria-label="Todo due"
+          clearable
+          onChange={(dueAt) => update("dueAt", dueAt)}
+          placeholder="No due date"
+          value={form.dueAt}
+        />
       </label>
       <label className="space-y-1 text-sm font-medium">
         Reminder lead
@@ -555,11 +601,64 @@ export function TodoEditView({
   );
 }
 
+const PRIORITY_BADGE_CLASS: Record<TodoEntry["priority"], string> = {
+  high: "bg-rose-500/15 text-rose-700 dark:bg-rose-400/20 dark:text-rose-300",
+  normal:
+    "bg-zinc-500/12 text-zinc-700 dark:bg-zinc-400/15 dark:text-zinc-300",
+  low: "bg-sky-500/12 text-sky-800 dark:bg-sky-400/15 dark:text-sky-200",
+};
+
+const PRIORITY_ICON: Record<
+  TodoEntry["priority"],
+  typeof ArrowUp | typeof Minus | typeof ArrowDown
+> = {
+  high: ArrowUp,
+  normal: Minus,
+  low: ArrowDown,
+};
+
 function PriorityPill({ priority }: { priority: TodoEntry["priority"] }) {
   const label = priority[0].toUpperCase() + priority.slice(1);
+  const Icon = PRIORITY_ICON[priority];
   return (
-    <span className="inline-flex rounded-sm border border-border px-2 py-0.5 text-xs text-muted-foreground">
+    <span
+      className={cn(
+        "inline-flex w-fit items-center gap-1 rounded-sm px-2 py-0.5 text-xs font-medium",
+        PRIORITY_BADGE_CLASS[priority],
+      )}
+    >
+      <Icon aria-hidden className="size-3 shrink-0" />
       {label}
+    </span>
+  );
+}
+
+const DUE_STATUS_BADGE_CLASS: Record<TodoDueStatus["kind"], string> = {
+  overdue:
+    "bg-rose-500/15 text-rose-700 dark:bg-rose-400/20 dark:text-rose-300",
+  today:
+    "bg-amber-500/20 text-amber-800 dark:bg-amber-400/20 dark:text-amber-200",
+  upcoming:
+    "bg-sky-500/15 text-sky-800 dark:bg-sky-400/20 dark:text-sky-200",
+};
+
+function DueStatusBadge({
+  dueAt,
+  done,
+}: {
+  dueAt: string | null;
+  done: boolean;
+}) {
+  const status = todoDueStatus(dueAt, done);
+  if (!status) return null;
+  return (
+    <span
+      className={cn(
+        "inline-flex w-fit rounded-sm px-2 py-0.5 text-xs font-medium",
+        DUE_STATUS_BADGE_CLASS[status.kind],
+      )}
+    >
+      {status.label}
     </span>
   );
 }

@@ -39,6 +39,7 @@ bip39 = "2"
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
 tauri-plugin-global-shortcut = "2"
 tauri-plugin-single-instance = "2"
+tauri-plugin-opener = "2"
 
 [target.'cfg(target_os = "macos")'.dependencies]
 objc2 = "0.6"
@@ -49,6 +50,9 @@ objc2-foundation = { version = "0.3.2", features = ["NSString"] }
 # unlock/status logic is unit-tested via a trait fake, the native path is validated manually.
 objc2-local-authentication = { version = "0.3", features = ["LAContext", "LAError"] }
 security-framework = "3"
+# Modern UserNotifications path — NSUserNotificationCenter (tauri-plugin-notification default)
+# is unreliable on recent macOS (Sequoia/Tahoe).
+notify-rust = { version = "4.18", default-features = false, features = ["preview-macos-un"] }
 
 [dev-dependencies]
 proptest = "1"

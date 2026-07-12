@@ -1,3 +1,8 @@
+import {
+  dateInputToIso,
+  formatDate,
+  isoToDateInput,
+} from "@/lib/date";
 import type { IndexEntry } from "@/modules/types";
 import type { VaultSettings } from "@/vault/model";
 import {
@@ -8,6 +13,10 @@ import {
   type Snapshot,
   type SnapshotFormInput,
 } from "./types";
+
+export { dateInputToIso, formatDate, isoToDateInput };
+
+export const formatSnapshotDate = formatDate;
 
 /** Manual FX table (spec §4/M3): `rates[c]` = base-currency units per 1 unit of currency `c`. */
 export interface FinanceFx {
@@ -246,32 +255,8 @@ export function validateSnapshotInput(input: SnapshotFormInput): string | null {
 
 // --- formatting ---
 
-export function formatSnapshotDate(iso: string): string {
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return "Invalid date";
-  return date.toLocaleDateString(undefined, {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-    timeZone: "UTC",
-  });
-}
-
 export function formatMoney(amount: number, currency: string): string {
   return `${normalizeCurrency(currency)} ${roundMoney(amount).toFixed(2)}`;
-}
-
-export function isoToDateInput(iso: string): string {
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return "";
-  return date.toISOString().slice(0, 10);
-}
-
-export function dateInputToIso(value: string): string | null {
-  const trimmed = value.trim();
-  if (!trimmed) return null;
-  const date = new Date(`${trimmed}T00:00:00.000Z`);
-  return Number.isNaN(date.getTime()) ? null : date.toISOString();
 }
 
 // --- internals ---

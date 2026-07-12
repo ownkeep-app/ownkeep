@@ -5,6 +5,7 @@ mod container;
 mod crypto;
 mod envelope;
 mod error;
+mod notifications;
 mod recovery;
 mod secrets;
 mod session;
@@ -240,7 +241,9 @@ pub fn run() {
             .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
                 show_and_focus_main(app);
             }))
-            .plugin(tauri_plugin_global_shortcut::Builder::new().build());
+            .plugin(tauri_plugin_global_shortcut::Builder::new().build())
+            // Open login/website URLs in the system browser (WebView window.open is blocked).
+            .plugin(tauri_plugin_opener::init());
     }
 
     builder

@@ -216,7 +216,9 @@ describe("snapshot forms", () => {
       "id1",
     );
     expect(created.id).toBe("id1");
-    expect(created.date).toBe("2026-07-01T00:00:00.000Z");
+    expect(created.date).toBe(
+      new Date(2026, 6, 1, 23, 59, 59, 0).toISOString(),
+    );
     expect(created.note).toBe("saved");
     expect(created.entries).toEqual([
       { place: "DBS", category: "bank", amount: 12000, currency: "SGD" },
@@ -320,6 +322,8 @@ describe("formatting", () => {
     expect(formatSnapshotDate("nope")).toBe("Invalid date");
     expect(dateInputToIso("")).toBeNull();
     expect(dateInputToIso("not-a-date")).toBeNull();
-    expect(dateInputToIso("2026-07-01")).toBe("2026-07-01T00:00:00.000Z");
+    expect(dateInputToIso("2026-07-01")).toBe(
+      new Date(2026, 6, 1, 23, 59, 59, 0).toISOString(),
+    );
   });
 });

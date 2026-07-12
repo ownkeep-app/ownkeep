@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 
 import { ExternalLink } from "lucide-react";
 
+import { openExternalUrl } from "@/lib/url";
 import { cn } from "@/lib/utils";
 
 export function DetailModalBody({ children }: { children: ReactNode }) {
@@ -30,7 +31,9 @@ export function DetailField({
   return (
     <div className={className}>
       <p className="text-xs uppercase text-muted-foreground">{label}</p>
-      {children ?? <p className="mt-1 break-words text-sm">{value}</p>}
+      {children ?? (
+        <p className="mt-1 break-words whitespace-pre-wrap text-sm">{value}</p>
+      )}
     </div>
   );
 }
@@ -53,7 +56,7 @@ export function DetailUrlField({
       <p className="text-xs uppercase text-muted-foreground">{label}</p>
       <button
         className="mt-1 inline-flex max-w-full items-center gap-1 truncate text-left text-sm text-primary hover:underline"
-        onClick={() => openExternalUrl(value)}
+        onClick={() => void openExternalUrl(value)}
         type="button"
       >
         <span className="truncate">{value}</span>
@@ -83,15 +86,4 @@ export function DetailFieldSpan({
       {children}
     </DetailField>
   );
-}
-
-function openExternalUrl(value: string) {
-  try {
-    const url = new URL(value);
-    if (url.protocol === "http:" || url.protocol === "https:") {
-      window.open(url.toString(), "_blank", "noopener,noreferrer");
-    }
-  } catch {
-    // Invalid URLs stay inert; the edit form keeps them visible for correction.
-  }
 }

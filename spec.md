@@ -71,12 +71,13 @@ the Rust core, never entering the WebView (see §4.5).
 | UI | **React 18 + TypeScript** | Leverages existing skills; huge ecosystem. |
 | Styling | **Tailwind CSS** | Fast, clean, themeable; also the base for shadcn/ui. |
 | Icons | **Lucide** (`lucide-react`) | Clean, minimal, tree-shakeable SVG set; bundled (offline); the icon set shadcn/ui uses by default. |
-| UI components | **shadcn/ui** (Radix + Tailwind) | Accessible primitives **copied into your repo** (à la carte: button, input, table, dialog, sheet, select, switch, tabs, badge, dropdown-menu, tooltip, sonner). You own + can audit the source — ideal for a secrets app. |
+| UI components | **shadcn/ui** (Radix + Tailwind) | Accessible primitives **copied into your repo** (à la carte: button, input, table, dialog, sheet, select, switch, tabs, badge, dropdown-menu, tooltip, sonner, calendar, popover). You own + can audit the source — ideal for a secrets app. |
 | Command palette | shadcn **`command`** (`cmdk`) | Powers the command-bar shell + keyboard nav (§7.2); Fuse.js + frecency still rank (its built-in filter is disabled). |
 | Testing (frontend) | **Vitest** + **React Testing Library** + `jsdom` | Vite-native, fast, Jest-compatible; tests pure module logic + critical components (§2.2). |
 | Testing (Rust) | **`cargo test`** + **`proptest`** | Built-in unit tests + property tests for the crypto invariants (§2.2). |
 | State | **Zustand** | Minimal, no boilerplate; good fit for the module registry. |
 | Fuzzy search | **Fuse.js** | Client-side ranking over the in-memory index; combined with a frecency booster (§7.2). |
+| Dates | **dayjs** | Lightweight calendar-day helpers (todo due-status badges). |
 | Syntax highlighting | **Shiki** | VS Code-quality highlighting for command snippets. |
 | Charts (finance) | **uPlot** | Tiny/fast; ideal for a single net-worth time-series line. *(Only loaded by the Finance module.)* |
 | Crypto (Rust) | `argon2`, `chacha20poly1305`, `hkdf`, `sha2`, `rand`, `zeroize` | Argon2id KDF (password) + HKDF (recovery code) + XChaCha20-Poly1305 AEAD; zeroize keys on lock. |
@@ -106,7 +107,7 @@ react-markdown, remark-gfm, rehype-sanitize.
 - **Runtime-offline:** the copied components pull only tiny local helpers (`class-variance-authority`, `clsx`, `tailwind-merge`, `tailwindcss-animate`) + Radix primitives. The CLI needs the network *once at dev time*; **nothing networked at runtime** — honors offline-first. Vendor `components/ui/` into git.
 - **Icons:** `lucide-react`, tree-shaken (import only the glyphs used), bundled into the app.
 - **Theming ties into settings:** shadcn tokens are CSS variables (HSL) in `src/styles.css`. `settings.theme` (system/light/dark) toggles the `.dark` class; `settings.accent` maps to the `--primary` token — so "theme + accent" (§9) is a token swap, no component edits. Defaults: light = Color Hunt periwinkle mist (`#EEF2FF` family), dark = Color Hunt midnight navy (`#1A1A2E` family), accent = `#5B6CFF`.
-- **Where each is used:** `command` → the command bar (§7.2); `table` → dashboard `ListView`s (passwords, subscriptions, finance); `dialog` / modal chrome → detail view, create/edit `ItemFormShell`, restore warning, keyboard help; `select` / `switch` / `tabs` → settings + enum command arguments; `sonner` → "copied" / "clipboard cleared" / error toasts; `badge` → tags / priority / auto-renew.
+- **Where each is used:** `command` → the command bar (§7.2); `table` → dashboard `ListView`s (passwords, subscriptions, finance); `dialog` / modal chrome → detail view, create/edit `ItemFormShell`, restore warning, keyboard help; `select` / `switch` / `tabs` → settings + enum command arguments; `sonner` → "copied" / "clipboard cleared" / error toasts; `badge` → tags / priority / auto-renew; `calendar` + `popover` → shared DatePicker / DateTimePicker (todos due = date+time; subscriptions / finance = date-only).
 
 ### 2.2 Testing strategy
 Two test surfaces, matching the two-language architecture:
@@ -411,7 +412,7 @@ never migrates another module's slice.
     ],
 
     "finance": [
-      { "id": "uuid", "date": "2026-07-01T00:00:00.000Z",
+      { "id": "uuid", "date": "ISO",  // date-only UI; stored as local 23:59:59
         "entries": [
           { "place": "DBS",     "category": "bank",   "amount": 12000, "currency": "SGD" },
           { "place": "WeChat",  "category": "wechat", "amount": 800,   "currency": "CNY" },
@@ -439,9 +440,9 @@ so editing a rate re-totals every snapshot. Future calendar/notes modules add th
 - Fields: **name** (memorable label), **username**, **password**, **login URL**, **recovery URL**, optional notes + **category**.
 - `secretFields: ["password"]` — the password is never sent to the WebView; it renders masked `••••••`.
 - **Copy** pulls the value from Rust, writes it to a concealed pasteboard, schedules auto-clear. An explicit "reveal" toggle shows plaintext temporarily (fetched on demand, not held).
-- Login/recovery URLs are click-to-open.
+- Login/recovery URLs are click-to-open in the **system browser** via Tauri's opener plugin (WebView `window.open` is blocked).
 - **Benchmark:** matches KeePassXC's single-file model; XChaCha20-Poly1305 + Argon2id ≈ KeePassXC's ChaCha20 + Argon2id + Encrypt-then-MAC (AEAD gives us the MAC for free).
-- **Acceptance:** create/edit/delete; copy password without it ever appearing in the DOM; masked by default; URLs open in browser.
+- **Acceptance:** create/edit/delete; copy password without it ever appearing in the DOM; masked by default; URLs open in the system browser.
 
 #### F2 — Command library (module `commands`)
 - Each command: a **title** ("Delete a remote branch"), a **category** (git/docker/mongo/…), optional description, and **one or more syntax-highlighted snippets** (Shiki). Snippet language is chosen from a fixed select: TypeScript (default), Bash, SQL, Python, Ruby, CSS, HTML, JavaScript.
@@ -481,11 +482,14 @@ so editing a rate re-totals every snapshot. Future calendar/notes modules add th
 ### OPTIONAL MODULES — spec'd now, built after the MVP line
 
 #### M1 — Todos (module `todos`) — *new in v2*
-- Simple checklist: **title**, optional notes, **done** flag, optional **due date/time**, **priority** (low/normal/high), **category**, and a per-item **reminder lead** (minutes before due).
+- Simple checklist: **title**, optional notes, **done** flag, optional **due date/time** (DateTimePicker; new picks default to local `23:59:59`, time is editable), **priority** (low/normal/high), **category**, and a per-item **reminder lead** (minutes before due).
 - Optional lightweight **recurrence** (`none` | `daily` | `weekly`) — keep minimal; no full RRULE.
+- **Due status badges** (open todos with a due date): the list Due column shows only the colorful chip (**Overdue** / **Due today** / **Due in N days**, calendar-day diff via dayjs) — not the absolute datetime. Done and undated open todos still show the formatted due text (or “No due date”). Detail/done rows show date + time.
+- **Priority badges**: list and detail views show a colored chip with icon — **High** (rose), **Normal** (neutral), **Low** (sky).
+- **Date fields (shared):** subscription next due and finance snapshot date use a date-only DatePicker (stored as local end-of-day). Todo due uses a DateTimePicker (date + editable time, default `23:59:59`).
 - **Notifications** fire at `dueAt − notifyLeadMinutes` via the shared scheduler (§8). Completing or snoozing a todo from the notification is a nice-to-have.
 - Optional command-bar search when `searchable` is on (off by default; scope `t `). Activating a todo hit opens the Dashboard Todos pane (no per-item focus). Dashboard is the primary surface for complete/edit.
-- **Acceptance:** add/complete/delete; due todos notify once per window; recurring todos roll forward on completion.
+- **Acceptance:** add/complete/delete; due todos notify once per window; recurring todos roll forward on completion; open dated todos show the correct due-status badge.
 
 #### M2 — Subscriptions tracker (module `subscriptions`)
 - Track: **service, URL, amount + currency, cycle (weekly/monthly/yearly/custom), next due date, auto-renew, per-item notify-lead-days, notes.** Info-only (no payment integration).
@@ -556,8 +560,8 @@ Layout: **left sidebar + right content pane.**
 
 - **When locked:** opening the Dashboard shows the same master-password unlock form as the launcher — users can unlock in place without switching to the command bar.
 - **Left sidebar (modules):** a **Search ...** row at the top jumps back to the command bar (`⌘⇧Space`); then one row per *enabled* module — icon + title + item count — rendered straight from the registry, plus pinned **Settings**, **Help** (`⌘H`), **About** (`⌘/`), and **Lock** rows. The bottom footer shows the current app version (`keystash v0.1`) so the user can confirm which build is running after a manual upgrade. Navigate with `↑/↓` or `⌥⇧1..9`; the selection persists across opens.
-- **Right pane (all content):** renders the selected module's **`ListView`** — the full list/table of its items (all passwords; all commands grouped by category with title, description, and highlighted snippet per card; the todo list; all subscriptions; the finance snapshot table + trend chart). Includes a per-module filter box, **sortable table headers** (passwords, todos, subscriptions, finance), and **New / Edit / Delete**. Row **View** opens that module's `DetailView` in a dismissible two-column modal (Esc + click-away); **New / Edit** open the module's `EditView` in a modal-style elevated card over a dimmed pane (Creating/Editing badge, Esc + backdrop dismiss). Table columns use fixed proportional widths so headers and common values (e.g. email usernames) stay readable without manual resizing.
-- **Secrets stay protected:** the passwords `ListView` shows metadata only (name, username, category) with masked passwords; clicking the mask reveals via Rust `reveal_secret` (native dialog — plaintext never enters the WebView); copy buttons in the password column and actions column route through `copy_secret` (§4.5).
+- **Right pane (all content):** renders the selected module's **`ListView`** — the full list/table of its items (all passwords; all commands grouped by category with title, description, and highlighted snippet per card; the todo list; all subscriptions; the finance snapshot table + trend chart). Includes a per-module filter box, **sortable table headers** (passwords, todos, subscriptions, finance), and **New / Edit / Delete**. Row actions use a compact **⋮ overflow menu** (no "Actions" header label) with View / Edit / Delete (plus module-specific items such as command Copy or subscription Advance); passwords keep Copy on the username/password cells, not in the menu. Row **View** opens that module's `DetailView` in a dismissible two-column modal (Esc + click-away); **New / Edit** open the module's `EditView` in a modal-style elevated card over a dimmed pane (Creating/Editing badge, Esc + backdrop dismiss). Table columns use fixed proportional widths so headers and common values (e.g. email usernames) stay readable without manual resizing.
+- **Secrets stay protected:** the passwords `ListView` shows metadata only (name, username, category) with masked passwords; clicking the mask reveals via Rust `reveal_secret` (native dialog — plaintext never enters the WebView); copy buttons in the username/password columns route through `copy_secret` / clipboard (§4.5). A headerless **login-URL** column (left of the ⋮ menu) shows an external-link icon when `loginUrl` is http(s); empty or non-http URLs show nothing.
 - **Sidebar footer:** Settings, **Help** (`⌘H` opens the keyboard-shortcut sheet), **About** (`⌘/` opens product info: features, developer email, version, release date, website), and Lock sit below the module list; the floating help trigger is not shown on the Dashboard (the command bar keeps its own).
 - **Registry-driven, so it scales:** a newly added module appears in the sidebar automatically via its `ListView`; a disabled module disappears but keeps its data (§3.4). No dashboard code changes per feature.
 - **Empty states:** every module ships a `ListView`; an empty module shows a friendly empty state + **New**.
@@ -578,7 +582,7 @@ Layout: **left sidebar + right content pane.**
 - It gathers reminders by calling every enabled module's `collectReminders(items, now, settings)` hook, so **new modules get notifications for free** — no scheduler changes.
 - Currently: **todos** (due − lead), **subscriptions** (due − lead-days). Fires native notifications; **de-dupes** so each item notifies once per window (track "last notified" per item).
 - All lead times configurable globally (`settings`) and per item.
-- **Permissions:** macOS notification permission; the app keeps running in the background (tray/menu-bar; optionally accessory/no-Dock).
+- **Permissions:** macOS notification permission; the app keeps running in the background (tray/menu-bar; optionally accessory/no-Dock). Delivery uses `UNUserNotificationCenter` when running as a bundled `.app`; under `tauri dev` (bare binary) it falls back to `osascript` so reminders still appear.
 
 ---
 

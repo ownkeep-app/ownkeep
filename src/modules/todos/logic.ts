@@ -1,3 +1,10 @@
+import dayjs from "dayjs";
+
+import {
+  dateTimeInputToIso,
+  formatDateTime,
+  isoToDateTimeInput,
+} from "@/lib/date";
 import type { ReminderEvent, IndexEntry } from "@/modules/types";
 import type { VaultSettings } from "@/vault/model";
 import { defaultCategory, type TaxonomySettings } from "@/vault/taxonomy";
@@ -12,8 +19,40 @@ import {
   type TodoRecurrence,
 } from "./types";
 
+export { dateTimeInputToIso, formatDateTime, isoToDateTimeInput };
+
 const MINUTE_MS = 60_000;
 const DAY_MS = 86_400_000;
+
+/** Calendar-day due urgency for an open todo (null when done, undated, or invalid). */
+export type TodoDueStatusKind = "overdue" | "today" | "upcoming";
+
+export interface TodoDueStatus {
+  kind: TodoDueStatusKind;
+  label: string;
+}
+
+/**
+ * Relative due badge for an open todo: Overdue / Due today / Due in N days.
+ * Compares calendar days in the local timezone (not wall-clock hours).
+ */
+export function todoDueStatus(
+  dueAt: string | null,
+  done = false,
+  now: string | Date = new Date(),
+): TodoDueStatus | null {
+  if (done || !dueAt) return null;
+  const due = dayjs(dueAt);
+  if (!due.isValid()) return null;
+
+  const days = due.startOf("day").diff(dayjs(now).startOf("day"), "day");
+  if (days < 0) return { kind: "overdue", label: "Overdue" };
+  if (days === 0) return { kind: "today", label: "Due today" };
+  return {
+    kind: "upcoming",
+    label: days === 1 ? "Due in 1 day" : `Due in ${days} days`,
+  };
+}
 
 export function isTodoPriority(value: unknown): value is TodoPriority {
   return TODO_PRIORITIES.includes(value as TodoPriority);
@@ -79,7 +118,7 @@ export function formFromTodo(item: TodoEntry): TodoFormInput {
   return {
     title: item.title,
     notes: item.notes,
-    dueAt: isoToLocalDateTimeInput(item.dueAt),
+    dueAt: isoToDateTimeInput(item.dueAt),
     notifyLeadMinutes: String(item.notifyLeadMinutes),
     priority: item.priority,
     category: item.category,
@@ -98,7 +137,7 @@ export function createTodoEntry(
       title: input.title,
       notes: input.notes,
       done: false,
-      dueAt: localDateTimeInputToIso(input.dueAt),
+      dueAt: dateTimeInputToIso(input.dueAt),
       notifyLeadMinutes: parseLeadMinutes(input.notifyLeadMinutes),
       priority: input.priority,
       category: input.category.trim(),
@@ -119,7 +158,7 @@ export function updateTodoEntry(
       ...existing,
       title: input.title,
       notes: input.notes,
-      dueAt: localDateTimeInputToIso(input.dueAt),
+      dueAt: dateTimeInputToIso(input.dueAt),
       notifyLeadMinutes: parseLeadMinutes(input.notifyLeadMinutes),
       priority: input.priority,
       category: input.category.trim(),
@@ -139,7 +178,7 @@ export function validateTodoInput(input: TodoFormInput): string | null {
   if (Number(input.notifyLeadMinutes) < 0) {
     return "Reminder lead cannot be negative.";
   }
-  if (input.dueAt.trim() && !localDateTimeInputToIso(input.dueAt)) {
+  if (input.dueAt.trim() && !dateTimeInputToIso(input.dueAt)) {
     return "Due date is invalid.";
   }
   return null;
@@ -204,33 +243,6 @@ export function sortTodos(items: TodoEntry[]): TodoEntry[] {
     if (leftDue !== rightDue) return leftDue - rightDue;
     if (a.done !== b.done) return a.done ? 1 : -1;
     return a.title.localeCompare(b.title);
-  });
-}
-
-export function isoToLocalDateTimeInput(iso: string | null): string {
-  if (!iso) return "";
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return "";
-  const local = new Date(date.getTime() - date.getTimezoneOffset() * MINUTE_MS);
-  return local.toISOString().slice(0, 16);
-}
-
-export function localDateTimeInputToIso(value: string): string | null {
-  const trimmed = value.trim();
-  if (!trimmed) return null;
-  const date = new Date(trimmed);
-  return Number.isNaN(date.getTime()) ? null : date.toISOString();
-}
-
-export function formatDateTime(iso: string | null): string {
-  if (!iso) return "No due date";
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return "Invalid date";
-  return date.toLocaleString(undefined, {
-    month: "short",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
   });
 }
 

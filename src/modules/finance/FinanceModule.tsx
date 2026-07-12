@@ -11,6 +11,7 @@ import {
   X,
 } from "lucide-react";
 
+import { DatePicker } from "@/components/date-picker";
 import { DetailModal } from "@/components/DetailModal";
 import {
   DetailFields,
@@ -20,6 +21,7 @@ import {
 } from "@/components/detail-fields";
 import { EmptyState } from "@/components/EmptyState";
 import { ItemFormShell } from "@/components/ItemFormShell";
+import { RowActionsMenu } from "@/components/RowActionsMenu";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { CurrencySelect, DEFAULT_CURRENCY } from "@/components/currency-select";
@@ -223,19 +225,20 @@ export function FinanceListView({ items }: ListViewProps<Snapshot>) {
                   onSort={handleSort}
                   sort={sortState}
                 />
-                <ActionsTableHead className="w-32 px-4" />
+                <ActionsTableHead />
               </TableRow>
             </TableHeader>
             <TableBody>
               {filtered.map((snapshot) => {
                 const stats = computeSnapshotStats(snapshot, fx);
+                const dateLabel = formatSnapshotDate(snapshot.date);
                 return (
                   <TableRow
                     className="border-b border-border hover:bg-accent/40"
                     key={snapshot.id}
                   >
                     <TableCell className="truncate px-4 py-3 font-medium">
-                      {formatSnapshotDate(snapshot.date)}
+                      {dateLabel}
                     </TableCell>
                     <TableCell className="truncate px-4 py-3 text-muted-foreground">
                       {formatMoney(stats.totalBase, fx.baseCurrency)}
@@ -248,36 +251,28 @@ export function FinanceListView({ items }: ListViewProps<Snapshot>) {
                     <TableCell className="px-4 py-3 text-muted-foreground">
                       {snapshot.entries.length}
                     </TableCell>
-                    <TableCell className="px-4 py-2">
-                      <div className="flex justify-end gap-1">
-                        <Button
-                          aria-label={`View snapshot ${formatSnapshotDate(snapshot.date)}`}
-                          onClick={() => setViewing(snapshot)}
-                          size="icon"
-                          type="button"
-                          variant="ghost"
-                        >
-                          <Eye className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          aria-label={`Edit snapshot ${formatSnapshotDate(snapshot.date)}`}
-                          onClick={() => setEditing(snapshot)}
-                          size="icon"
-                          type="button"
-                          variant="ghost"
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          aria-label={`Delete snapshot ${formatSnapshotDate(snapshot.date)}`}
-                          onClick={() => void handleDelete(snapshot.id)}
-                          size="icon"
-                          type="button"
-                          variant="ghost"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
+                    <TableCell className="px-2 py-2">
+                      <RowActionsMenu
+                        label={`Actions for snapshot ${dateLabel}`}
+                        actions={[
+                          {
+                            label: "View",
+                            icon: <Eye className="h-4 w-4" />,
+                            onSelect: () => setViewing(snapshot),
+                          },
+                          {
+                            label: "Edit",
+                            icon: <Pencil className="h-4 w-4" />,
+                            onSelect: () => setEditing(snapshot),
+                          },
+                          {
+                            label: "Delete",
+                            icon: <Trash2 className="h-4 w-4" />,
+                            destructive: true,
+                            onSelect: () => void handleDelete(snapshot.id),
+                          },
+                        ]}
+                      />
                     </TableCell>
                   </TableRow>
                 );
@@ -480,12 +475,12 @@ export function FinanceEditView({
     >
       <label className="space-y-1 text-sm font-medium">
         Date
-        <Input
+        <DatePicker
           aria-label="Snapshot date"
-          onChange={(event) =>
-            setForm((current) => ({ ...current, date: event.target.value }))
+          onChange={(date) =>
+            setForm((current) => ({ ...current, date }))
           }
-          type="date"
+          placeholder="Pick a date"
           value={form.date}
         />
       </label>

@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { writeClipboard } from "@/lib/clipboard";
 import { toastClipboard, toastError, toastSecretCopied } from "@/lib/toast";
+import { chooseRowAction } from "@/test/row-actions";
 import { useVaultStore } from "@/stores/vault-store";
 import { PasswordsListView } from "./PasswordsModule";
 import type { PasswordEntry } from "./types";
@@ -13,6 +14,11 @@ vi.mock("@/lib/toast", () => ({
   toastClipboard: vi.fn(),
   toastSecretCopied: vi.fn(),
   toastError: vi.fn(),
+}));
+
+const openUrl = vi.fn(async () => {});
+vi.mock("@tauri-apps/plugin-opener", () => ({
+  openUrl: (...args: unknown[]) => openUrl(...args),
 }));
 
 const toasts = {
@@ -212,7 +218,7 @@ describe("PasswordsListView", () => {
     const user = userEvent.setup();
     render(<PasswordsListView items={[item]} />);
 
-    await user.click(screen.getByRole("button", { name: /view github/i }));
+    await chooseRowAction(user, "GitHub", "View");
     const dialog = screen.getByRole("dialog", { name: "GitHub" });
     await user.click(
       within(dialog).getByRole("button", {
@@ -228,7 +234,7 @@ describe("PasswordsListView", () => {
     const user = userEvent.setup();
     render(<PasswordsListView items={[item]} />);
 
-    await user.click(screen.getByRole("button", { name: /view github/i }));
+    await chooseRowAction(user, "GitHub", "View");
     let dialog = screen.getByRole("dialog", { name: "GitHub" });
     await user.click(
       within(dialog).getByRole("button", {
@@ -246,7 +252,7 @@ describe("PasswordsListView", () => {
     );
     expect(screen.getByRole("heading", { name: "Passwords" })).toBeVisible();
 
-    await user.click(screen.getByRole("button", { name: /view github/i }));
+    await chooseRowAction(user, "GitHub", "View");
     dialog = screen.getByRole("dialog", { name: "GitHub" });
     await user.click(
       within(dialog).getByRole("button", { name: /close details/i }),
@@ -257,7 +263,7 @@ describe("PasswordsListView", () => {
       ).not.toBeInTheDocument(),
     );
 
-    await user.click(screen.getByRole("button", { name: /view github/i }));
+    await chooseRowAction(user, "GitHub", "View");
     dialog = screen.getByRole("dialog", { name: "GitHub" });
     await user.click(within(dialog).getByRole("button", { name: "Delete" }));
     expect(deletePassword).toHaveBeenCalledWith("github");
@@ -268,7 +274,7 @@ describe("PasswordsListView", () => {
     revealSecret.mockRejectedValueOnce(new Error("locked"));
     render(<PasswordsListView items={[item]} />);
 
-    await user.click(screen.getByRole("button", { name: /view github/i }));
+    await chooseRowAction(user, "GitHub", "View");
     const dialog = screen.getByRole("dialog", { name: "GitHub" });
     await user.click(
       within(dialog).getByRole("button", {
@@ -324,7 +330,7 @@ describe("PasswordsListView", () => {
       />,
     );
 
-    await user.click(screen.getByRole("button", { name: /edit github/i }));
+    await chooseRowAction(user, "GitHub", "Edit");
     await user.clear(screen.getByLabelText("Password name"));
     await user.type(screen.getByLabelText("Password name"), "GitHub Pro");
     await user.click(screen.getByRole("button", { name: "Save" }));
@@ -342,15 +348,39 @@ describe("PasswordsListView", () => {
     const user = userEvent.setup();
     render(<PasswordsListView items={[item]} />);
 
-    await user.click(screen.getByRole("button", { name: /delete github/i }));
+    await chooseRowAction(user, "GitHub", "Delete");
 
     expect(deletePassword).toHaveBeenCalledWith("github");
   });
 
+  it("opens login URLs from the list link column for http(s) only", async () => {
+    const user = userEvent.setup();
+
+    render(
+      <PasswordsListView
+        items={[
+          item,
+          { ...item, id: "ftp", name: "FTP", loginUrl: "ftp://x" },
+          { ...item, id: "none", name: "None", loginUrl: "" },
+        ]}
+      />,
+    );
+
+    await user.click(
+      screen.getByRole("button", { name: /open login url for github/i }),
+    );
+    expect(openUrl).toHaveBeenCalledWith(item.loginUrl);
+
+    expect(
+      screen.queryByRole("button", { name: /open login url for ftp/i }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /open login url for none/i }),
+    ).not.toBeInTheDocument();
+  });
+
   it("opens login URLs only for valid http(s) values", async () => {
     const user = userEvent.setup();
-    const open = vi.fn();
-    vi.stubGlobal("open", open);
 
     render(
       <PasswordsListView
@@ -358,23 +388,17 @@ describe("PasswordsListView", () => {
       />,
     );
 
-    await user.click(screen.getByRole("button", { name: /view github/i }));
+    await chooseRowAction(user, "GitHub", "View");
     await user.click(screen.getByRole("button", { name: item.loginUrl }));
-    expect(open).toHaveBeenCalledWith(
-      item.loginUrl,
-      "_blank",
-      "noopener,noreferrer",
-    );
+    expect(openUrl).toHaveBeenCalledWith(item.loginUrl);
 
-    await user.click(screen.getByRole("button", { name: /view ftp/i }));
+    await chooseRowAction(user, "FTP", "View");
     await user.click(screen.getByRole("button", { name: "ftp://x" }));
-    expect(open).toHaveBeenCalledTimes(1);
+    expect(openUrl).toHaveBeenCalledTimes(1);
   });
 
   it("keeps invalid URLs inert in the detail view", async () => {
     const user = userEvent.setup();
-    const open = vi.fn();
-    vi.stubGlobal("open", open);
 
     render(
       <PasswordsListView
@@ -382,12 +406,11 @@ describe("PasswordsListView", () => {
       />,
     );
 
-    await user.click(screen.getByRole("button", { name: /view bad/i }));
+    await chooseRowAction(user, "Bad", "View");
     await user.click(screen.getByRole("button", { name: "not a url" }));
-    expect(open).not.toHaveBeenCalled();
+    expect(openUrl).not.toHaveBeenCalled();
   });
 });
-
 function passwordRowNames(): string[] {
   return screen
     .getAllByRole("row")

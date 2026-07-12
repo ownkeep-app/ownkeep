@@ -11,6 +11,17 @@ import {
   aboutVersionLabel,
 } from "./about";
 import { AboutDialog } from "./AboutDialog";
+import { openExternalUrl } from "@/lib/url";
+
+vi.mock("@/lib/url", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/url")>();
+  return {
+    ...actual,
+    openExternalUrl: vi.fn(async () => true),
+  };
+});
+
+const openExternal = vi.mocked(openExternalUrl);
 
 describe("about metadata", () => {
   it("formats the version label", () => {
@@ -38,6 +49,11 @@ describe("AboutDialog", () => {
       APP_WEBSITE,
     );
     expect(screen.getByText(APP_FEATURES[0])).toBeInTheDocument();
+
+    await user.click(screen.getByRole("link", { name: APP_WEBSITE }));
+    expect(openExternal).toHaveBeenCalledWith(APP_WEBSITE);
+    await user.click(screen.getByRole("link", { name: APP_DEVELOPER_EMAIL }));
+    expect(openExternal).toHaveBeenCalledWith(`mailto:${APP_DEVELOPER_EMAIL}`);
   });
 
   it("toggles with Cmd+/", async () => {

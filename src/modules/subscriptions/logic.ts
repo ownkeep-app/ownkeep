@@ -1,3 +1,8 @@
+import {
+  dateInputToIso,
+  formatDate,
+  isoToDateInput,
+} from "@/lib/date";
 import type { IndexEntry, ReminderEvent } from "@/modules/types";
 import type { VaultSettings } from "@/vault/model";
 import {
@@ -14,6 +19,8 @@ import {
   type SubscriptionEntry,
   type SubscriptionFormInput,
 } from "./types";
+
+export { dateInputToIso, formatDate, isoToDateInput };
 
 const DAY_MS = 86_400_000;
 
@@ -327,30 +334,6 @@ export function sortSubscriptions(
     const rightDue = Date.parse(b.nextDueDate);
     if (leftDue !== rightDue) return leftDue - rightDue;
     return a.service.localeCompare(b.service);
-  });
-}
-
-export function isoToDateInput(iso: string): string {
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return "";
-  return date.toISOString().slice(0, 10);
-}
-
-export function dateInputToIso(value: string): string | null {
-  const trimmed = value.trim();
-  if (!trimmed) return null;
-  const date = new Date(`${trimmed}T00:00:00.000Z`);
-  return Number.isNaN(date.getTime()) ? null : date.toISOString();
-}
-
-export function formatDate(iso: string): string {
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return "Invalid date";
-  return date.toLocaleDateString(undefined, {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-    timeZone: "UTC",
   });
 }
 
