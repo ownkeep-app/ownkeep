@@ -111,6 +111,14 @@ describe("TodosListView", () => {
     expect(screen.getByText("Done task")).toBeVisible();
   });
 
+  it("shows an empty Done state when nothing is completed", async () => {
+    const user = userEvent.setup();
+    render(<TodosListView items={[item]} />);
+
+    await user.click(screen.getByRole("radio", { name: "Done" }));
+    expect(screen.getByText("No done todos")).toBeVisible();
+  });
+
   it("shows a due-status badge for open dated todos", () => {
     const now = dayjs();
     render(

@@ -49,6 +49,22 @@ describe("url helpers", () => {
     );
   });
 
+  it("falls back to location.assign for mailto when opener IPC is unavailable", async () => {
+    openUrl.mockRejectedValueOnce(new Error("no ipc"));
+    const assign = vi.fn();
+    vi.stubGlobal("location", { href: "", assign });
+    // openExternalUrl writes location.href for non-http schemes.
+    const locationRef = window.location as { href: string };
+    Object.defineProperty(locationRef, "href", {
+      configurable: true,
+      set: assign,
+      get: () => "",
+    });
+
+    await expect(openExternalUrl("mailto:a@b.c")).resolves.toBe(true);
+    expect(assign).toHaveBeenCalledWith("mailto:a@b.c");
+  });
+
   it("rejects unsupported schemes", async () => {
     await expect(openExternalUrl("ftp://x")).resolves.toBe(false);
     await expect(openExternalUrl("not a url")).resolves.toBe(false);

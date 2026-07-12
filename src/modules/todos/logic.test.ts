@@ -85,9 +85,7 @@ describe("todo module logic", () => {
         recurrence: "weekly",
       }),
     );
-    expect(created.dueAt).toBe(
-      new Date(2026, 6, 9, 9, 30, 0, 0).toISOString(),
-    );
+    expect(created.dueAt).toBe(new Date(2026, 6, 9, 9, 30, 0, 0).toISOString());
 
     expect(
       updateTodoEntry(created, { ...emptyTodoForm(), title: "Paid" }, NOW),
@@ -204,9 +202,7 @@ describe("todo module logic", () => {
     const now = dayjs("2026-07-08T15:00:00");
     expect(todoDueStatus(null, false, now.toDate())).toBeNull();
     expect(todoDueStatus("bad", false, now.toDate())).toBeNull();
-    expect(
-      todoDueStatus(now.toISOString(), true, now.toDate()),
-    ).toBeNull();
+    expect(todoDueStatus(now.toISOString(), true, now.toDate())).toBeNull();
 
     expect(
       todoDueStatus(now.subtract(1, "day").toISOString(), false, now.toDate()),

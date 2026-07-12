@@ -477,9 +477,7 @@ export function FinanceEditView({
         Date
         <DatePicker
           aria-label="Snapshot date"
-          onChange={(date) =>
-            setForm((current) => ({ ...current, date }))
-          }
+          onChange={(date) => setForm((current) => ({ ...current, date }))}
           placeholder="Pick a date"
           value={form.date}
         />

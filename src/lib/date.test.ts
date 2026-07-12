@@ -9,7 +9,9 @@ import {
   formatDateTime,
   isoToDateInput,
   isoToDateTimeInput,
+  normalizeTimeInput,
   parseDateInput,
+  parseDateTimeInput,
 } from "./date";
 
 describe("date helpers", () => {
@@ -54,6 +56,14 @@ describe("date helpers", () => {
     expect(formatDate(null)).toBe("No due date");
     expect(formatDate("bad")).toBe("Invalid date");
     expect(formatDateTime("bad")).toBe("Invalid date");
+  });
+
+  it("rejects invalid datetime and time fragments", () => {
+    expect(parseDateTimeInput("2026-07-12T24:00:00")).toBeUndefined();
+    expect(parseDateTimeInput("2026-02-30T12:00:00")).toBeUndefined();
+    expect(normalizeTimeInput("99:00")).toBeNull();
+    expect(normalizeTimeInput("09:30")).toBe("09:30:00");
+    expect(normalizeTimeInput("09:30:45")).toBe("09:30:45");
   });
 
   it("formats local Date values as YYYY-MM-DD", () => {

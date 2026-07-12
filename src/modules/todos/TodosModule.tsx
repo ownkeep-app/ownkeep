@@ -617,8 +617,7 @@ export function TodoEditView({
 
 const PRIORITY_BADGE_CLASS: Record<TodoEntry["priority"], string> = {
   high: "bg-rose-500/15 text-rose-700 dark:bg-rose-400/20 dark:text-rose-300",
-  normal:
-    "bg-zinc-500/12 text-zinc-700 dark:bg-zinc-400/15 dark:text-zinc-300",
+  normal: "bg-zinc-500/12 text-zinc-700 dark:bg-zinc-400/15 dark:text-zinc-300",
   low: "bg-sky-500/12 text-sky-800 dark:bg-sky-400/15 dark:text-sky-200",
 };
 
@@ -652,8 +651,7 @@ const DUE_STATUS_BADGE_CLASS: Record<TodoDueStatus["kind"], string> = {
     "bg-rose-500/15 text-rose-700 dark:bg-rose-400/20 dark:text-rose-300",
   today:
     "bg-amber-500/20 text-amber-800 dark:bg-amber-400/20 dark:text-amber-200",
-  upcoming:
-    "bg-sky-500/15 text-sky-800 dark:bg-sky-400/20 dark:text-sky-200",
+  upcoming: "bg-sky-500/15 text-sky-800 dark:bg-sky-400/20 dark:text-sky-200",
 };
 
 function DueStatusBadge({

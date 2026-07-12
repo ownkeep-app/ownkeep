@@ -1,6 +1,14 @@
 import { type FormEvent, type ReactNode, useMemo, useState } from "react";
 
-import { Copy, ExternalLink, Eye, Pencil, Plus, Search, Trash2 } from "lucide-react";
+import {
+  Copy,
+  ExternalLink,
+  Eye,
+  Pencil,
+  Plus,
+  Search,
+  Trash2,
+} from "lucide-react";
 
 import { CategorySelect } from "@/components/category-select";
 import { DetailModal } from "@/components/DetailModal";

@@ -80,9 +80,7 @@ export const vaultApi = {
   ) =>
     invoke<void>(
       "send_notification",
-      moduleId && itemId
-        ? { title, body, moduleId, itemId }
-        : { title, body },
+      moduleId && itemId ? { title, body, moduleId, itemId } : { title, body },
     ),
   restoreVaultFromChosenLocationWithPassword: (
     password: string,

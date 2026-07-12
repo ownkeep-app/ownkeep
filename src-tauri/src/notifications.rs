@@ -104,4 +104,28 @@ mod tests {
         assert!(!super::opens_notification_target("__closed"));
         assert!(!super::opens_notification_target("open"));
     }
+
+    #[test]
+    fn request_permission_returns_status_or_a_bundle_hint() {
+        match super::request_permission() {
+            Ok(status) => assert!(status == "granted" || status == "denied"),
+            Err(message) => assert!(
+                message.contains("bundled") || message.contains("notification"),
+                "unexpected error: {message}"
+            ),
+        }
+    }
+
+    #[test]
+    fn send_covers_title_only_and_title_with_body_paths() {
+        // Bare test binaries usually lack a .app bundle / permission — both
+        // outcomes still exercise the macOS notification construction path.
+        let _ = super::send("Coverage title", None);
+        let _ = super::send("Coverage title", Some("Coverage body"));
+    }
+
+    #[test]
+    fn send_on_click_accepts_a_callback_without_panicking() {
+        let _ = super::send_on_click("Coverage click", Some("body"), || {});
+    }
 }

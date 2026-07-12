@@ -1,8 +1,4 @@
-import {
-  dateInputToIso,
-  formatDate,
-  isoToDateInput,
-} from "@/lib/date";
+import { dateInputToIso, formatDate, isoToDateInput } from "@/lib/date";
 import type { IndexEntry, ReminderEvent } from "@/modules/types";
 import type { VaultSettings } from "@/vault/model";
 import {

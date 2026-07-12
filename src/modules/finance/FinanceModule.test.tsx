@@ -140,9 +140,7 @@ describe("FinanceListView", () => {
 
     expect(saveSnapshot).toHaveBeenCalledTimes(1);
     const saved = saveSnapshot.mock.calls[0][0];
-    expect(saved.date).toBe(
-      new Date(2026, 7, 1, 23, 59, 59, 0).toISOString(),
-    );
+    expect(saved.date).toBe(new Date(2026, 7, 1, 23, 59, 59, 0).toISOString());
     expect(saved.entries[0]).toMatchObject({ place: "Cash", amount: 500 });
   });
 

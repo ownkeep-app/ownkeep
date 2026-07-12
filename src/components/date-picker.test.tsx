@@ -34,4 +34,20 @@ describe("DatePicker", () => {
     );
     expect(screen.getByLabelText("Due date").textContent).toMatch(/2026/);
   });
+
+  it("clears the value when clearable and the same day is reselected", async () => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    render(
+      <DatePicker
+        aria-label="Due date"
+        clearable
+        onChange={onChange}
+        value="2026-07-12"
+      />,
+    );
+
+    await pickDate(user, "Due date", "2026-07-12");
+    expect(onChange).toHaveBeenCalledWith("");
+  });
 });

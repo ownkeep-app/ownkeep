@@ -21,10 +21,14 @@ describe("RowActionsMenu", () => {
       />,
     );
 
-    expect(screen.queryByRole("menuitem", { name: "View" })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("menuitem", { name: "View" }),
+    ).not.toBeInTheDocument();
     await chooseRowAction(user, "GitHub", "View");
     expect(onView).toHaveBeenCalledTimes(1);
-    expect(screen.queryByRole("menuitem", { name: "View" })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("menuitem", { name: "View" }),
+    ).not.toBeInTheDocument();
   });
 
   it("closes on Escape without running an action", async () => {
@@ -43,7 +47,34 @@ describe("RowActionsMenu", () => {
     );
     expect(screen.getByRole("menuitem", { name: "View" })).toBeVisible();
     await user.keyboard("{Escape}");
-    expect(screen.queryByRole("menuitem", { name: "View" })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("menuitem", { name: "View" }),
+    ).not.toBeInTheDocument();
+    expect(onView).not.toHaveBeenCalled();
+  });
+
+  it("closes when clicking outside the menu", async () => {
+    const user = userEvent.setup();
+    const onView = vi.fn();
+
+    render(
+      <div>
+        <button type="button">Outside</button>
+        <RowActionsMenu
+          label="Actions for GitHub"
+          actions={[{ label: "View", onSelect: onView }]}
+        />
+      </div>,
+    );
+
+    await user.click(
+      screen.getByRole("button", { name: /actions for github/i }),
+    );
+    expect(screen.getByRole("menuitem", { name: "View" })).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "Outside" }));
+    expect(
+      screen.queryByRole("menuitem", { name: "View" }),
+    ).not.toBeInTheDocument();
     expect(onView).not.toHaveBeenCalled();
   });
 });

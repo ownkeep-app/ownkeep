@@ -103,9 +103,7 @@ export function DateTimePicker({
           <label className="flex items-center gap-2 text-sm">
             <span className="text-muted-foreground">Time</span>
             <Input
-              aria-label={
-                ariaLabel ? `${ariaLabel} time` : "Due time"
-              }
+              aria-label={ariaLabel ? `${ariaLabel} time` : "Due time"}
               className="h-8"
               disabled={!datePart}
               onChange={(event) => {
