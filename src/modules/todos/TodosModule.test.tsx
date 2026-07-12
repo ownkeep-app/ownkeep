@@ -58,6 +58,23 @@ describe("TodosListView", () => {
     expect(screen.queryByText("Buy tea")).not.toBeInTheDocument();
   });
 
+  it("opens the requested todo detail when focused by the shell", async () => {
+    const handled = vi.fn();
+    render(
+      <TodosListView
+        items={[item]}
+        focusItemId="todo-1"
+        onFocusItemHandled={handled}
+      />,
+    );
+
+    const dialog = await screen.findByRole("dialog", {
+      name: "Renew passport",
+    });
+    expect(dialog).toBeVisible();
+    expect(handled).toHaveBeenCalledTimes(1);
+  });
+
   it("shows a no-matches state when the filter excludes everything", async () => {
     const user = userEvent.setup();
     render(<TodosListView items={[item]} />);

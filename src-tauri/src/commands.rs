@@ -337,10 +337,30 @@ pub fn request_notification_permission() -> Result<String, String> {
     notifications::request_permission().map(str::to_string)
 }
 
-/// Send a native reminder notification. The scheduler decides de-dupe; Rust talks to macOS.
+/// Send a native reminder notification. Optional module/item ids make the banner clickable so it
+/// opens the matching Dashboard pane (spec §8).
 #[tauri::command]
-pub fn send_notification(title: String, body: Option<String>) -> Result<(), String> {
-    notifications::send(&title, body.as_deref())
+pub fn send_notification(
+    app: AppHandle,
+    title: String,
+    body: Option<String>,
+    module_id: Option<String>,
+    item_id: Option<String>,
+) -> Result<(), String> {
+    match (module_id, item_id) {
+        (Some(module_id), Some(item_id)) => {
+            let app_handle = app.clone();
+            notifications::send_on_click(&title, body.as_deref(), move || {
+                let app_for_main = app_handle.clone();
+                let module_id = module_id.clone();
+                let item_id = item_id.clone();
+                let _ = app_handle.run_on_main_thread(move || {
+                    crate::open_dashboard_item(&app_for_main, module_id, item_id);
+                });
+            })
+        }
+        _ => notifications::send(&title, body.as_deref()),
+    }
 }
 
 /// Pick and restore an encrypted backup after validating it with the backup's master password.

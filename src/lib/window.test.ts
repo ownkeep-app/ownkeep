@@ -10,6 +10,7 @@ import {
   openDashboardToModule,
   resetMainWindowModeForTests,
   setMainWindowMode,
+  takeDashboardItem,
   takeDashboardModule,
 } from "./window";
 
@@ -243,10 +244,26 @@ describe("window helpers", () => {
     expect(mockInvoke).toHaveBeenCalledWith("take_dashboard_module");
   });
 
+  it("takes a pending Dashboard item target", async () => {
+    mockInvoke.mockResolvedValueOnce({ moduleId: "todos", itemId: "todo-1" });
+
+    await expect(takeDashboardItem()).resolves.toEqual({
+      moduleId: "todos",
+      itemId: "todo-1",
+    });
+    expect(mockInvoke).toHaveBeenCalledWith("take_dashboard_item");
+  });
+
   it("returns null when take_dashboard_module IPC fails", async () => {
     mockInvoke.mockRejectedValueOnce(new Error("no ipc"));
 
     await expect(takeDashboardModule()).resolves.toBeNull();
+  });
+
+  it("returns null when take_dashboard_item IPC fails", async () => {
+    mockInvoke.mockRejectedValueOnce(new Error("no ipc"));
+
+    await expect(takeDashboardItem()).resolves.toBeNull();
   });
 
   it("reads the current window label", () => {

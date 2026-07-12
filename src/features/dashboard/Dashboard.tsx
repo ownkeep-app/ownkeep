@@ -30,7 +30,12 @@ import {
   tapTransition,
 } from "@/lib/motion";
 import { cn } from "@/lib/utils";
-import { openCommandBar, takeDashboardModule } from "@/lib/window";
+import {
+  openCommandBar,
+  takeDashboardItem,
+  takeDashboardModule,
+  type DashboardItemTarget,
+} from "@/lib/window";
 import { MODULES } from "@/modules/registry";
 import { useVaultStore } from "@/stores/vault-store";
 import { APP_VERSION } from "@/vault/model";
@@ -38,6 +43,7 @@ import { SettingsPanel } from "./SettingsPanel";
 
 const SETTINGS_KEY = "settings";
 const DASHBOARD_OPEN_MODULE_EVENT = "dashboard-open-module";
+const DASHBOARD_OPEN_ITEM_EVENT = "dashboard-open-item";
 /** Shared layoutId so the active pill slides between sidebar rows like ButtonGroup. */
 const SIDEBAR_ACTIVE_LAYOUT_ID = "dashboard-sidebar-active";
 
@@ -47,6 +53,9 @@ export function Dashboard() {
   const model = useVaultStore((s) => s.model);
   const lock = useVaultStore((s) => s.lock);
   const [selected, setSelected] = useState<string>("");
+  const [itemTarget, setItemTarget] = useState<DashboardItemTarget | null>(
+    null,
+  );
   const [helpOpen, setHelpOpen] = useState(false);
   const [aboutOpen, setAboutOpen] = useState(false);
 
@@ -59,16 +68,32 @@ export function Dashboard() {
   // Command-bar bridge (§7.6): select the module pane requested when opening the Dashboard.
   useEffect(() => {
     let cancelled = false;
-    let unlisten: (() => void) | undefined;
+    let unlistenModule: (() => void) | undefined;
+    let unlistenItem: (() => void) | undefined;
 
     void (async () => {
-      const pending = await takeDashboardModule();
-      if (!cancelled && pending) setSelected(pending);
+      const pendingModule = await takeDashboardModule();
+      const pendingItem = await takeDashboardItem();
+      if (!cancelled) {
+        if (pendingItem) {
+          setSelected(pendingItem.moduleId);
+          setItemTarget(pendingItem);
+        } else if (pendingModule) {
+          setSelected(pendingModule);
+        }
+      }
       try {
-        unlisten = await listen<string>(
+        unlistenModule = await listen<string>(
           DASHBOARD_OPEN_MODULE_EVENT,
           (event) => {
             setSelected(event.payload);
+          },
+        );
+        unlistenItem = await listen<DashboardItemTarget>(
+          DASHBOARD_OPEN_ITEM_EVENT,
+          (event) => {
+            setSelected(event.payload.moduleId);
+            setItemTarget(event.payload);
           },
         );
       } catch {
@@ -78,7 +103,8 @@ export function Dashboard() {
 
     return () => {
       cancelled = true;
-      unlisten?.();
+      unlistenModule?.();
+      unlistenItem?.();
     };
   }, []);
 
@@ -160,6 +186,10 @@ export function Dashboard() {
   const Pane = activeModule?.ListView;
   const slice = activeModule ? model.modules[activeModule.id] : undefined;
   const items = Array.isArray(slice) ? slice : [];
+  const focusItemId =
+    activeModule && itemTarget?.moduleId === activeModule.id
+      ? itemTarget.itemId
+      : null;
 
   return (
     <div className="flex h-screen bg-background text-foreground">
@@ -216,7 +246,15 @@ export function Dashboard() {
         </div>
       </nav>
       <section className="flex-1 overflow-auto">
-        {Pane ? <Pane items={items} /> : <SettingsPanel />}
+        {Pane ? (
+          <Pane
+            items={items}
+            focusItemId={focusItemId}
+            onFocusItemHandled={() => setItemTarget(null)}
+          />
+        ) : (
+          <SettingsPanel />
+        )}
       </section>
       <KeyboardHelp
         groups={[DASHBOARD_SHORTCUTS, GLOBAL_SHORTCUTS]}

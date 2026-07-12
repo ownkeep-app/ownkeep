@@ -483,13 +483,13 @@ so editing a rate re-totals every snapshot. Future calendar/notes modules add th
 
 #### M1 — Todos (module `todos`) — *new in v2*
 - Simple checklist: **title**, optional notes, **done** flag, optional **due date/time** (DateTimePicker; new picks default to local `23:59:59`, time is editable), **priority** (low/normal/high), **category**, and a per-item **reminder lead** (minutes before due).
-- Optional lightweight **recurrence** (`none` | `daily` | `weekly`) — keep minimal; no full RRULE.
+- Optional lightweight **recurrence** (`none` | `daily` | `weekly`) — keep minimal; no full RRULE. Checking Done always marks the item done (moves it to the Done tab); recurrence is metadata for the task, not an auto-postpone on complete.
 - **Due status badges** (open todos with a due date): the list Due column shows only the colorful chip (**Overdue** / **Due today** / **Due in N days**, calendar-day diff via dayjs) — not the absolute datetime. Done and undated open todos still show the formatted due text (or “No due date”). Detail/done rows show date + time.
 - **Priority badges**: list and detail views show a colored chip with icon — **High** (rose), **Normal** (neutral), **Low** (sky).
 - **Date fields (shared):** subscription next due and finance snapshot date use a date-only DatePicker (stored as local end-of-day). Todo due uses a DateTimePicker (date + editable time, default `23:59:59`).
 - **Notifications** fire at `dueAt − notifyLeadMinutes` via the shared scheduler (§8). Completing or snoozing a todo from the notification is a nice-to-have.
 - Optional command-bar search when `searchable` is on (off by default; scope `t `). Activating a todo hit opens the Dashboard Todos pane (no per-item focus). Dashboard is the primary surface for complete/edit.
-- **Acceptance:** add/complete/delete; due todos notify once per window; recurring todos roll forward on completion; open dated todos show the correct due-status badge.
+- **Acceptance:** add/complete/delete; due todos notify once per window; checking Done marks the item done (including recurring); open dated todos show the correct due-status badge.
 
 #### M2 — Subscriptions tracker (module `subscriptions`)
 - Track: **service, URL, amount + currency, cycle (weekly/monthly/yearly/custom), next due date, auto-renew, per-item notify-lead-days, notes.** Info-only (no payment integration).
@@ -582,7 +582,7 @@ Layout: **left sidebar + right content pane.**
 - It gathers reminders by calling every enabled module's `collectReminders(items, now, settings)` hook, so **new modules get notifications for free** — no scheduler changes.
 - Currently: **todos** (due − lead), **subscriptions** (due − lead-days). Fires native notifications; **de-dupes** so each item notifies once per window (track "last notified" per item).
 - All lead times configurable globally (`settings`) and per item.
-- **Permissions:** macOS notification permission; the app keeps running in the background (tray/menu-bar; optionally accessory/no-Dock). Delivery uses `UNUserNotificationCenter` when running as a bundled `.app`; under `tauri dev` (bare binary) it falls back to `osascript` so reminders still appear.
+- **Permissions:** macOS notification permission; the app keeps running in the background (tray/menu-bar; optionally accessory/no-Dock). Delivery uses `UNUserNotificationCenter` so banners belong to **keystash**; clicking a reminder opens the Dashboard to that module/item. Bare `pnpm dev` binaries (no `.app` bundle) cannot own native notifications — use a built/installed `keystash.app` for click-through reminders.
 
 ---
 

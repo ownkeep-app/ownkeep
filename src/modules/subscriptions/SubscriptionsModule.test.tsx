@@ -80,6 +80,21 @@ describe("SubscriptionsListView", () => {
     expect(screen.queryByText("Linode")).not.toBeInTheDocument();
   });
 
+  it("opens the requested subscription detail when focused by the shell", async () => {
+    const handled = vi.fn();
+    render(
+      <SubscriptionsListView
+        items={[item]}
+        focusItemId="sub-1"
+        onFocusItemHandled={handled}
+      />,
+    );
+
+    const dialog = await screen.findByRole("dialog", { name: "Linode" });
+    expect(dialog).toBeVisible();
+    expect(handled).toHaveBeenCalledTimes(1);
+  });
+
   it("shows a no-matches state when the filter excludes everything", async () => {
     const user = userEvent.setup();
     render(<SubscriptionsListView items={[item]} />);

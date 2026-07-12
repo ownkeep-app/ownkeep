@@ -119,31 +119,31 @@ describe("todo module logic", () => {
     ).toMatch(/due date/i);
   });
 
-  it("rolls daily and weekly recurring todos forward past now", () => {
+  it("rolls daily and weekly recurring due dates past now", () => {
     expect(nextRecurringDueAt("2026-07-06T08:00:00.000Z", "daily", NOW)).toBe(
       "2026-07-09T08:00:00.000Z",
     );
     expect(nextRecurringDueAt("2026-07-01T13:00:00.000Z", "weekly", NOW)).toBe(
       "2026-07-08T13:00:00.000Z",
     );
+    expect(nextRecurringDueAt("bad", "daily", NOW)).toBeNull();
+    expect(nextRecurringDueAt(NOW, "none", NOW)).toBeNull();
+  });
 
-    const rolled = toggleTodoDoneState(
+  it("toggles todos done and back open, including recurring ones", () => {
+    const done = toggleTodoDoneState(todo(), NOW);
+    expect(done.done).toBe(true);
+    expect(toggleTodoDoneState(done, NOW).done).toBe(false);
+
+    const recurring = toggleTodoDoneState(
       todo({
         dueAt: "2026-07-01T13:00:00.000Z",
         recurrence: "weekly",
       }),
       NOW,
     );
-    expect(rolled.done).toBe(false);
-    expect(rolled.dueAt).toBe("2026-07-08T13:00:00.000Z");
-    expect(nextRecurringDueAt("bad", "daily", NOW)).toBeNull();
-    expect(nextRecurringDueAt(NOW, "none", NOW)).toBeNull();
-  });
-
-  it("toggles non-recurring todos done and back open", () => {
-    const done = toggleTodoDoneState(todo(), NOW);
-    expect(done.done).toBe(true);
-    expect(toggleTodoDoneState(done, NOW).done).toBe(false);
+    expect(recurring.done).toBe(true);
+    expect(recurring.dueAt).toBe("2026-07-01T13:00:00.000Z");
   });
 
   it("collects reminders only when the due time is inside the lead window", () => {

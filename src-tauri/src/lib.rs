@@ -7,10 +7,12 @@ mod envelope;
 mod error;
 mod notifications;
 mod recovery;
+mod reminders;
 mod secrets;
 mod session;
 mod storage;
 
+use serde::Serialize;
 use tauri::{Emitter, Manager};
 #[cfg(desktop)]
 use tauri_plugin_dialog::{DialogExt, MessageDialogButtons, MessageDialogKind};
@@ -20,6 +22,16 @@ pub struct MainWindowBehavior(pub std::sync::Mutex<bool>);
 
 /// Module id the Dashboard should select after being opened from the command bar.
 pub struct PendingDashboardModule(pub std::sync::Mutex<Option<String>>);
+
+/// Item the Dashboard should open after a reminder notification click.
+pub struct PendingDashboardItem(pub std::sync::Mutex<Option<DashboardItemTarget>>);
+
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DashboardItemTarget {
+    module_id: String,
+    item_id: String,
+}
 
 #[cfg(desktop)]
 use tauri::{
@@ -58,16 +70,34 @@ fn hide_labeled(app: &AppHandle, label: &str) {
 /// Show and focus one surface while hiding the other — command bar and Dashboard never share the screen (§7.6).
 #[cfg(desktop)]
 fn show_exclusive(app: &AppHandle, label: &str) {
-    let other = if label == "main" {
-        "dashboard"
-    } else {
-        "main"
-    };
+    let other = if label == "main" { "dashboard" } else { "main" };
     hide_labeled(app, other);
     if let Some(window) = app.get_webview_window(label) {
         let _ = window.show();
         let _ = window.set_focus();
     }
+}
+
+/// Queue a Dashboard module selection and notify any live Dashboard window.
+fn queue_dashboard_module(app: &tauri::AppHandle, module_id: String) {
+    if let Some(state) = app.try_state::<PendingDashboardModule>() {
+        *state.0.lock().unwrap() = Some(module_id.clone());
+    }
+    let _ = app.emit("dashboard-open-module", module_id);
+}
+
+/// Open Dashboard for a specific reminder item.
+pub(crate) fn open_dashboard_item(app: &tauri::AppHandle, module_id: String, item_id: String) {
+    queue_dashboard_module(app, module_id.clone());
+
+    let target = DashboardItemTarget { module_id, item_id };
+    if let Some(state) = app.try_state::<PendingDashboardItem>() {
+        *state.0.lock().unwrap() = Some(target.clone());
+    }
+    let _ = app.emit("dashboard-open-item", target);
+
+    #[cfg(desktop)]
+    show_exclusive(app, "dashboard");
 }
 
 /// Show the main launcher window and give it keyboard focus.
@@ -108,10 +138,7 @@ fn toggle_dashboard_window(app: &AppHandle) {
 /// Confirm before the traffic-light close button quits the app (accidental clicks).
 #[cfg(desktop)]
 fn confirm_close_window(window: &tauri::Window) {
-    let Some(webview) = window
-        .app_handle()
-        .get_webview_window(window.label())
-    else {
+    let Some(webview) = window.app_handle().get_webview_window(window.label()) else {
         return;
     };
 
@@ -210,10 +237,7 @@ fn setup_desktop(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>>
 
     // Must manage the TrayIcon — Tauri removes the status item when the last ref is dropped.
     app.manage(tray);
-    app.manage(TrayMenuItems {
-        search,
-        dashboard,
-    });
+    app.manage(TrayMenuItems { search, dashboard });
 
     // Menu-bar app with no Dock icon — keystash is summoned by its hotkey, not clicked in the Dock.
     #[cfg(target_os = "macos")]
@@ -257,6 +281,7 @@ pub fn run() {
         // focus churn (tray/hotkeys) hides onboarding / lock before React can resize.
         .manage(MainWindowBehavior(std::sync::Mutex::new(false)))
         .manage(PendingDashboardModule(std::sync::Mutex::new(None)))
+        .manage(PendingDashboardItem(std::sync::Mutex::new(None)))
         .invoke_handler(tauri::generate_handler![
             commands::vault_exists,
             commands::vault_path,
@@ -291,9 +316,11 @@ pub fn run() {
             show_command_bar,
             show_dashboard,
             take_dashboard_module,
+            take_dashboard_item,
         ])
         .setup(|app| {
             spawn_auto_lock(app.handle().clone());
+            spawn_reminder_scheduler(app.handle().clone());
             #[cfg(desktop)]
             {
                 setup_desktop(app)?;
@@ -362,9 +389,15 @@ fn show_dashboard(
 
 /// Consume a pending Dashboard module selection (set by `show_dashboard`).
 #[tauri::command]
-fn take_dashboard_module(
-    state: tauri::State<'_, PendingDashboardModule>,
-) -> Option<String> {
+fn take_dashboard_module(state: tauri::State<'_, PendingDashboardModule>) -> Option<String> {
+    state.0.lock().unwrap().take()
+}
+
+/// Consume a pending Dashboard item target (set by reminder notification clicks).
+#[tauri::command]
+fn take_dashboard_item(
+    state: tauri::State<'_, PendingDashboardItem>,
+) -> Option<DashboardItemTarget> {
     state.0.lock().unwrap().take()
 }
 
@@ -408,6 +441,54 @@ fn spawn_auto_lock(handle: tauri::AppHandle) {
         let mut session = state.lock().unwrap();
         if session.is_idle_expired(std::time::Instant::now()) {
             session.lock();
+        }
+    });
+}
+
+/// Native reminder loop (spec §8). This lives beside auto-lock so hidden/suspended WebViews cannot
+/// pause due notifications while the vault remains unlocked.
+fn spawn_reminder_scheduler(handle: tauri::AppHandle) {
+    const INTERVAL: std::time::Duration = std::time::Duration::from_secs(15);
+    const DEDUPE_WINDOW: std::time::Duration = std::time::Duration::from_secs(5 * 60);
+
+    std::thread::spawn(move || {
+        let mut last_notified = std::collections::HashMap::<String, std::time::Instant>::new();
+        loop {
+            let tick_started = std::time::Instant::now();
+            let reminders = {
+                let state = handle.state::<commands::SharedSession>();
+                let session = state.lock().unwrap();
+                session.collect_due_reminders(chrono::Utc::now())
+            };
+
+            for reminder in reminders {
+                let recently_sent = last_notified
+                    .get(&reminder.key)
+                    .map(|sent_at| tick_started.saturating_duration_since(*sent_at) < DEDUPE_WINDOW)
+                    .unwrap_or(false);
+                if recently_sent {
+                    continue;
+                }
+                let app = handle.clone();
+                let module_id = reminder.module_id.clone();
+                let item_id = reminder.item_id.clone();
+                if notifications::send_on_click(
+                    &reminder.title,
+                    reminder.body.as_deref(),
+                    move || {
+                        let app_for_main = app.clone();
+                        let _ = app.run_on_main_thread(move || {
+                            open_dashboard_item(&app_for_main, module_id, item_id);
+                        });
+                    },
+                )
+                .is_ok()
+                {
+                    last_notified.insert(reminder.key, tick_started);
+                }
+            }
+
+            std::thread::sleep(INTERVAL);
         }
     });
 }

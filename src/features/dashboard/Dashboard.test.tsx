@@ -38,6 +38,7 @@ vi.mock("@/lib/window", async (importOriginal) => {
   return {
     ...actual,
     takeDashboardModule: vi.fn(async () => null),
+    takeDashboardItem: vi.fn(async () => null),
     openCommandBar: vi.fn(async () => {}),
   };
 });
@@ -134,6 +135,20 @@ describe("Dashboard", () => {
   it("selects a module pane requested by the command-bar bridge", async () => {
     const { takeDashboardModule } = await import("@/lib/window");
     vi.mocked(takeDashboardModule).mockResolvedValueOnce(TODOS_MODULE_ID);
+
+    render(<Dashboard />);
+
+    await waitFor(() =>
+      expect(screen.getByRole("heading", { name: "Todos" })).toBeVisible(),
+    );
+  });
+
+  it("selects a module pane requested by a reminder item target", async () => {
+    const { takeDashboardItem } = await import("@/lib/window");
+    vi.mocked(takeDashboardItem).mockResolvedValueOnce({
+      moduleId: TODOS_MODULE_ID,
+      itemId: "todo-1",
+    });
 
     render(<Dashboard />);
 

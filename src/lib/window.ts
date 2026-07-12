@@ -19,6 +19,11 @@ export const MAIN_WINDOW_SIZES: Record<
   expanded: MAIN_WINDOW_EXPANDED,
 };
 
+export interface DashboardItemTarget {
+  moduleId: string;
+  itemId: string;
+}
+
 let appliedMode: MainWindowMode | null = null;
 let resizeInFlight: Promise<void> | null = null;
 
@@ -83,6 +88,15 @@ export async function openCommandBar(): Promise<void> {
 export async function takeDashboardModule(): Promise<string | null> {
   try {
     return await invoke<string | null>("take_dashboard_module");
+  } catch {
+    return null;
+  }
+}
+
+/** Read and clear a pending Dashboard item target from the Rust shell. */
+export async function takeDashboardItem(): Promise<DashboardItemTarget | null> {
+  try {
+    return await invoke<DashboardItemTarget | null>("take_dashboard_item");
   } catch {
     return null;
   }

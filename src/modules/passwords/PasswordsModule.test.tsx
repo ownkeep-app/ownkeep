@@ -16,9 +16,9 @@ vi.mock("@/lib/toast", () => ({
   toastError: vi.fn(),
 }));
 
-const openUrl = vi.fn(async () => {});
+const openUrl = vi.fn(async (_url: string) => {});
 vi.mock("@tauri-apps/plugin-opener", () => ({
-  openUrl: (...args: unknown[]) => openUrl(...args),
+  openUrl: (url: string) => openUrl(url),
 }));
 
 const toasts = {

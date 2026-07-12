@@ -185,12 +185,6 @@ export function validateTodoInput(input: TodoFormInput): string | null {
 }
 
 export function toggleTodoDoneState(item: TodoEntry, now: string): TodoEntry {
-  if (!item.done && item.recurrence !== "none" && item.dueAt) {
-    const nextDueAt = nextRecurringDueAt(item.dueAt, item.recurrence, now);
-    if (nextDueAt) {
-      return { ...item, done: false, dueAt: nextDueAt, updatedAt: now };
-    }
-  }
   return { ...item, done: !item.done, updatedAt: now };
 }
 

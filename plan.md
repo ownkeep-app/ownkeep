@@ -154,7 +154,7 @@ with a **browsable Dashboard** (sidebar + content pane) and a safe upgrade path 
 
 ### Phase 8 — ✅ Todos module (M1) · 1–2 d
 - [x] `todosModule`: title/notes/done/dueAt/priority/category; `none|daily|weekly` recurrence; `collectReminders`; `ListView` (checklist).
-- [x] Bar action: open Dashboard → Todos; recurring rolls forward on completion in the Dashboard.
+- [x] Bar action: open Dashboard → Todos; checking Done marks the item done in the Dashboard (including recurring).
 - [x] **Tests:** recurrence rollover (daily/weekly) + `collectReminders` windowing/de-dupe (Vitest).
 - **Exit:** overdue todo notifies once per window; completing a weekly todo reschedules.
 - **Deps:** P7.

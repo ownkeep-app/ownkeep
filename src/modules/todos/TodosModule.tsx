@@ -1,9 +1,9 @@
-import { type FormEvent, useMemo, useState } from "react";
+import { type FormEvent, useEffect, useMemo, useState } from "react";
 
 import {
   ArrowDown,
   ArrowUp,
-  Bell,
+  // Bell,
   CheckCircle2,
   Circle,
   Eye,
@@ -55,9 +55,7 @@ import {
 import { cn } from "@/lib/utils";
 import { useTaxonomySettings } from "@/hooks/use-taxonomy-settings";
 import type { ListViewProps } from "@/modules/types";
-import { toastError, toastSuccess } from "@/lib/toast";
 import { useVaultStore } from "@/stores/vault-store";
-import { vaultApi } from "@/vault/api";
 import {
   createTodoEntry,
   emptyTodoForm,
@@ -85,7 +83,11 @@ const TODO_STATUS_FILTERS: ButtonGroupOption<TodoStatusFilter>[] = [
   { value: "all", label: "All" },
 ];
 
-export function TodosListView({ items }: ListViewProps<TodoEntry>) {
+export function TodosListView({
+  items,
+  focusItemId,
+  onFocusItemHandled,
+}: ListViewProps<TodoEntry>) {
   const saveTodo = useVaultStore((s) => s.saveTodo);
   const deleteTodo = useVaultStore((s) => s.deleteTodo);
   const toggleTodoDone = useVaultStore((s) => s.toggleTodoDone);
@@ -130,6 +132,14 @@ export function TodosListView({ items }: ListViewProps<TodoEntry>) {
     setSortState((current) => nextSortState(current, column));
   const openCount = todos.filter((item) => !item.done).length;
 
+  useEffect(() => {
+    if (!focusItemId) return;
+    const item = todos.find((todo) => todo.id === focusItemId);
+    if (!item) return;
+    setViewing(item);
+    onFocusItemHandled?.();
+  }, [focusItemId, todos, onFocusItemHandled]);
+
   const startCreate = () => setEditing(null);
 
   async function handleSave(entry: TodoEntry) {
@@ -156,25 +166,27 @@ export function TodosListView({ items }: ListViewProps<TodoEntry>) {
     }
   }
 
-  // TEMP: manual notification trigger for desktop testing — remove after verifying.
-  async function handleTestNotify(item: TodoEntry) {
-    try {
-      const permission = await vaultApi.requestNotificationPermission();
-      if (permission === "denied") {
-        toastError("Notification permission denied");
-        return;
-      }
-      await vaultApi.sendNotification(
-        `Todo due: ${item.title}`,
-        item.dueAt ? `Due ${formatDateTime(item.dueAt)}` : "No due date",
-      );
-      toastSuccess("Notification sent");
-    } catch (error) {
-      toastError(
-        error instanceof Error ? error.message : "Couldn't send notification",
-      );
-    }
-  }
+  // TEMP: manual notification trigger for desktop testing — re-enable with the bell button below.
+  // async function handleTestNotify(item: TodoEntry) {
+  //   try {
+  //     const permission = await vaultApi.requestNotificationPermission();
+  //     if (permission === "denied") {
+  //       toastError("Notification permission denied");
+  //       return;
+  //     }
+  //     await vaultApi.sendNotification(
+  //       `Todo due: ${item.title}`,
+  //       item.dueAt ? `Due ${formatDateTime(item.dueAt)}` : "No due date",
+  //       "todos",
+  //       item.id,
+  //     );
+  //     toastSuccess("Notification sent — click it to open this todo");
+  //   } catch (error) {
+  //     toastError(
+  //       error instanceof Error ? error.message : "Couldn't send notification",
+  //     );
+  //   }
+  // }
 
   if (editing !== undefined) {
     return (
@@ -299,7 +311,7 @@ export function TodosListView({ items }: ListViewProps<TodoEntry>) {
                       aria-label={`Toggle ${item.title}`}
                       checked={item.done}
                       onCheckedChange={(checked) =>
-                        void handleToggle(item.id, checked)
+                        void handleToggle(item.id, checked === true)
                       }
                     />
                   </TableCell>
@@ -329,6 +341,7 @@ export function TodosListView({ items }: ListViewProps<TodoEntry>) {
                   </TableCell>
                   <TableCell className="px-2 py-2">
                     <div className="flex items-center justify-end gap-1">
+                      {/* TEMP: test notification bell
                       <Button
                         aria-label={`Test notify ${item.title}`}
                         onClick={() => void handleTestNotify(item)}
@@ -339,6 +352,7 @@ export function TodosListView({ items }: ListViewProps<TodoEntry>) {
                       >
                         <Bell className="h-4 w-4" />
                       </Button>
+                      */}
                       <RowActionsMenu
                         label={`Actions for ${item.title}`}
                         actions={[

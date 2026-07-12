@@ -28,6 +28,10 @@ export interface IndexEntry {
 
 export interface ListViewProps<T> {
   items: T[];
+  /** Item a shell bridge wants this pane to reveal, e.g. a reminder notification click. */
+  focusItemId?: string | null;
+  /** Call after the requested item has been revealed so future renders do not reopen it. */
+  onFocusItemHandled?: () => void;
 }
 
 export interface ReminderEvent {

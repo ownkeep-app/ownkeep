@@ -958,7 +958,7 @@ describe("vault store", () => {
     expect(saved.modules.todos[0].title).toBe("Renew passport soon");
   });
 
-  it("deleteTodo removes a todo and toggleTodoDone handles recurrence", async () => {
+  it("deleteTodo removes a todo and toggleTodoDone marks recurring items done", async () => {
     api.getVault.mockResolvedValue("{}");
     useVaultStore.setState({
       model: {
@@ -977,10 +977,8 @@ describe("vault store", () => {
 
     await useVaultStore.getState().toggleTodoDone("todo-1");
     let saved = JSON.parse(api.saveVault.mock.calls[0][0] as string);
-    expect(saved.modules.todos[0].done).toBe(false);
-    expect(Date.parse(saved.modules.todos[0].dueAt)).toBeGreaterThan(
-      Date.parse("2026-07-01T13:00:00.000Z"),
-    );
+    expect(saved.modules.todos[0].done).toBe(true);
+    expect(saved.modules.todos[0].dueAt).toBe("2026-07-01T13:00:00.000Z");
 
     useVaultStore.setState({
       model: {

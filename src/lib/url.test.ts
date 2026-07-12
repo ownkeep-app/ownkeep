@@ -2,10 +2,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { isHttpUrl, openExternalUrl } from "./url";
 
-const openUrl = vi.fn(async () => {});
+const openUrl = vi.fn(async (_url: string) => {});
 
 vi.mock("@tauri-apps/plugin-opener", () => ({
-  openUrl: (...args: unknown[]) => openUrl(...args),
+  openUrl: (url: string) => openUrl(url),
 }));
 
 describe("url helpers", () => {

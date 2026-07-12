@@ -1,4 +1,4 @@
-import { type FormEvent, useMemo, useState } from "react";
+import { type FormEvent, useEffect, useMemo, useState } from "react";
 
 import {
   CalendarDays,
@@ -74,6 +74,8 @@ import {
 
 export function SubscriptionsListView({
   items,
+  focusItemId,
+  onFocusItemHandled,
 }: ListViewProps<SubscriptionEntry>) {
   const model = useVaultStore((s) => s.model);
   const saveSubscription = useVaultStore((s) => s.saveSubscription);
@@ -112,6 +114,16 @@ export function SubscriptionsListView({
   }, [subscriptions, query, sortState]);
   const handleSort = (column: SubscriptionSortColumn) =>
     setSortState((current) => nextSortState(current, column));
+
+  useEffect(() => {
+    if (!focusItemId) return;
+    const item = subscriptions.find(
+      (subscription) => subscription.id === focusItemId,
+    );
+    if (!item) return;
+    setViewing(item);
+    onFocusItemHandled?.();
+  }, [focusItemId, subscriptions, onFocusItemHandled]);
 
   const startCreate = () => setEditing(null);
 

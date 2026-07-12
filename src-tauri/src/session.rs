@@ -16,6 +16,7 @@ use crate::crypto::{self, Argon2Params, Key};
 use crate::envelope;
 use crate::error::{Error, Result};
 use crate::recovery::EmergencyKit;
+use crate::reminders::{self, Reminder};
 use crate::secrets;
 use crate::storage;
 
@@ -285,6 +286,15 @@ impl Session {
         let unlocked = self.unlocked.as_mut().ok_or(Error::Locked)?;
         unlocked.last_activity = Instant::now();
         secrets::redact_projection(&unlocked.vault)
+    }
+
+    /// Collect due reminder metadata without counting it as user activity. The scheduler runs in
+    /// the Rust core while the vault is unlocked; locking still drops all decrypted state.
+    pub fn collect_due_reminders(&self, now: chrono::DateTime<chrono::Utc>) -> Vec<Reminder> {
+        self.unlocked
+            .as_ref()
+            .map(|unlocked| reminders::collect_due_reminders(&unlocked.vault, now))
+            .unwrap_or_default()
     }
 
     /// Replace the vault model with `json`, re-seal it under the DEK, and persist. Requires unlocked.
