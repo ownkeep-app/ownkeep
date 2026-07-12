@@ -43,6 +43,8 @@ use tauri_plugin_global_shortcut::{GlobalShortcutExt, Shortcut, ShortcutState};
 const DEFAULT_GLOBAL_HOTKEY: &str = "Cmd+Shift+Space";
 #[cfg(desktop)]
 const DEFAULT_DASHBOARD_HOTKEY: &str = "Cmd+Shift+D";
+#[cfg(desktop)]
+const TRAY_TITLE: &str = "KS";
 
 /// Hide a labeled window if it exists.
 #[cfg(desktop)]
@@ -190,6 +192,9 @@ fn setup_desktop(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>>
 
     let tray = TrayIconBuilder::with_id("main-tray")
         .tooltip("keystash")
+        // Local unsigned macOS builds can occasionally fail to render a template image in a
+        // crowded menu bar. A short title keeps the status item visible and clickable.
+        .title(TRAY_TITLE)
         .icon(tray_icon)
         .icon_as_template(true)
         .menu(&menu)
