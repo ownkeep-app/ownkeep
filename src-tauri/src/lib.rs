@@ -22,10 +22,17 @@ pub struct PendingDashboardModule(pub std::sync::Mutex<Option<String>>);
 
 #[cfg(desktop)]
 use tauri::{
-    menu::{MenuBuilder, MenuItemBuilder},
+    menu::{MenuBuilder, MenuItem, MenuItemBuilder},
     tray::TrayIconBuilder,
     AppHandle,
 };
+
+/// Tray menu items whose accelerators track the configured global / Dashboard hotkeys.
+#[cfg(desktop)]
+struct TrayMenuItems {
+    search: MenuItem<tauri::Wry>,
+    dashboard: MenuItem<tauri::Wry>,
+}
 
 #[cfg(desktop)]
 use std::str::FromStr;
@@ -157,35 +164,54 @@ fn register_desktop_hotkeys(
     Ok(())
 }
 
-/// Wire the desktop shell: no-Dock activation policy, tray icon, and the global toggle hotkeys.
+/// Wire the desktop shell: tray icon, no-Dock activation policy, and global toggle hotkeys.
 #[cfg(desktop)]
 fn setup_desktop(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
-    // Menu-bar app with no Dock icon — keystash is summoned by its hotkey, not clicked in the Dock.
-    #[cfg(target_os = "macos")]
-    app.set_activation_policy(tauri::ActivationPolicy::Accessory);
-
-    // Tray icon keeps the process (and the future notification scheduler) alive while hidden.
-    let show = MenuItemBuilder::with_id("show", "Show keystash").build(app)?;
-    let dashboard = MenuItemBuilder::with_id("dashboard", "Open Dashboard").build(app)?;
-    let quit = MenuItemBuilder::with_id("quit", "Quit keystash").build(app)?;
+    // Build the tray *before* switching to Accessory so macOS registers the status item while the
+    // process still looks like a normal app (helps on Tahoe / crowded menu bars).
+    let search = MenuItemBuilder::with_id("search", "Search ...")
+        .accelerator(DEFAULT_GLOBAL_HOTKEY)
+        .build(app)?;
+    let dashboard = MenuItemBuilder::with_id("dashboard", "Dashboard")
+        .accelerator(DEFAULT_DASHBOARD_HOTKEY)
+        .build(app)?;
+    let exit = MenuItemBuilder::with_id("exit", "Exit").build(app)?;
     let menu = MenuBuilder::new(app)
-        .items(&[&show, &dashboard, &quit])
+        .item(&search)
+        .item(&dashboard)
+        .separator()
+        .item(&exit)
         .build()?;
-    TrayIconBuilder::with_id("main-tray")
+
+    // macOS menu-bar icons must be a template silhouette (black + transparent). The colorful app
+    // icon is invisible / washed out in the status area — especially on Tahoe with a full bar.
+    let tray_icon = tauri::image::Image::from_bytes(include_bytes!("../icons/tray-icon.png"))
+        .expect("tray-icon.png embeds");
+
+    let tray = TrayIconBuilder::with_id("main-tray")
         .tooltip("keystash")
-        .icon(
-            app.default_window_icon()
-                .cloned()
-                .expect("bundled default window icon"),
-        )
+        .icon(tray_icon)
+        .icon_as_template(true)
         .menu(&menu)
+        .show_menu_on_left_click(true)
         .on_menu_event(|app, event| match event.id().as_ref() {
-            "show" => show_and_focus_main(app),
+            "search" => show_and_focus_main(app),
             "dashboard" => toggle_dashboard_window(app),
-            "quit" => app.exit(0),
+            "exit" => app.exit(0),
             _ => {}
         })
         .build(app)?;
+
+    // Must manage the TrayIcon — Tauri removes the status item when the last ref is dropped.
+    app.manage(tray);
+    app.manage(TrayMenuItems {
+        search,
+        dashboard,
+    });
+
+    // Menu-bar app with no Dock icon — keystash is summoned by its hotkey, not clicked in the Dock.
+    #[cfg(target_os = "macos")]
+    app.set_activation_policy(tauri::ActivationPolicy::Accessory);
 
     // Global hotkeys (need Accessibility perm): defaults come from the encrypted settings model.
     register_desktop_hotkeys(
@@ -254,6 +280,7 @@ pub fn run() {
             commands::quit_app,
             set_hotkeys,
             set_main_window_blur_dismiss,
+            show_command_bar,
             show_dashboard,
             take_dashboard_module,
         ])
@@ -299,6 +326,15 @@ fn set_main_window_blur_dismiss(state: tauri::State<'_, MainWindowBehavior>, ena
     *state.0.lock().unwrap() = enabled;
 }
 
+/// Show and focus the command bar (Dashboard → Search bridge, §7.6).
+#[tauri::command]
+fn show_command_bar(app: tauri::AppHandle) {
+    #[cfg(desktop)]
+    {
+        show_and_focus_main(&app);
+    }
+}
+
 /// Show and focus the Dashboard, optionally selecting a module pane (command-bar bridge, §7.6).
 #[tauri::command]
 fn show_dashboard(
@@ -333,7 +369,20 @@ fn set_hotkeys(
 ) -> Result<(), String> {
     #[cfg(desktop)]
     {
-        register_desktop_hotkeys(&app, &global_hotkey, &dashboard_hotkey).map_err(|e| e.to_string())
+        register_desktop_hotkeys(&app, &global_hotkey, &dashboard_hotkey)
+            .map_err(|e| e.to_string())?;
+        // Keep tray accelerator labels in sync with Settings rebinds.
+        if let Some(items) = app.try_state::<TrayMenuItems>() {
+            items
+                .search
+                .set_accelerator(Some(global_hotkey.as_str()))
+                .map_err(|e| e.to_string())?;
+            items
+                .dashboard
+                .set_accelerator(Some(dashboard_hotkey.as_str()))
+                .map_err(|e| e.to_string())?;
+        }
+        Ok(())
     }
     #[cfg(not(desktop))]
     {

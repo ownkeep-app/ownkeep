@@ -519,7 +519,8 @@ quick keyboard-first access, and the **Dashboard** (§7.5) for browsing and mana
 
 ### 7.1 Command bar — default surface
 On activation the window is **just a search input** (plus a thin results list once you type). No
-chrome, no sidebar. Escape or blur hides it.
+chrome, no sidebar. Escape or blur hides it. A **Dashboard** control on the right of the search
+input opens the Dashboard (§7.6).
 
 ### 7.2 Searching & ranking
 - As you type, **fuzzy-match across enabled modules that are also `searchable`** using the unified index (each entry exposes `searchString`, `displayLine`, `type`, `actions`). By default only **passwords** and **commands** are searchable; todos / subscriptions / finance stay Dashboard-first (toggleable in Settings).
@@ -548,12 +549,13 @@ chrome, no sidebar. Escape or blur hides it.
 
 ### 7.5 The Dashboard (browse & manage) — the second surface
 A persistent window for seeing and managing **all** content — not just quick-copy. Opened via
-`Cmd+Shift+D` (configurable), the tray menu, or a command-bar primary action on a non-password /
-non-command result (§7.3). Mutually exclusive with the command bar (§7.6).
+`Cmd+Shift+D` (configurable), the tray menu, the command-bar **Dashboard** button, or a
+command-bar primary action on a non-password / non-command result (§7.3). Mutually exclusive with
+the command bar (§7.6).
 Layout: **left sidebar + right content pane.**
 
 - **When locked:** opening the Dashboard shows the same master-password unlock form as the launcher — users can unlock in place without switching to the command bar.
-- **Left sidebar (modules):** one row per *enabled* module — icon + title + item count — rendered straight from the registry, plus pinned **Settings**, **Help** (`⌘H`), **About** (`⌘/`), and **Lock** rows. The bottom footer shows the current app version (`keystash v0.1`) so the user can confirm which build is running after a manual upgrade. Navigate with `↑/↓` or `⌥⇧1..9`; the selection persists across opens.
+- **Left sidebar (modules):** a **Search ...** row at the top jumps back to the command bar (`⌘⇧Space`); then one row per *enabled* module — icon + title + item count — rendered straight from the registry, plus pinned **Settings**, **Help** (`⌘H`), **About** (`⌘/`), and **Lock** rows. The bottom footer shows the current app version (`keystash v0.1`) so the user can confirm which build is running after a manual upgrade. Navigate with `↑/↓` or `⌥⇧1..9`; the selection persists across opens.
 - **Right pane (all content):** renders the selected module's **`ListView`** — the full list/table of its items (all passwords; all commands grouped by category with title, description, and highlighted snippet per card; the todo list; all subscriptions; the finance snapshot table + trend chart). Includes a per-module filter box, **sortable table headers** (passwords, todos, subscriptions, finance), and **New / Edit / Delete**. Row **View** opens that module's `DetailView` in a dismissible two-column modal (Esc + click-away); **New / Edit** open the module's `EditView` in a modal-style elevated card over a dimmed pane (Creating/Editing badge, Esc + backdrop dismiss). Table columns use fixed proportional widths so headers and common values (e.g. email usernames) stay readable without manual resizing.
 - **Secrets stay protected:** the passwords `ListView` shows metadata only (name, username, category) with masked passwords; clicking the mask reveals via Rust `reveal_secret` (native dialog — plaintext never enters the WebView); copy buttons in the password column and actions column route through `copy_secret` (§4.5).
 - **Sidebar footer:** Settings, **Help** (`⌘H` opens the keyboard-shortcut sheet), **About** (`⌘/` opens product info: features, developer email, version, release date, website), and Lock sit below the module list; the floating help trigger is not shown on the Dashboard (the command bar keeps its own).
@@ -563,9 +565,10 @@ Layout: **left sidebar + right content pane.**
 ### 7.6 How the two surfaces relate
 - **Command bar** — fast, ephemeral, keyboard-first: find → act (copy / fill / toggle) → hide.
 - **Dashboard** — persistent: browse, bulk-edit, and review (finance trend, all subscriptions, the full todo list).
-- **Mutually exclusive:** only one surface is visible at a time. Opening the command bar hides the Dashboard, and opening the Dashboard hides the command bar (hotkeys, tray, and the bar→Dashboard bridge all honor this).
-- **Close button:** the traffic-light close control asks for confirmation, then **quits the whole app** (both surfaces + tray). Cancel leaves the window open. Esc/blur on the command bar still only hides the launcher. Tray **Quit** also exits.
-- **Bridge:** activating a non-password / non-command bar result opens the Dashboard with that item's module selected (module pane only — no per-item focus). Password and command hits keep their copy / fill-in primary actions. Both surfaces read the same in-memory model, so an edit in one is instantly reflected in the other.
+- **Mutually exclusive:** only one surface is visible at a time. Opening the command bar hides the Dashboard, and opening the Dashboard hides the command bar (hotkeys, tray, the command-bar **Dashboard** button, the Dashboard **Search ...** row, and the bar→Dashboard bridge all honor this).
+- **Close button:** the traffic-light close control asks for confirmation, then **quits the whole app** (both surfaces + tray). Cancel leaves the window open. Esc/blur on the command bar still only hides the launcher. Tray **Exit** also exits.
+- **Tray menu:** menu-bar icon opens **Search ...** (launcher / command bar, shows the global hotkey), **Dashboard** (shows the Dashboard hotkey), then **Exit**.
+- **Bridge:** activating a non-password / non-command bar result opens the Dashboard with that item's module selected (module pane only — no per-item focus). Password and command hits keep their copy / fill-in primary actions. Explicit UI switches: command-bar **Dashboard** button → Dashboard; Dashboard **Search ...** → command bar. Both surfaces read the same in-memory model, so an edit in one is instantly reflected in the other.
 
 ---
 

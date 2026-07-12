@@ -42,7 +42,7 @@ pnpm dev:web      # front-end only (Vite at http://localhost:1420), no Rust shel
 
 On first launch, macOS will ask you to grant **Accessibility** permission so the global hotkey
 (`Cmd+Shift+Space`) works system-wide. The app runs in the **menu bar** (no Dock icon); use the tray
-icon's **Show / Quit** menu, or the hotkey to toggle the window. It hides on **Esc** or when it loses
+icon's **Search ... / Dashboard / Exit** menu, or the hotkey to toggle the window. It hides on **Esc** or when it loses
 focus.
 
 ## Using keystash
@@ -138,7 +138,7 @@ may warn on first open.
   Accessibility → enable keystash (or your terminal, in dev). The app is designed to also work from
   the tray if the permission is denied.
 - **Window vanished** — that's the launcher behavior (hide on blur/Esc). Press `Cmd+Shift+Space` or
-  use the tray's **Show**.
+  use the tray's **Search ...**.
 - **`Port 1420 is already in use`** — another Vite/keystash dev server is running; stop it or free the
   port (the dev server uses a fixed port on purpose).
 - **First `cargo`/Tauri build is slow** — the Rust core and Tauri dependencies compile from source

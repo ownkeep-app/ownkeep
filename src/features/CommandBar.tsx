@@ -1,5 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { CreditCard, Key, ListTodo, Terminal, TrendingUp } from "lucide-react";
+import {
+  CreditCard,
+  Key,
+  LayoutDashboard,
+  ListTodo,
+  Terminal,
+  TrendingUp,
+} from "lucide-react";
 import { motion, useReducedMotion } from "motion/react";
 
 import {
@@ -8,6 +15,7 @@ import {
   CommandItem,
   CommandList,
 } from "@/components/ui/command";
+import { Button } from "@/components/ui/button";
 import { AboutDialog } from "@/components/AboutDialog";
 import { KeyboardHelp } from "@/components/KeyboardHelp";
 import {
@@ -19,7 +27,7 @@ import { listItem, listStagger, motionOrUndefined } from "@/lib/motion";
 import { runQuery, type RankedResult } from "@/lib/search";
 import { toastClipboard, toastError, toastSecretCopied } from "@/lib/toast";
 import { cn } from "@/lib/utils";
-import { hideWindow, openDashboardToModule } from "@/lib/window";
+import { hideWindow, openDashboard, openDashboardToModule } from "@/lib/window";
 import { FillInForm } from "@/modules/commands/FillInForm";
 import { commandEntries, parsePlaceholders } from "@/modules/commands/logic";
 import {
@@ -81,6 +89,18 @@ export function CommandBar({
     },
     [recordUse, setQuery],
   );
+
+  /** Open the Dashboard and hide the launcher immediately (§7.6). */
+  const goToDashboard = useCallback(async () => {
+    if (closingRef.current) return;
+    closingRef.current = true;
+    try {
+      setQuery("");
+      await openDashboard();
+    } finally {
+      closingRef.current = false;
+    }
+  }, [setQuery]);
 
   /** Open the Dashboard on a module pane and hide the launcher immediately (§7.6). */
   const browseInDashboard = useCallback(
@@ -250,7 +270,20 @@ export function CommandBar({
               onValueChange={setQuery}
               placeholder="Search keystash"
               value={query}
-              wrapperClassName="border-border/60"
+              wrapperClassName="border-border/60 pr-3"
+              trailing={
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="ml-1 size-10 shrink-0 text-muted-foreground hover:text-foreground"
+                  aria-label="Open Dashboard"
+                  title="Dashboard (⌘⇧D)"
+                  onClick={() => void goToDashboard()}
+                >
+                  <LayoutDashboard className="size-5" />
+                </Button>
+              }
             />
           </div>
           {results.length > 0 && (

@@ -23,8 +23,9 @@ const CommandInput = React.forwardRef<
   React.ElementRef<typeof CommandPrimitive.Input>,
   React.ComponentPropsWithoutRef<typeof CommandPrimitive.Input> & {
     wrapperClassName?: string;
+    trailing?: React.ReactNode;
   }
->(({ className, wrapperClassName, ...props }, ref) => (
+>(({ className, wrapperClassName, trailing, ...props }, ref) => (
   <div
     className={cn("flex items-center border-b px-5", wrapperClassName)}
     cmdk-input-wrapper=""
@@ -38,6 +39,7 @@ const CommandInput = React.forwardRef<
       ref={ref}
       {...props}
     />
+    {trailing}
   </div>
 ));
 CommandInput.displayName = CommandPrimitive.Input.displayName;

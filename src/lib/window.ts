@@ -52,12 +52,28 @@ export async function hideWindow(): Promise<void> {
 }
 
 /**
- * Show the Dashboard window and select a module pane (command-bar → Dashboard bridge, §7.6).
- * Isolated here so the bar stays free of direct Tauri calls in tests.
+ * Show the Dashboard window, optionally selecting a module pane (command-bar → Dashboard bridge, §7.6).
+ * Isolated here so UI stays free of direct Tauri calls in tests.
  */
-export async function openDashboardToModule(moduleId: string): Promise<void> {
+export async function openDashboard(moduleId?: string): Promise<void> {
   try {
-    await invoke("show_dashboard", { moduleId });
+    await invoke("show_dashboard", { moduleId: moduleId ?? null });
+  } catch {
+    // Vitest / Vite dev in a browser — no Tauri IPC.
+  }
+}
+
+/** Show the Dashboard and select a module pane (command-bar result bridge, §7.6). */
+export async function openDashboardToModule(moduleId: string): Promise<void> {
+  await openDashboard(moduleId);
+}
+
+/**
+ * Show the command bar and hide the Dashboard (Dashboard → Search bridge, §7.6).
+ */
+export async function openCommandBar(): Promise<void> {
+  try {
+    await invoke("show_command_bar");
   } catch {
     // Vitest / Vite dev in a browser — no Tauri IPC.
   }

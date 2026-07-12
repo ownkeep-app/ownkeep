@@ -5,6 +5,8 @@ import {
   hideWindow,
   MAIN_WINDOW_EXPANDED,
   mainWindowMode,
+  openCommandBar,
+  openDashboard,
   openDashboardToModule,
   resetMainWindowModeForTests,
   setMainWindowMode,
@@ -208,10 +210,30 @@ describe("window helpers", () => {
     });
   });
 
+  it("opens the Dashboard without selecting a module", async () => {
+    await openDashboard();
+
+    expect(mockInvoke).toHaveBeenCalledWith("show_dashboard", {
+      moduleId: null,
+    });
+  });
+
+  it("opens the command bar", async () => {
+    await openCommandBar();
+
+    expect(mockInvoke).toHaveBeenCalledWith("show_command_bar");
+  });
+
   it("swallows show_dashboard IPC failures", async () => {
     mockInvoke.mockRejectedValueOnce(new Error("no ipc"));
 
     await expect(openDashboardToModule("todos")).resolves.toBeUndefined();
+  });
+
+  it("swallows show_command_bar IPC failures", async () => {
+    mockInvoke.mockRejectedValueOnce(new Error("no ipc"));
+
+    await expect(openCommandBar()).resolves.toBeUndefined();
   });
 
   it("takes a pending Dashboard module selection", async () => {

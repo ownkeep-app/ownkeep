@@ -10,7 +10,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { writeClipboard } from "@/lib/clipboard";
 import { toastClipboard, toastError, toastSecretCopied } from "@/lib/toast";
-import { hideWindow, openDashboardToModule } from "@/lib/window";
+import { hideWindow, openDashboard, openDashboardToModule } from "@/lib/window";
 import {
   COMMANDS_MODULE_ID,
   type CommandEntry,
@@ -33,6 +33,7 @@ import { CommandBar, COMMAND_BAR_HIDE_DELAY_MS } from "./CommandBar";
 
 vi.mock("@/lib/window", () => ({
   hideWindow: vi.fn(async () => {}),
+  openDashboard: vi.fn(async () => {}),
   openDashboardToModule: vi.fn(async () => {}),
 }));
 vi.mock("@/lib/clipboard", () => ({ writeClipboard: vi.fn(async () => true) }));
@@ -50,7 +51,8 @@ vi.mock("@/vault/api", () => ({
 }));
 
 const mockHideWindow = vi.mocked(hideWindow);
-const mockOpenDashboard = vi.mocked(openDashboardToModule);
+const mockOpenDashboard = vi.mocked(openDashboard);
+const mockOpenDashboardToModule = vi.mocked(openDashboardToModule);
 const clip = vi.mocked(writeClipboard);
 const secretToast = vi.mocked(toastSecretCopied);
 const errorToast = vi.mocked(toastError);
@@ -234,6 +236,19 @@ describe("CommandBar", () => {
     expect(mockHideWindow).toHaveBeenCalledTimes(1);
   });
 
+  it("opens the Dashboard from the search trailing button", async () => {
+    const user = userEvent.setup({
+      advanceTimers: vi.advanceTimersByTime,
+    });
+    useShellStore.setState({ query: "git" });
+    render(<CommandBar />);
+
+    await user.click(screen.getByRole("button", { name: /open dashboard/i }));
+
+    expect(mockOpenDashboard).toHaveBeenCalledTimes(1);
+    expect(useShellStore.getState().query).toBe("");
+  });
+
   it("removes its keydown listener when unmounted", () => {
     const { unmount } = render(<CommandBar />);
     unmount();
@@ -373,7 +388,7 @@ describe("CommandBar", () => {
 
     await waitFor(() => expect(api.saveVault).toHaveBeenCalled());
     expect(api.copySecret).not.toHaveBeenCalled();
-    expect(mockOpenDashboard).toHaveBeenCalledWith("notes");
+    expect(mockOpenDashboardToModule).toHaveBeenCalledWith("notes");
     expect(mockHideWindow).toHaveBeenCalled();
   });
 
@@ -398,7 +413,7 @@ describe("CommandBar", () => {
     pressResultHotkey(1);
 
     await waitFor(() =>
-      expect(mockOpenDashboard).toHaveBeenCalledWith(TODOS_MODULE_ID),
+      expect(mockOpenDashboardToModule).toHaveBeenCalledWith(TODOS_MODULE_ID),
     );
     expect(api.saveVault).toHaveBeenCalled(); // frecency recorded
     expect(mockHideWindow).toHaveBeenCalled();
@@ -413,7 +428,9 @@ describe("CommandBar", () => {
     pressResultHotkey(1);
 
     await waitFor(() =>
-      expect(mockOpenDashboard).toHaveBeenCalledWith(SUBSCRIPTIONS_MODULE_ID),
+      expect(mockOpenDashboardToModule).toHaveBeenCalledWith(
+        SUBSCRIPTIONS_MODULE_ID,
+      ),
     );
     expect(clip).not.toHaveBeenCalled();
     expect(mockHideWindow).toHaveBeenCalled();
@@ -426,7 +443,9 @@ describe("CommandBar", () => {
     pressResultHotkey(1);
 
     await waitFor(() =>
-      expect(mockOpenDashboard).toHaveBeenCalledWith(SUBSCRIPTIONS_MODULE_ID),
+      expect(mockOpenDashboardToModule).toHaveBeenCalledWith(
+        SUBSCRIPTIONS_MODULE_ID,
+      ),
     );
     expect(mockHideWindow).toHaveBeenCalled();
   });

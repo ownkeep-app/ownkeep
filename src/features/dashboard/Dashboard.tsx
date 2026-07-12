@@ -2,7 +2,13 @@ import { type ReactNode, useEffect, useMemo, useState } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { motion, useReducedMotion } from "motion/react";
 
-import { Keyboard, Lock, Settings as SettingsIcon, Info } from "lucide-react";
+import {
+  Info,
+  Keyboard,
+  Lock,
+  Search,
+  Settings as SettingsIcon,
+} from "lucide-react";
 
 import { AboutDialog } from "@/components/AboutDialog";
 import { KeyboardHelp } from "@/components/KeyboardHelp";
@@ -24,7 +30,7 @@ import {
   tapTransition,
 } from "@/lib/motion";
 import { cn } from "@/lib/utils";
-import { takeDashboardModule } from "@/lib/window";
+import { openCommandBar, takeDashboardModule } from "@/lib/window";
 import { MODULES } from "@/modules/registry";
 import { useVaultStore } from "@/stores/vault-store";
 import { APP_VERSION } from "@/vault/model";
@@ -161,6 +167,12 @@ export function Dashboard() {
         aria-label="Modules"
         className="flex w-56 flex-col gap-1 border-r border-border p-2"
       >
+        <SidebarRow
+          icon={<Search className="h-4 w-4" />}
+          label="Search ..."
+          shortcut="⌘⇧Space"
+          onClick={() => void openCommandBar()}
+        />
         <p className="px-2 py-1 text-xs font-medium uppercase text-muted-foreground">
           Modules
         </p>

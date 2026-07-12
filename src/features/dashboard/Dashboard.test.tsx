@@ -7,6 +7,7 @@ import { TODOS_MODULE_ID } from "@/modules/todos/types";
 import { useVaultStore } from "@/stores/vault-store";
 import { vaultApi } from "@/vault/api";
 import { createDefaultModel, ensureModuleDefaults } from "@/vault/model";
+import { openCommandBar } from "@/lib/window";
 import { Dashboard } from "./Dashboard";
 
 vi.mock("@/vault/api", () => ({
@@ -37,6 +38,7 @@ vi.mock("@/lib/window", async (importOriginal) => {
   return {
     ...actual,
     takeDashboardModule: vi.fn(async () => null),
+    openCommandBar: vi.fn(async () => {}),
   };
 });
 
@@ -233,6 +235,15 @@ describe("Dashboard", () => {
 
     expect(api.lock).toHaveBeenCalled();
     expect(useVaultStore.getState().status).toBe("locked");
+  });
+
+  it("opens the command bar from the Search sidebar row", async () => {
+    const user = userEvent.setup();
+    render(<Dashboard />);
+
+    await user.click(screen.getByRole("button", { name: /search \.\.\./i }));
+
+    expect(openCommandBar).toHaveBeenCalledTimes(1);
   });
 
   it("opens keyboard help from the sidebar Help row", async () => {
