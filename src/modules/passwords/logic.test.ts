@@ -98,6 +98,25 @@ describe("password module logic", () => {
     expect(updated.password).toBe(" new-secret ");
   });
 
+  it("falls back to the provided updatedAt when the entry has none", () => {
+    const updated = updatePasswordEntry(
+      { ...existing, updatedAt: "" },
+      { ...emptyPasswordForm(), name: "GitHub", password: "x" },
+      "2026-07-09T00:00:00.000Z",
+    );
+    expect(updated.updatedAt).toBe("2026-07-09T00:00:00.000Z");
+  });
+
+  it("classifies generated password characters and rejects others", () => {
+    expect(classifyGeneratedPasswordChar("7")).toBe("digit");
+    expect(classifyGeneratedPasswordChar("a")).toBe("lower");
+    expect(classifyGeneratedPasswordChar("Z")).toBe("upper");
+    expect(classifyGeneratedPasswordChar(GENERATED_PASSWORD_SPECIALS[0])).toBe(
+      "special",
+    );
+    expect(classifyGeneratedPasswordChar(" ")).toBeNull();
+  });
+
   it("validates required fields by mode", () => {
     expect(validatePasswordInput(emptyPasswordForm(), "create")).toMatch(
       /name/i,
@@ -143,15 +162,15 @@ describe("password module logic", () => {
         classifyGeneratedPasswordChar(ch),
       );
       expect(classes.every((c) => c !== null)).toBe(true);
-      expect(classes.filter((c) => c === "digit").length).toBeGreaterThanOrEqual(
-        1,
-      );
-      expect(classes.filter((c) => c === "lower").length).toBeGreaterThanOrEqual(
-        1,
-      );
-      expect(classes.filter((c) => c === "upper").length).toBeGreaterThanOrEqual(
-        1,
-      );
+      expect(
+        classes.filter((c) => c === "digit").length,
+      ).toBeGreaterThanOrEqual(1);
+      expect(
+        classes.filter((c) => c === "lower").length,
+      ).toBeGreaterThanOrEqual(1);
+      expect(
+        classes.filter((c) => c === "upper").length,
+      ).toBeGreaterThanOrEqual(1);
       expect(
         classes.filter((c) => c === "special").length,
       ).toBeGreaterThanOrEqual(2);

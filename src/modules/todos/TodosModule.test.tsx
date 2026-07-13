@@ -105,9 +105,7 @@ describe("TodosListView", () => {
     await user.click(screen.getByRole("radio", { name: "Done" }));
     expect(screen.queryByText("Renew passport")).not.toBeInTheDocument();
     expect(screen.getByText("Done task")).toBeVisible();
-    expect(
-      screen.getByRole("button", { name: "Clear Filters" }),
-    ).toBeVisible();
+    expect(screen.getByRole("button", { name: "Clear Filters" })).toBeVisible();
 
     await user.click(screen.getByRole("radio", { name: "All" }));
     expect(screen.getByText("Renew passport")).toBeVisible();

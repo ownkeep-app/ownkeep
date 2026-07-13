@@ -20,7 +20,12 @@ vi.mock("shiki", () => ({
     tokens: String(code)
       .split("\n")
       .map((line, index) => [
-        { content: line || "highlighted", offset: index, color: "#fff", fontStyle: 0 },
+        {
+          content: line || "highlighted",
+          offset: index,
+          color: "#fff",
+          fontStyle: 0,
+        },
       ]),
     fg: "#e1e4e8",
     bg: "#24292e",
@@ -108,6 +113,11 @@ describe("CommandsListView", () => {
     expect(
       screen.queryByRole("button", { name: /actions for status/i }),
     ).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Clear Filters" }));
+    expect(screen.getByLabelText("Filter commands")).toHaveValue("");
+    expect(
+      screen.getByRole("button", { name: /actions for status/i }),
+    ).toBeInTheDocument();
   });
 
   it("shows a no-matches state when the filter excludes everything", async () => {
@@ -115,6 +125,48 @@ describe("CommandsListView", () => {
     render(<CommandsListView items={[cmd()]} />);
     await user.type(screen.getByLabelText("Filter commands"), "zzz-nomatch");
     expect(screen.getByText(/no matches/i)).toBeInTheDocument();
+  });
+
+  it("opens a command from its title and can cancel delete", async () => {
+    const user = userEvent.setup();
+    render(<CommandsListView items={[cmd()]} />);
+
+    await user.click(screen.getByRole("button", { name: "Status" }));
+    expect(screen.getByRole("dialog", { name: "Status" })).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "Close details" }));
+    await waitFor(() =>
+      expect(
+        screen.queryByRole("dialog", { name: "Status" }),
+      ).not.toBeInTheDocument(),
+    );
+
+    await chooseRowAction(user, "Status", "Delete");
+    expect(screen.getByRole("alertdialog")).toBeVisible();
+    await user.keyboard("{Escape}");
+    await waitFor(() =>
+      expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument(),
+    );
+    expect(
+      screen.getByRole("button", { name: /actions for status/i }),
+    ).toBeInTheDocument();
+  });
+
+  it("closes the fill-in dialog without copying", async () => {
+    const user = userEvent.setup();
+    render(
+      <CommandsListView
+        items={[cmd({ primaryCopyTemplate: "git push origin {{branch}}" })]}
+      />,
+    );
+    await user.click(screen.getByRole("button", { name: "Copy Status" }));
+    expect(screen.getByRole("dialog", { name: /copy status/i })).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "Close details" }));
+    await waitFor(() =>
+      expect(
+        screen.queryByRole("dialog", { name: /copy status/i }),
+      ).not.toBeInTheDocument(),
+    );
+    expect(clip).not.toHaveBeenCalled();
   });
 
   it("copies a placeholder-free command immediately", async () => {

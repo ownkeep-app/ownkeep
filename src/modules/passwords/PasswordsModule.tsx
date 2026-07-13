@@ -10,7 +10,10 @@ import {
   Trash2,
 } from "lucide-react";
 
-import { CategoryFilterSelect, categoryFilterOptions } from "@/components/category-filter-select";
+import {
+  CategoryFilterSelect,
+  categoryFilterOptions,
+} from "@/components/category-filter-select";
 import { CategorySelect } from "@/components/category-select";
 import { ConfirmDeleteDialog } from "@/components/ConfirmDeleteDialog";
 import { ClearFiltersButton } from "@/components/ClearFiltersButton";

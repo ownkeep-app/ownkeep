@@ -10,8 +10,7 @@ export const GENERATED_PASSWORD_DIGITS = "0123456789";
 export const GENERATED_PASSWORD_LOWER = "abcdefghijklmnopqrstuvwxyz";
 export const GENERATED_PASSWORD_UPPER = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 /** Specials from the create-form Generate charset. */
-export const GENERATED_PASSWORD_SPECIALS =
-  "!@#$%^&*()_+-=~[];',.?|{}:\"<>/";
+export const GENERATED_PASSWORD_SPECIALS = "!@#$%^&*()_+-=~[];',.?|{}:\"<>/";
 
 export const GENERATED_PASSWORD_CHARSET =
   GENERATED_PASSWORD_DIGITS +
@@ -67,9 +66,7 @@ export function generateSecurePassword(
   return sequence.map((cls) => pickChar(CHAR_CLASS_SETS[cls], rng)).join("");
 }
 
-export function classifyGeneratedPasswordChar(
-  char: string,
-): CharClass | null {
+export function classifyGeneratedPasswordChar(char: string): CharClass | null {
   if (GENERATED_PASSWORD_DIGITS.includes(char)) return "digit";
   if (GENERATED_PASSWORD_LOWER.includes(char)) return "lower";
   if (GENERATED_PASSWORD_UPPER.includes(char)) return "upper";

@@ -64,10 +64,7 @@ export function ConfirmDeleteDialog({
             className={cn(modalPanelClassName, "w-full max-w-md p-5")}
             role="alertdialog"
           >
-            <h2
-              className="text-base font-semibold"
-              id="confirm-delete-title"
-            >
+            <h2 className="text-base font-semibold" id="confirm-delete-title">
               Delete “{itemName}”?
             </h2>
             <p

@@ -90,6 +90,31 @@ describe("AboutDialog", () => {
     window.removeEventListener("keydown", onWindowKey);
   });
 
+  it("closes via backdrop and the header close button", async () => {
+    const user = userEvent.setup();
+    render(<AboutDialog />);
+
+    await user.click(screen.getByRole("button", { name: "About keystash" }));
+    await user.click(
+      screen.getByRole("button", { name: "Dismiss about keystash" }),
+    );
+    await waitFor(() =>
+      expect(
+        screen.queryByRole("dialog", { name: "About keystash" }),
+      ).not.toBeInTheDocument(),
+    );
+
+    await user.click(screen.getByRole("button", { name: "About keystash" }));
+    await user.click(
+      screen.getByRole("button", { name: "Close about keystash" }),
+    );
+    await waitFor(() =>
+      expect(
+        screen.queryByRole("dialog", { name: "About keystash" }),
+      ).not.toBeInTheDocument(),
+    );
+  });
+
   it("supports controlled open state", async () => {
     const onOpenChange = vi.fn();
 

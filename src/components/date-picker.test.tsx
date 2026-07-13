@@ -50,4 +50,20 @@ describe("DatePicker", () => {
     await pickDate(user, "Due date", "2026-07-12");
     expect(onChange).toHaveBeenCalledWith("");
   });
+
+  it("keeps a different day when clearable", async () => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    render(
+      <DatePicker
+        aria-label="Due date"
+        clearable
+        onChange={onChange}
+        value="2026-07-12"
+      />,
+    );
+
+    await pickDate(user, "Due date", "2026-07-15");
+    expect(onChange).toHaveBeenCalledWith("2026-07-15");
+  });
 });

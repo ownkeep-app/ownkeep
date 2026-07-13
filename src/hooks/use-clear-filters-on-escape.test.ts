@@ -62,4 +62,45 @@ describe("useClearFiltersOnEscape", () => {
     expect(onClear).toHaveBeenCalledTimes(1);
     expect(document.activeElement).not.toBe(input);
   });
+
+  it("skips Escape while an open menu owns the key", () => {
+    const menu = document.createElement("div");
+    menu.setAttribute("role", "menu");
+    document.body.append(menu);
+
+    const onClear = vi.fn();
+    renderHook(() => useClearFiltersOnEscape(true, onClear));
+
+    window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
+    expect(onClear).not.toHaveBeenCalled();
+  });
+
+  it("skips Escape while a dropdown trigger stays expanded", () => {
+    const trigger = document.createElement("button");
+    trigger.setAttribute("aria-haspopup", "menu");
+    trigger.setAttribute("aria-expanded", "true");
+    document.body.append(trigger);
+
+    const onClear = vi.fn();
+    renderHook(() => useClearFiltersOnEscape(true, onClear));
+
+    window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
+    expect(onClear).not.toHaveBeenCalled();
+  });
+
+  it("ignores Escape while composing or when already handled", () => {
+    const onClear = vi.fn();
+    renderHook(() => useClearFiltersOnEscape(true, onClear));
+
+    window.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Escape", isComposing: true }),
+    );
+    const handled = new KeyboardEvent("keydown", {
+      key: "Escape",
+      cancelable: true,
+    });
+    Object.defineProperty(handled, "defaultPrevented", { get: () => true });
+    window.dispatchEvent(handled);
+    expect(onClear).not.toHaveBeenCalled();
+  });
 });

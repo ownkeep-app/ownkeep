@@ -15,7 +15,11 @@ export function useClearFiltersOnEscape(
     if (!filtersActive) return;
 
     function onKeyDown(event: KeyboardEvent) {
-      if (event.key !== "Escape" || event.defaultPrevented || event.isComposing) {
+      if (
+        event.key !== "Escape" ||
+        event.defaultPrevented ||
+        event.isComposing
+      ) {
         return;
       }
       if (

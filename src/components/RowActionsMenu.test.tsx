@@ -46,6 +46,8 @@ describe("RowActionsMenu", () => {
       screen.getByRole("button", { name: /actions for github/i }),
     );
     expect(screen.getByRole("menuitem", { name: "View" })).toBeVisible();
+    await user.keyboard("{ArrowDown}");
+    expect(screen.getByRole("menuitem", { name: "View" })).toBeVisible();
     await user.keyboard("{Escape}");
     expect(
       screen.queryByRole("menuitem", { name: "View" }),

@@ -112,9 +112,7 @@ describe("PasswordsListView", () => {
 
     expect(screen.getAllByText("Fastmail")[0]).toBeVisible();
     expect(screen.queryByText("GitHub")).not.toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: "Clear Filters" }),
-    ).toBeVisible();
+    expect(screen.getByRole("button", { name: "Clear Filters" })).toBeVisible();
 
     await user.click(screen.getByRole("button", { name: "Clear Filters" }));
     expect(screen.getByLabelText(/filter passwords/i)).toHaveValue("");
@@ -142,9 +140,7 @@ describe("PasswordsListView", () => {
     );
 
     await user.type(screen.getByLabelText(/filter passwords/i), "work");
-    expect(
-      screen.getByRole("button", { name: "Clear Filters" }),
-    ).toBeVisible();
+    expect(screen.getByRole("button", { name: "Clear Filters" })).toBeVisible();
 
     await user.keyboard("{Escape}");
     expect(screen.getByLabelText(/filter passwords/i)).toHaveValue("");
@@ -175,9 +171,7 @@ describe("PasswordsListView", () => {
     const category = screen.getByLabelText("Filter by category");
     await user.selectOptions(category, "Work");
     expect(category).toHaveFocus();
-    expect(
-      screen.getByRole("button", { name: "Clear Filters" }),
-    ).toBeVisible();
+    expect(screen.getByRole("button", { name: "Clear Filters" })).toBeVisible();
 
     await user.keyboard("{Escape}");
     expect(category).toHaveValue("");
@@ -190,6 +184,21 @@ describe("PasswordsListView", () => {
     const user = userEvent.setup();
     render(<PasswordsListView items={[item]} />);
 
+    await user.click(
+      screen.getByRole("button", { name: "Category for GitHub" }),
+    );
+    await user.click(screen.getByRole("menuitemradio", { name: "Work" }));
+    expect(savePassword).toHaveBeenCalledWith(
+      expect.objectContaining({ id: "github", category: "Work" }),
+    );
+  });
+
+  it("keeps the open detail card in sync when category changes from the list", async () => {
+    const user = userEvent.setup();
+    render(<PasswordsListView items={[item]} />);
+
+    await chooseRowAction(user, "GitHub", "View");
+    expect(screen.getByRole("dialog", { name: "GitHub" })).toBeVisible();
     await user.click(
       screen.getByRole("button", { name: "Category for GitHub" }),
     );
@@ -222,9 +231,7 @@ describe("PasswordsListView", () => {
     );
     expect(screen.getAllByText("Fastmail")[0]).toBeVisible();
     expect(screen.queryByText("GitHub")).not.toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: "Clear Filters" }),
-    ).toBeVisible();
+    expect(screen.getByRole("button", { name: "Clear Filters" })).toBeVisible();
 
     await user.click(screen.getByRole("button", { name: "Clear Filters" }));
     expect(screen.getByLabelText("Filter by category")).toHaveValue("");

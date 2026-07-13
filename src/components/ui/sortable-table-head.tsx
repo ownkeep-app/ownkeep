@@ -70,10 +70,7 @@ export function SortableTableHead<Column extends string>({
 
 export function IndexTableHead({ className }: { className?: string }) {
   return (
-    <TableHead
-      className={cn("w-10 px-1.5 text-center", className)}
-      scope="col"
-    >
+    <TableHead className={cn("w-10 px-1.5 text-center", className)} scope="col">
       <span className="sr-only">Row</span>
       <span
         aria-hidden="true"

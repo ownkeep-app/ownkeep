@@ -97,6 +97,9 @@ describe("SubscriptionsListView", () => {
     await user.type(screen.getByLabelText("Filter subscriptions"), "design");
     expect(screen.getAllByText("Figma")[0]).toBeVisible();
     expect(screen.queryByText("Linode")).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Clear Filters" }));
+    expect(screen.getByLabelText("Filter subscriptions")).toHaveValue("");
+    expect(screen.getAllByText("Linode")[0]).toBeVisible();
   });
 
   it("edits cycle and renew inline from the list", async () => {
@@ -119,6 +122,23 @@ describe("SubscriptionsListView", () => {
     await user.click(screen.getByRole("menuitemradio", { name: "Manual" }));
     expect(saveSubscription).toHaveBeenCalledWith(
       expect.objectContaining({ id: "sub-1", autoRenew: false }),
+    );
+  });
+
+  it("keeps the open detail card in sync when cycle changes from the list", async () => {
+    const user = userEvent.setup();
+    render(<SubscriptionsListView items={[item]} />);
+
+    await chooseRowAction(user, "Linode", "View");
+    expect(screen.getByRole("dialog", { name: "Linode" })).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "Cycle for Linode" }));
+    await user.click(screen.getByRole("menuitemradio", { name: "Custom" }));
+    expect(saveSubscription).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: "sub-1",
+        cycle: "custom",
+        customIntervalDays: 30,
+      }),
     );
   });
 

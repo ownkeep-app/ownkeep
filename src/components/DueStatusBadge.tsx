@@ -1,8 +1,5 @@
 import { cn } from "@/lib/utils";
-import {
-  calendarDueStatus,
-  type DueStatusKind,
-} from "@/lib/due-status";
+import { calendarDueStatus, type DueStatusKind } from "@/lib/due-status";
 
 const DUE_STATUS_BADGE_CLASS: Record<DueStatusKind, string> = {
   overdue:

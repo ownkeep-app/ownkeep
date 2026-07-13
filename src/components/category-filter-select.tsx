@@ -11,9 +11,7 @@ export function categoryFilterOptions(
   itemCategories: readonly string[],
 ): string[] {
   const uniqueItemCategories = Array.from(
-    new Set(
-      itemCategories.map((category) => category.trim()).filter(Boolean),
-    ),
+    new Set(itemCategories.map((category) => category.trim()).filter(Boolean)),
   );
   return optionsWithExtras(settingsOptions, uniqueItemCategories);
 }

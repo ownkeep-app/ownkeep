@@ -194,7 +194,10 @@ export function SubscriptionsListView({
     setViewing((current) => (current?.id === item.id ? updated : current));
   }
 
-  async function handleRenewChange(item: SubscriptionEntry, autoRenew: boolean) {
+  async function handleRenewChange(
+    item: SubscriptionEntry,
+    autoRenew: boolean,
+  ) {
     const updated: SubscriptionEntry = {
       ...item,
       autoRenew,

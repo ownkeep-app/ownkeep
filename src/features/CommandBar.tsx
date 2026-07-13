@@ -231,7 +231,7 @@ export function CommandBar({
       <main className="flex h-screen items-start justify-center overflow-hidden bg-background px-5 py-2 text-foreground">
         <section className="w-full max-w-2xl rounded-lg border border-border bg-card text-card-foreground shadow-sm">
           <FillInForm
-            command={command}
+            arguments={command.arguments}
             onCancel={() => setFilling(null)}
             onComplete={(filled) => {
               setFilling(null);
@@ -247,6 +247,8 @@ export function CommandBar({
                 return finishAction(command.id);
               });
             }}
+            template={command.primaryCopyTemplate}
+            title={command.title}
           />
         </section>
       </main>

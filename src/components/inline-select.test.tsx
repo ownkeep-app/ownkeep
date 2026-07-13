@@ -42,4 +42,25 @@ describe("InlineSelect", () => {
     await user.click(screen.getByRole("menuitemradio", { name: "normal" }));
     expect(onChange).not.toHaveBeenCalled();
   });
+
+  it("uses the option value as the menu label when label is omitted", async () => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    render(
+      <InlineSelect
+        aria-label="Cycle"
+        display="Month"
+        onChange={onChange}
+        options={[{ value: "monthly" }, { value: "yearly", label: "Yearly" }]}
+        value="monthly"
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Cycle" }));
+    expect(
+      screen.getByRole("menuitemradio", { name: "monthly" }),
+    ).toBeVisible();
+    await user.click(screen.getByRole("menuitemradio", { name: "Yearly" }));
+    expect(onChange).toHaveBeenCalledWith("yearly");
+  });
 });

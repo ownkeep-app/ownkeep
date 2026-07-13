@@ -276,8 +276,9 @@ describe("FinanceListView", () => {
 
     await user.type(screen.getByLabelText("Filter snapshots"), "nomatch-xyz");
     expect(screen.getByText(/no matches/i)).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Clear Filters" }));
+    expect(screen.getByLabelText("Filter snapshots")).toHaveValue("");
 
-    await user.clear(screen.getByLabelText("Filter snapshots"));
     await user.click(screen.getByRole("button", { name: /fx rates/i }));
     expect(screen.getByText(/no rates yet/i)).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Cancel" }));
