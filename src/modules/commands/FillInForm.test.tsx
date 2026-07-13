@@ -3,32 +3,23 @@ import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
 import { FillInForm } from "./FillInForm";
-import type { CommandEntry } from "./types";
+import type { CommandArgument } from "./types";
 
-function cmd(overrides: Partial<CommandEntry> = {}): CommandEntry {
-  return {
-    id: "c1",
-    category: "docker",
-    title: "Run a container",
-    description: "",
-    snippets: [],
-    primaryCopyTemplate: "docker run -p {{port}}:{{port}} {{img}}",
-    arguments: [{ name: "img", type: "enum", values: ["nginx", "redis"] }],
-    tags: [],
-    updatedAt: "2026-07-07T00:00:00.000Z",
-    ...overrides,
-  };
-}
+const ARGS: CommandArgument[] = [
+  { name: "img", type: "enum", values: ["nginx", "redis"] },
+];
 
 describe("FillInForm", () => {
   it("renders one field per unique placeholder (enum → dropdown) and previews the fill", async () => {
     const user = userEvent.setup();
     render(
       <FillInForm
-        command={cmd()}
+        arguments={ARGS}
         onCancel={() => {}}
         onComplete={() => {}}
         onRaw={() => {}}
+        template="docker run -p {{port}}:{{port}} {{img}}"
+        title="Run a container"
       />,
     );
 
@@ -47,10 +38,12 @@ describe("FillInForm", () => {
     const onComplete = vi.fn();
     render(
       <FillInForm
-        command={cmd()}
+        arguments={ARGS}
         onCancel={() => {}}
         onComplete={onComplete}
         onRaw={() => {}}
+        template="docker run -p {{port}}:{{port}} {{img}}"
+        title="Run a container"
       />,
     );
 
@@ -66,10 +59,12 @@ describe("FillInForm", () => {
     const onRaw = vi.fn();
     const { container } = render(
       <FillInForm
-        command={cmd()}
+        arguments={ARGS}
         onCancel={() => {}}
         onComplete={() => {}}
         onRaw={onRaw}
+        template="docker run -p {{port}}:{{port}} {{img}}"
+        title="Run a container"
       />,
     );
 
@@ -85,10 +80,12 @@ describe("FillInForm", () => {
     const onRaw = vi.fn();
     const { container } = render(
       <FillInForm
-        command={cmd()}
+        arguments={ARGS}
         onCancel={() => {}}
         onComplete={() => {}}
         onRaw={onRaw}
+        template="docker run -p {{port}}:{{port}} {{img}}"
+        title="Run a container"
       />,
     );
     fireEvent.keyDown(container.querySelector("form") as HTMLElement, {
@@ -102,10 +99,12 @@ describe("FillInForm", () => {
     const onCancel = vi.fn();
     render(
       <FillInForm
-        command={cmd()}
+        arguments={ARGS}
         onCancel={onCancel}
         onComplete={() => {}}
         onRaw={() => {}}
+        template="docker run -p {{port}}:{{port}} {{img}}"
+        title="Run a container"
       />,
     );
     await user.click(screen.getByRole("button", { name: /cancel/i }));

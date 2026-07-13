@@ -1,11 +1,12 @@
-import {
-  type ReactNode,
-  useEffect,
-  useRef,
-  useState,
-} from "react";
+import { type ReactNode } from "react";
 
-import { Select } from "@/components/ui/select";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 
 export type InlineSelectOption = string | { value: string; label?: string };
@@ -21,8 +22,8 @@ function normalizeOptions(
 }
 
 /**
- * List-cell control: shows static content until clicked, then a native select
- * to change the value (category, priority, etc.).
+ * List-cell control: click opens a dropdown menu to pick a new value
+ * (category, priority, cycle, etc.) — one click to choose.
  */
 export function InlineSelect({
   value,
@@ -39,63 +40,36 @@ export function InlineSelect({
   "aria-label": string;
   className?: string;
 }) {
-  const [editing, setEditing] = useState(false);
-  const selectRef = useRef<HTMLSelectElement>(null);
   const resolved = normalizeOptions(options);
 
-  useEffect(() => {
-    if (!editing) return;
-    const el = selectRef.current;
-    if (!el) return;
-    el.focus();
-    try {
-      el.showPicker?.();
-    } catch {
-      // showPicker can throw if not triggered by user activation in some engines.
-    }
-  }, [editing]);
-
-  if (!editing) {
-    return (
-      <button
-        aria-label={ariaLabel}
-        className={cn(
-          "max-w-full rounded-sm text-left hover:underline focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
-          className,
-        )}
-        onClick={() => setEditing(true)}
-        type="button"
-      >
-        {display}
-      </button>
-    );
-  }
-
   return (
-    <Select
-      aria-label={ariaLabel}
-      className="h-8 min-w-0"
-      onBlur={() => setEditing(false)}
-      onChange={(event) => {
-        const next = event.target.value;
-        setEditing(false);
-        if (next !== value) void onChange(next);
-      }}
-      onKeyDown={(event) => {
-        if (event.key === "Escape") {
-          event.preventDefault();
-          event.stopPropagation();
-          setEditing(false);
-        }
-      }}
-      ref={selectRef}
-      value={value}
-    >
-      {resolved.map((option) => (
-        <option key={option.value} value={option.value}>
-          {option.label}
-        </option>
-      ))}
-    </Select>
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button
+          aria-label={ariaLabel}
+          className={cn(
+            "max-w-full rounded-sm text-left hover:underline focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
+            className,
+          )}
+          type="button"
+        >
+          {display}
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start">
+        <DropdownMenuRadioGroup
+          onValueChange={(next) => {
+            if (next !== value) void onChange(next);
+          }}
+          value={value}
+        >
+          {resolved.map((option) => (
+            <DropdownMenuRadioItem key={option.value} value={option.value}>
+              {option.label}
+            </DropdownMenuRadioItem>
+          ))}
+        </DropdownMenuRadioGroup>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }

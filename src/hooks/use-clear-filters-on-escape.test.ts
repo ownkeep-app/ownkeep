@@ -37,7 +37,7 @@ describe("useClearFiltersOnEscape", () => {
     expect(onClear).not.toHaveBeenCalled();
   });
 
-  it("skips Escape while a select is focused", () => {
+  it("clears even while a category select is focused", () => {
     const select = document.createElement("select");
     document.body.append(select);
     select.focus();
@@ -46,6 +46,20 @@ describe("useClearFiltersOnEscape", () => {
     renderHook(() => useClearFiltersOnEscape(true, onClear));
 
     window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
-    expect(onClear).not.toHaveBeenCalled();
+    expect(onClear).toHaveBeenCalledTimes(1);
+    expect(document.activeElement).not.toBe(select);
+  });
+
+  it("clears even while the search input is focused", () => {
+    const input = document.createElement("input");
+    document.body.append(input);
+    input.focus();
+
+    const onClear = vi.fn();
+    renderHook(() => useClearFiltersOnEscape(true, onClear));
+
+    window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
+    expect(onClear).toHaveBeenCalledTimes(1);
+    expect(document.activeElement).not.toBe(input);
   });
 });

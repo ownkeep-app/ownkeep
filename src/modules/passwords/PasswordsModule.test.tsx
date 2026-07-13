@@ -155,6 +155,37 @@ describe("PasswordsListView", () => {
     ).not.toBeInTheDocument();
   });
 
+  it("clears category filter on Escape while the category select stays focused", async () => {
+    const user = userEvent.setup();
+    render(
+      <PasswordsListView
+        items={[
+          item,
+          {
+            ...item,
+            id: "mail",
+            name: "Fastmail",
+            username: "me@example.com",
+            category: "Work",
+          },
+        ]}
+      />,
+    );
+
+    const category = screen.getByLabelText("Filter by category");
+    await user.selectOptions(category, "Work");
+    expect(category).toHaveFocus();
+    expect(
+      screen.getByRole("button", { name: "Clear Filters" }),
+    ).toBeVisible();
+
+    await user.keyboard("{Escape}");
+    expect(category).toHaveValue("");
+    expect(
+      screen.queryByRole("button", { name: "Clear Filters" }),
+    ).not.toBeInTheDocument();
+  });
+
   it("edits category inline from the list", async () => {
     const user = userEvent.setup();
     render(<PasswordsListView items={[item]} />);
@@ -162,10 +193,7 @@ describe("PasswordsListView", () => {
     await user.click(
       screen.getByRole("button", { name: "Category for GitHub" }),
     );
-    await user.selectOptions(
-      screen.getByLabelText("Category for GitHub"),
-      "Work",
-    );
+    await user.click(screen.getByRole("menuitemradio", { name: "Work" }));
     expect(savePassword).toHaveBeenCalledWith(
       expect.objectContaining({ id: "github", category: "Work" }),
     );

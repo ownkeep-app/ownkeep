@@ -4,37 +4,38 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { fillTemplate, parsePlaceholders } from "./logic";
-import type { CommandEntry } from "./types";
+import type { CommandArgument } from "./types";
 
 /**
- * Interactive fill-in for a command's `{{ }}` placeholders (spec §6/F2, §7.3): one field per unique
- * placeholder (enum → dropdown), native Tab/Shift-Tab between fields, Enter copies the completed
- * command, Opt/Alt+Enter copies the raw template. Side effects live in the caller's callbacks.
+ * Interactive fill-in for `{{ }}` placeholders (spec §6/F2, §7.3): one field per unique
+ * placeholder (enum → dropdown), native Tab/Shift-Tab between fields, Enter copies the
+ * completed text, Opt/Alt+Enter copies the raw template. Side effects live in callbacks.
  */
 export function FillInForm({
-  command,
+  title,
+  template,
+  arguments: args = [],
   onComplete,
   onRaw,
   onCancel,
 }: {
-  command: CommandEntry;
+  title: string;
+  template: string;
+  arguments?: CommandArgument[];
   onComplete: (filled: string) => void;
   onRaw: () => void;
   onCancel: () => void;
 }) {
-  const placeholders = useMemo(
-    () => parsePlaceholders(command.primaryCopyTemplate),
-    [command.primaryCopyTemplate],
-  );
+  const placeholders = useMemo(() => parsePlaceholders(template), [template]);
   const argByName = useMemo(
-    () => new Map(command.arguments.map((arg) => [arg.name, arg])),
-    [command.arguments],
+    () => new Map(args.map((arg) => [arg.name, arg])),
+    [args],
   );
   const [values, setValues] = useState<Record<string, string>>(() =>
     Object.fromEntries(placeholders.map((name) => [name, ""])),
   );
 
-  const preview = fillTemplate(command.primaryCopyTemplate, values);
+  const preview = fillTemplate(template, values);
 
   function setValue(name: string, value: string) {
     setValues((current) => ({ ...current, [name]: value }));
@@ -60,10 +61,8 @@ export function FillInForm({
       onSubmit={submit}
     >
       <div>
-        <p className="text-sm font-medium">{command.title}</p>
-        <p className="truncate text-xs text-muted-foreground">
-          {command.primaryCopyTemplate}
-        </p>
+        <p className="text-sm font-medium">{title}</p>
+        <p className="truncate text-xs text-muted-foreground">{template}</p>
       </div>
 
       {placeholders.map((name, index) => {

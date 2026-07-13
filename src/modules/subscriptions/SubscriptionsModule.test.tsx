@@ -58,6 +58,18 @@ describe("SubscriptionsListView", () => {
     useVaultStore.setState({ ...actions, model: null });
   });
 
+  it("opens the shared FX rates view from the header", async () => {
+    const user = userEvent.setup();
+    render(<SubscriptionsListView items={[item]} />);
+
+    await user.click(screen.getByRole("button", { name: "FX rates" }));
+    expect(screen.getByRole("heading", { name: "FX rates" })).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "Close FX rates" }));
+    expect(
+      screen.getByRole("heading", { name: "Subscriptions" }),
+    ).toBeVisible();
+  });
+
   it("renders rows, filters by metadata, and shows summary totals", async () => {
     const user = userEvent.setup();
     render(
@@ -78,6 +90,7 @@ describe("SubscriptionsListView", () => {
     expect(
       screen.getByRole("heading", { name: "Subscriptions" }),
     ).toBeVisible();
+    expect(screen.getByRole("button", { name: "FX rates" })).toBeVisible();
     expect(screen.getByText("USD 32.00")).toBeVisible();
     expect(screen.getByText("USD 384.00")).toBeVisible();
 
@@ -91,10 +104,7 @@ describe("SubscriptionsListView", () => {
     render(<SubscriptionsListView items={[item]} />);
 
     await user.click(screen.getByRole("button", { name: "Cycle for Linode" }));
-    await user.selectOptions(
-      screen.getByLabelText("Cycle for Linode"),
-      "yearly",
-    );
+    await user.click(screen.getByRole("menuitemradio", { name: "Yearly" }));
     expect(saveSubscription).toHaveBeenCalledWith(
       expect.objectContaining({
         id: "sub-1",
@@ -106,10 +116,7 @@ describe("SubscriptionsListView", () => {
     await user.click(
       screen.getByRole("button", { name: "Renewal for Linode" }),
     );
-    await user.selectOptions(
-      screen.getByLabelText("Renewal for Linode"),
-      "manual",
-    );
+    await user.click(screen.getByRole("menuitemradio", { name: "Manual" }));
     expect(saveSubscription).toHaveBeenCalledWith(
       expect.objectContaining({ id: "sub-1", autoRenew: false }),
     );

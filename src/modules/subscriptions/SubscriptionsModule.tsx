@@ -2,6 +2,7 @@ import { type FormEvent, useEffect, useMemo, useState } from "react";
 
 import {
   type LucideIcon,
+  Coins,
   CreditCard,
   ExternalLink,
   Eye,
@@ -65,6 +66,7 @@ import {
 import { isHttpUrl, openExternalUrl } from "@/lib/url";
 import { useClearFiltersOnEscape } from "@/hooks/use-clear-filters-on-escape";
 import { useTaxonomySettings } from "@/hooks/use-taxonomy-settings";
+import { FxRatesView } from "@/modules/finance/FinanceModule";
 import type { ListViewProps } from "@/modules/types";
 import { useVaultStore } from "@/stores/vault-store";
 import { defaultSettings } from "@/vault/model";
@@ -105,6 +107,7 @@ export function SubscriptionsListView({
     id: string;
     name: string;
   } | null>(null);
+  const [showFx, setShowFx] = useState(false);
   const [sortState, setSortState] =
     useState<SortState<SubscriptionSortColumn> | null>(null);
 
@@ -216,6 +219,9 @@ export function SubscriptionsListView({
       />
     );
   }
+  if (showFx) {
+    return <FxRatesView onClose={() => setShowFx(false)} />;
+  }
 
   return (
     <div className="flex h-full flex-col">
@@ -228,6 +234,14 @@ export function SubscriptionsListView({
               {subscriptions.length === 1 ? "" : "s"}
             </p>
           </div>
+          <Button
+            onClick={() => setShowFx(true)}
+            type="button"
+            variant="outline"
+          >
+            <Coins className="h-4 w-4" />
+            FX rates
+          </Button>
           <Button onClick={startCreate}>
             <Plus className="h-4 w-4" />
             New

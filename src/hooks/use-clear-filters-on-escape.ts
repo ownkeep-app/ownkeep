@@ -1,8 +1,8 @@
 import { useEffect, useRef } from "react";
 
 /**
- * When list filters are active, Escape clears them — unless a dialog, menu,
- * or focused `<select>` already owns the key.
+ * When list filters are active, Escape clears them — unless a dialog or open
+ * menu already owns the key (search / category focus still clears).
  */
 export function useClearFiltersOnEscape(
   filtersActive: boolean,
@@ -32,10 +32,16 @@ export function useClearFiltersOnEscape(
       ) {
         return;
       }
-      if (document.activeElement instanceof HTMLSelectElement) {
-        return;
-      }
       event.preventDefault();
+      const active = document.activeElement;
+      if (
+        active instanceof HTMLElement &&
+        (active instanceof HTMLInputElement ||
+          active instanceof HTMLSelectElement ||
+          active instanceof HTMLTextAreaElement)
+      ) {
+        active.blur();
+      }
       onClearRef.current();
     }
 

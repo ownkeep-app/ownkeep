@@ -4,7 +4,18 @@ import { describe, expect, it, vi } from "vitest";
 import { commandsModule } from "./module";
 import type { CommandEntry } from "./types";
 
-vi.mock("shiki", () => ({ codeToHtml: vi.fn(async () => "<pre>hl</pre>") }));
+vi.mock("shiki", () => ({
+  codeToTokens: vi.fn(async (code: string) => ({
+    tokens: String(code)
+      .split("\n")
+      .map((line, index) => [
+        { content: line, offset: index, color: "#fff", fontStyle: 0 },
+      ]),
+    fg: "#e1e4e8",
+    bg: "#24292e",
+    themeName: "github-dark",
+  })),
+}));
 
 // The registry types these views as optional; the commands module always provides them.
 const DetailView = commandsModule.DetailView!;

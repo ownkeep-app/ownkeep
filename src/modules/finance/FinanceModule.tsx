@@ -657,7 +657,7 @@ export function FxRatesView({ onClose }: { onClose: () => void }) {
           <h1 className="text-lg font-semibold">FX rates</h1>
           <p className="text-sm text-muted-foreground">
             Manual rates: the base-currency value of 1 unit of each currency.
-            Editing re-totals every snapshot.
+            Editing re-totals finance snapshots and subscription conversions.
           </p>
         </div>
         <Button

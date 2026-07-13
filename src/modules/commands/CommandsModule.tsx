@@ -232,8 +232,10 @@ export function CommandsListView({ items }: ListViewProps<CommandEntry>) {
                             {snippet && (
                               <div className="mt-2 overflow-x-auto">
                                 <SnippetView
+                                  arguments={command.arguments}
                                   code={snippet.code}
                                   language={snippet.language}
+                                  title={command.title}
                                 />
                               </div>
                             )}
@@ -346,7 +348,7 @@ export function CommandsListView({ items }: ListViewProps<CommandEntry>) {
         >
           {copying && (
             <FillInForm
-              command={copying}
+              arguments={copying.arguments}
               onCancel={() => setCopying(null)}
               onComplete={(filled) => {
                 setCopying(null);
@@ -359,6 +361,8 @@ export function CommandsListView({ items }: ListViewProps<CommandEntry>) {
                   "Raw command copied",
                 );
               }}
+              template={copying.primaryCopyTemplate}
+              title={copying.title}
             />
           )}
         </DetailModal>
@@ -391,7 +395,12 @@ export function CommandDetailView({ item }: { item: CommandEntry }) {
             label={`Snippet (${snippetLanguageLabel(snippet.language)})`}
           >
             <div className="mt-1">
-              <SnippetView code={snippet.code} language={snippet.language} />
+              <SnippetView
+                arguments={item.arguments}
+                code={snippet.code}
+                language={snippet.language}
+                title={item.title}
+              />
             </div>
           </DetailFieldSpan>
         )}

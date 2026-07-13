@@ -16,7 +16,16 @@ import {
 import { COMMANDS_MODULE_ID, type CommandEntry } from "./types";
 
 vi.mock("shiki", () => ({
-  codeToHtml: vi.fn(async () => "<pre><code>highlighted</code></pre>"),
+  codeToTokens: vi.fn(async (code: string) => ({
+    tokens: String(code)
+      .split("\n")
+      .map((line, index) => [
+        { content: line || "highlighted", offset: index, color: "#fff", fontStyle: 0 },
+      ]),
+    fg: "#e1e4e8",
+    bg: "#24292e",
+    themeName: "github-dark",
+  })),
 }));
 vi.mock("@/lib/clipboard", () => ({ writeClipboard: vi.fn(async () => true) }));
 vi.mock("@/lib/toast", () => ({ toastClipboard: vi.fn() }));
@@ -252,8 +261,11 @@ describe("CommandDetailView", () => {
     render(<CommandDetailView item={cmd()} />);
     expect(screen.getByRole("heading", { name: "Status" })).toBeInTheDocument();
     await waitFor(() =>
-      expect(screen.getByText("highlighted")).toBeInTheDocument(),
+      expect(screen.getByText("git status")).toBeInTheDocument(),
     );
+    expect(
+      screen.getByRole("button", { name: "Copy line 1" }),
+    ).toBeInTheDocument();
   });
 });
 

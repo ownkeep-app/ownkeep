@@ -179,10 +179,7 @@ describe("TodosListView", () => {
     await user.click(
       screen.getByRole("button", { name: "Priority for Renew passport" }),
     );
-    await user.selectOptions(
-      screen.getByLabelText("Priority for Renew passport"),
-      "low",
-    );
+    await user.click(screen.getByRole("menuitemradio", { name: "Low" }));
     expect(saveTodo).toHaveBeenCalledWith(
       expect.objectContaining({ id: "todo-1", priority: "low" }),
     );
@@ -190,10 +187,7 @@ describe("TodosListView", () => {
     await user.click(
       screen.getByRole("button", { name: "Category for Renew passport" }),
     );
-    await user.selectOptions(
-      screen.getByLabelText("Category for Renew passport"),
-      "Work",
-    );
+    await user.click(screen.getByRole("menuitemradio", { name: "Work" }));
     expect(saveTodo).toHaveBeenCalledWith(
       expect.objectContaining({ id: "todo-1", category: "Work" }),
     );
