@@ -33,8 +33,8 @@ export function Checkbox({
       aria-checked={checked}
       disabled={disabled}
       className={cn(
-        "inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-[3px] border border-input bg-background text-primary-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50",
-        checked ? "border-primary bg-primary" : "bg-background",
+        "inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-[3px] border border-input bg-card text-primary-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50",
+        checked ? "border-primary bg-primary" : "bg-card",
         className,
       )}
       {...rest}

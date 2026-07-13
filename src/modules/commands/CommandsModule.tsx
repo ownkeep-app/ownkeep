@@ -3,6 +3,11 @@ import { type FormEvent, type ReactNode, useMemo, useState } from "react";
 import { Copy, Eye, Pencil, Plus, Trash2 } from "lucide-react";
 
 import { CategorySelect } from "@/components/category-select";
+import {
+  CategoryFilterSelect,
+  categoryFilterOptions,
+} from "@/components/category-filter-select";
+import { ConfirmDeleteDialog } from "@/components/ConfirmDeleteDialog";
 import { DetailModal } from "@/components/DetailModal";
 import {
   DetailField,
@@ -14,6 +19,8 @@ import {
 import { EmptyState } from "@/components/EmptyState";
 import { ItemFormShell } from "@/components/ItemFormShell";
 import { LanguageSelect } from "@/components/language-select";
+import { ClearFiltersButton } from "@/components/ClearFiltersButton";
+import { ListItemTitle } from "@/components/ListItemTitle";
 import { RowActionsMenu } from "@/components/RowActionsMenu";
 import { snippetLanguageLabel } from "@/components/snippet-languages";
 import { TagMultiSelect } from "@/components/tag-multi-select";
@@ -22,6 +29,7 @@ import { Input } from "@/components/ui/input";
 import { writeClipboard } from "@/lib/clipboard";
 import { toastClipboard } from "@/lib/toast";
 import { cn } from "@/lib/utils";
+import { useClearFiltersOnEscape } from "@/hooks/use-clear-filters-on-escape";
 import { useTaxonomySettings } from "@/hooks/use-taxonomy-settings";
 import type { ListViewProps } from "@/modules/types";
 import { useVaultStore } from "@/stores/vault-store";
@@ -42,23 +50,55 @@ import type { CommandEntry, CommandFormInput } from "./types";
 export function CommandsListView({ items }: ListViewProps<CommandEntry>) {
   const saveCommand = useVaultStore((s) => s.saveCommand);
   const deleteCommand = useVaultStore((s) => s.deleteCommand);
+  const { categoryOptions } = useTaxonomySettings();
   const [query, setQuery] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState("");
   const [viewing, setViewing] = useState<CommandEntry | null>(null);
   const [editing, setEditing] = useState<CommandEntry | null | undefined>();
   const [copying, setCopying] = useState<CommandEntry | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
 
   const commands = useMemo(() => commandEntries(items), [items]);
+  const filterCategories = useMemo(
+    () =>
+      categoryFilterOptions(
+        categoryOptions,
+        commands.map((item) => item.category),
+      ),
+    [categoryOptions, commands],
+  );
+  const filtersActive = Boolean(query.trim()) || Boolean(categoryFilter);
+  useClearFiltersOnEscape(filtersActive, () => {
+    setQuery("");
+    setCategoryFilter("");
+  });
   const filtered = useMemo(() => {
     const term = query.trim().toLowerCase();
-    if (!term) return commands;
-    return commands.filter((item) =>
+    const byCategory = categoryFilter
+      ? commands.filter((item) => item.category === categoryFilter)
+      : commands;
+    if (!term) return byCategory;
+    return byCategory.filter((item) =>
       [item.title, item.category, item.description, item.primaryCopyTemplate]
         .join(" ")
         .toLowerCase()
         .includes(term),
     );
-  }, [commands, query]);
+  }, [commands, query, categoryFilter]);
   const groups = useMemo(() => groupByCategory(filtered), [filtered]);
+  const indexedGroups = useMemo(() => {
+    let next = 0;
+    return groups.map((group) => ({
+      category: group.category,
+      commands: group.commands.map((command) => ({
+        command,
+        index: ++next,
+      })),
+    }));
+  }, [groups]);
 
   const startCreate = () => setEditing(null);
 
@@ -71,6 +111,7 @@ export function CommandsListView({ items }: ListViewProps<CommandEntry>) {
   async function handleDelete(id: string) {
     await deleteCommand(id);
     if (viewing?.id === id) setViewing(null);
+    setPendingDelete(null);
   }
 
   async function copyText(text: string, note: string) {
@@ -113,16 +154,30 @@ export function CommandsListView({ items }: ListViewProps<CommandEntry>) {
       </header>
 
       <div className="flex min-h-0 flex-1 flex-col">
-        <div className="border-b border-border p-4">
+        <div className="flex flex-col gap-3 border-b border-border p-4 sm:flex-row sm:items-center">
+          <CategoryFilterSelect
+            onChange={setCategoryFilter}
+            options={filterCategories}
+            value={categoryFilter}
+          />
           <Input
             aria-label="Filter commands"
+            className="min-w-0 flex-1"
             onChange={(event) => setQuery(event.target.value)}
             placeholder="Filter commands"
             value={query}
           />
+          {filtersActive ? (
+            <ClearFiltersButton
+              onClear={() => {
+                setQuery("");
+                setCategoryFilter("");
+              }}
+            />
+          ) : null}
         </div>
 
-        {groups.length === 0 ? (
+        {indexedGroups.length === 0 ? (
           query.trim() ? (
             <EmptyState
               title="No matches"
@@ -142,24 +197,33 @@ export function CommandsListView({ items }: ListViewProps<CommandEntry>) {
           )
         ) : (
           <div className="min-h-0 flex-1 overflow-auto p-4">
-            {groups.map((group) => (
+            {indexedGroups.map((group) => (
               <section className="mb-6" key={group.category}>
                 <h2 className="mb-2 text-xs font-medium uppercase text-muted-foreground">
                   {group.category}
                 </h2>
                 <ul className="space-y-3">
-                  {group.commands.map((command) => {
+                  {group.commands.map(({ command, index }) => {
                     const snippet = command.snippets[0];
                     return (
                       <li
-                        className="rounded-md border border-border p-3 hover:bg-accent/40"
+                        className="rounded-md border border-border bg-card p-3 hover:bg-accent/40"
                         key={command.id}
                       >
                         <div className="flex items-start gap-2">
+                          <span
+                            aria-hidden="true"
+                            className="w-6 shrink-0 pt-0.5 text-center text-sm tabular-nums text-muted-foreground"
+                          >
+                            {index}
+                          </span>
                           <div className="min-w-0 flex-1">
-                            <p className="text-sm font-medium">
+                            <ListItemTitle
+                              className="text-sm"
+                              onOpen={() => setViewing(command)}
+                            >
                               {command.title}
-                            </p>
+                            </ListItemTitle>
                             {command.description && (
                               <p className="mt-0.5 text-sm text-muted-foreground">
                                 {command.description}
@@ -174,7 +238,16 @@ export function CommandsListView({ items }: ListViewProps<CommandEntry>) {
                               </div>
                             )}
                           </div>
-                          <div className="shrink-0">
+                          <div className="flex shrink-0 items-center gap-1">
+                            <Button
+                              aria-label={`Copy ${command.title}`}
+                              onClick={() => startCopy(command)}
+                              size="icon"
+                              type="button"
+                              variant="ghost"
+                            >
+                              <Copy className="h-4 w-4" />
+                            </Button>
                             <RowActionsMenu
                               label={`Actions for ${command.title}`}
                               actions={[
@@ -182,11 +255,6 @@ export function CommandsListView({ items }: ListViewProps<CommandEntry>) {
                                   label: "View",
                                   icon: <Eye className="h-4 w-4" />,
                                   onSelect: () => setViewing(command),
-                                },
-                                {
-                                  label: "Copy",
-                                  icon: <Copy className="h-4 w-4" />,
-                                  onSelect: () => startCopy(command),
                                 },
                                 {
                                   label: "Edit",
@@ -197,7 +265,11 @@ export function CommandsListView({ items }: ListViewProps<CommandEntry>) {
                                   label: "Delete",
                                   icon: <Trash2 className="h-4 w-4" />,
                                   destructive: true,
-                                  onSelect: () => void handleDelete(command.id),
+                                  onSelect: () =>
+                                    setPendingDelete({
+                                      id: command.id,
+                                      name: command.title,
+                                    }),
                                 },
                               ]}
                             />
@@ -236,7 +308,12 @@ export function CommandsListView({ items }: ListViewProps<CommandEntry>) {
                   Edit
                 </Button>
                 <Button
-                  onClick={() => void handleDelete(viewing.id)}
+                  onClick={() =>
+                    setPendingDelete({
+                      id: viewing.id,
+                      name: viewing.title,
+                    })
+                  }
                   type="button"
                   variant="outline"
                 >
@@ -252,6 +329,15 @@ export function CommandsListView({ items }: ListViewProps<CommandEntry>) {
         >
           {viewing && <CommandDetailView item={viewing} />}
         </DetailModal>
+
+        <ConfirmDeleteDialog
+          itemName={pendingDelete?.name ?? ""}
+          onCancel={() => setPendingDelete(null)}
+          onConfirm={() => {
+            if (pendingDelete) void handleDelete(pendingDelete.id);
+          }}
+          open={pendingDelete !== null}
+        />
 
         <DetailModal
           onClose={() => setCopying(null)}
@@ -401,7 +487,7 @@ export function CommandEditView({
       <Field className="col-span-2" label="Command (use {{name}} placeholders)">
         <textarea
           aria-label="Command code"
-          className="min-h-24 rounded-md border border-input bg-transparent px-3 py-2 font-mono text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+          className="min-h-24 rounded-md border border-input bg-card px-3 py-2 font-mono text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
           onChange={(event) => update("code", event.target.value)}
           value={form.code}
         />
@@ -412,7 +498,7 @@ export function CommandEditView({
       >
         <textarea
           aria-label="Command arguments"
-          className="min-h-16 rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+          className="min-h-16 rounded-md border border-input bg-card px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
           onChange={(event) => update("argumentsText", event.target.value)}
           value={form.argumentsText}
         />

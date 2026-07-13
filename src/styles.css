@@ -4,14 +4,15 @@
 
 @layer base {
   :root {
-    /* Color Hunt periwinkle mist: #EEF2FF #DFE6F9 #C9D4F0 #A5B4D4
+    /* Color Hunt periwinkle mist page chrome: #EEF2FF #DFE6F9 #C9D4F0 #A5B4D4
        https://colorhunt.co/palette/eef2ffdfe6f9c9d4f0a5b4d4
-       Ink text #1A1A2E bridges the dark midnight navy theme. */
+       Ink text #1A1A2E bridges the dark midnight navy theme.
+       Cards, popovers, form controls, and list rows use white so surfaces read clearly. */
     --background: 226 100% 96.7%;
     --foreground: 240 28% 14%;
-    --card: 231 100% 98.6%;
+    --card: 0 0% 100%;
     --card-foreground: 240 28% 14%;
-    --popover: 231 100% 98.6%;
+    --popover: 0 0% 100%;
     --popover-foreground: 240 28% 14%;
     --primary: 234 100% 67.8%;
     --primary-foreground: 0 0% 100%;

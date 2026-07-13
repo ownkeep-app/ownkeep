@@ -2,8 +2,13 @@ import { describe, expect, it } from "vitest";
 
 import {
   buildPasswordIndex,
+  classifyGeneratedPasswordChar,
   createPasswordEntry,
   emptyPasswordForm,
+  GENERATED_PASSWORD_CHARSET,
+  GENERATED_PASSWORD_LENGTH,
+  GENERATED_PASSWORD_SPECIALS,
+  generateSecurePassword,
   isPasswordEntry,
   passwordEntries,
   updatePasswordEntry,
@@ -117,5 +122,66 @@ describe("password module logic", () => {
     expect(
       validatePasswordInput({ ...emptyPasswordForm(), name: "GitHub" }, "edit"),
     ).toBeNull();
+  });
+
+  it("generates passwords with required classes interleaved", () => {
+    let next = 0;
+    const randomBytes = (size: number) =>
+      Uint8Array.from({ length: size }, () => (next++ * 17) % 256);
+
+    for (let i = 0; i < 20; i += 1) {
+      const password = generateSecurePassword(
+        GENERATED_PASSWORD_LENGTH,
+        randomBytes,
+      );
+      expect(password).toHaveLength(GENERATED_PASSWORD_LENGTH);
+      expect(
+        [...password].every((ch) => GENERATED_PASSWORD_CHARSET.includes(ch)),
+      ).toBe(true);
+
+      const classes = [...password].map((ch) =>
+        classifyGeneratedPasswordChar(ch),
+      );
+      expect(classes.every((c) => c !== null)).toBe(true);
+      expect(classes.filter((c) => c === "digit").length).toBeGreaterThanOrEqual(
+        1,
+      );
+      expect(classes.filter((c) => c === "lower").length).toBeGreaterThanOrEqual(
+        1,
+      );
+      expect(classes.filter((c) => c === "upper").length).toBeGreaterThanOrEqual(
+        1,
+      );
+      expect(
+        classes.filter((c) => c === "special").length,
+      ).toBeGreaterThanOrEqual(2);
+
+      for (let j = 1; j < classes.length; j += 1) {
+        expect(classes[j]).not.toBe(classes[j - 1]);
+      }
+    }
+
+    expect(generateSecurePassword(0)).toBe("");
+  });
+
+  it("rejects biased high bytes when sampling a character set", () => {
+    // Drive generation with bytes that skip a rejectable value, then land on index 3
+    // of the specials set during later picks — composition still holds.
+    const specialsLen = GENERATED_PASSWORD_SPECIALS.length;
+    const acceptBelow = 256 - (256 % specialsLen);
+    let calls = 0;
+    const password = generateSecurePassword(5, (size) => {
+      calls += 1;
+      return Uint8Array.from({ length: size }, (_, i) => {
+        // Mix usable low bytes so class picks and char picks succeed.
+        if (i === 0 && calls === 1) return acceptBelow; // rejected for some picks
+        return (i * 3) % 200;
+      });
+    });
+    expect(password).toHaveLength(5);
+    expect(
+      [...password].filter((ch) => GENERATED_PASSWORD_SPECIALS.includes(ch))
+        .length,
+    ).toBeGreaterThanOrEqual(2);
   });
 });

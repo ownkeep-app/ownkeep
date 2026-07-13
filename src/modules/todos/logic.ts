@@ -1,10 +1,9 @@
-import dayjs from "dayjs";
-
 import {
   dateTimeInputToIso,
   formatDateTime,
   isoToDateTimeInput,
 } from "@/lib/date";
+import { calendarDueStatus, type DueStatus } from "@/lib/due-status";
 import type { ReminderEvent, IndexEntry } from "@/modules/types";
 import type { VaultSettings } from "@/vault/model";
 import { defaultCategory, type TaxonomySettings } from "@/vault/taxonomy";
@@ -20,38 +19,23 @@ import {
 } from "./types";
 
 export { dateTimeInputToIso, formatDateTime, isoToDateTimeInput };
+export type { DueStatus as TodoDueStatus };
+export type { DueStatusKind as TodoDueStatusKind } from "@/lib/due-status";
 
 const MINUTE_MS = 60_000;
 const DAY_MS = 86_400_000;
 
-/** Calendar-day due urgency for an open todo (null when done, undated, or invalid). */
-export type TodoDueStatusKind = "overdue" | "today" | "upcoming";
-
-export interface TodoDueStatus {
-  kind: TodoDueStatusKind;
-  label: string;
-}
-
 /**
  * Relative due badge for an open todo: Overdue / Due today / Due in N days.
- * Compares calendar days in the local timezone (not wall-clock hours).
+ * Hidden when the todo is done.
  */
 export function todoDueStatus(
   dueAt: string | null,
   done = false,
   now: string | Date = new Date(),
-): TodoDueStatus | null {
-  if (done || !dueAt) return null;
-  const due = dayjs(dueAt);
-  if (!due.isValid()) return null;
-
-  const days = due.startOf("day").diff(dayjs(now).startOf("day"), "day");
-  if (days < 0) return { kind: "overdue", label: "Overdue" };
-  if (days === 0) return { kind: "today", label: "Due today" };
-  return {
-    kind: "upcoming",
-    label: days === 1 ? "Due in 1 day" : `Due in ${days} days`,
-  };
+): DueStatus | null {
+  if (done) return null;
+  return calendarDueStatus(dueAt, now);
 }
 
 export function isTodoPriority(value: unknown): value is TodoPriority {

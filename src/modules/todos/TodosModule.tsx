@@ -15,8 +15,14 @@ import {
 } from "lucide-react";
 
 import { CategorySelect } from "@/components/category-select";
+import {
+  CategoryFilterSelect,
+  categoryFilterOptions,
+} from "@/components/category-filter-select";
+import { ConfirmDeleteDialog } from "@/components/ConfirmDeleteDialog";
 import { DateTimePicker } from "@/components/date-time-picker";
 import { DetailModal } from "@/components/DetailModal";
+import { DueStatusBadge } from "@/components/DueStatusBadge";
 import {
   DetailField,
   DetailFields,
@@ -26,6 +32,9 @@ import {
 } from "@/components/detail-fields";
 import { EmptyState } from "@/components/EmptyState";
 import { ItemFormShell } from "@/components/ItemFormShell";
+import { ClearFiltersButton } from "@/components/ClearFiltersButton";
+import { InlineSelect } from "@/components/inline-select";
+import { ListItemTitle } from "@/components/ListItemTitle";
 import { RowActionsMenu } from "@/components/RowActionsMenu";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -33,6 +42,8 @@ import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import {
   ActionsTableHead,
+  IndexTableCell,
+  IndexTableHead,
   SortableTableHead,
 } from "@/components/ui/sortable-table-head";
 import {
@@ -53,20 +64,20 @@ import {
   type SortValue,
 } from "@/lib/table-sort";
 import { cn } from "@/lib/utils";
+import { useClearFiltersOnEscape } from "@/hooks/use-clear-filters-on-escape";
 import { useTaxonomySettings } from "@/hooks/use-taxonomy-settings";
 import type { ListViewProps } from "@/modules/types";
 import { useVaultStore } from "@/stores/vault-store";
+import { DEFAULT_CATEGORY, optionsWithExtras } from "@/vault/taxonomy";
 import {
   createTodoEntry,
   emptyTodoForm,
   formatDateTime,
   formFromTodo,
   sortTodos,
-  todoDueStatus,
   todoEntries,
   updateTodoEntry,
   validateTodoInput,
-  type TodoDueStatus,
 } from "./logic";
 import {
   TODO_PRIORITIES,
@@ -91,16 +102,30 @@ export function TodosListView({
   const saveTodo = useVaultStore((s) => s.saveTodo);
   const deleteTodo = useVaultStore((s) => s.deleteTodo);
   const toggleTodoDone = useVaultStore((s) => s.toggleTodoDone);
+  const { categoryOptions } = useTaxonomySettings();
   const [query, setQuery] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState<TodoStatusFilter>("undone");
   const [viewing, setViewing] = useState<TodoEntry | null>(null);
   const [editing, setEditing] = useState<TodoEntry | null | undefined>();
+  const [pendingDelete, setPendingDelete] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
   const [sortState, setSortState] = useState<SortState<TodoSortColumn> | null>({
     column: "due",
     direction: "asc",
   });
 
   const todos = useMemo(() => todoEntries(items), [items]);
+  const filterCategories = useMemo(
+    () =>
+      categoryFilterOptions(
+        categoryOptions,
+        todos.map((item) => item.category),
+      ),
+    [categoryOptions, todos],
+  );
   const filtered = useMemo(() => {
     const term = query.trim().toLowerCase();
     const sorted = sortTodos(todos);
@@ -110,8 +135,11 @@ export function TodosListView({
         : sorted.filter((item) =>
             statusFilter === "done" ? item.done : !item.done,
           );
+    const byCategory = categoryFilter
+      ? byStatus.filter((item) => item.category === categoryFilter)
+      : byStatus;
     const visible = term
-      ? byStatus.filter((item) =>
+      ? byCategory.filter((item) =>
           [
             item.title,
             item.notes,
@@ -123,14 +151,23 @@ export function TodosListView({
             .toLowerCase()
             .includes(term),
         )
-      : byStatus;
+      : byCategory;
     return sortState
       ? stableSortBy(visible, sortState, todoSortValue)
       : visible;
-  }, [todos, query, sortState, statusFilter]);
+  }, [todos, query, categoryFilter, sortState, statusFilter]);
   const handleSort = (column: TodoSortColumn) =>
     setSortState((current) => nextSortState(current, column));
   const openCount = todos.filter((item) => !item.done).length;
+  const filtersActive =
+    Boolean(query.trim()) ||
+    Boolean(categoryFilter) ||
+    statusFilter !== "undone";
+  useClearFiltersOnEscape(filtersActive, () => {
+    setQuery("");
+    setCategoryFilter("");
+    setStatusFilter("undone");
+  });
 
   useEffect(() => {
     if (!focusItemId) return;
@@ -148,9 +185,33 @@ export function TodosListView({
     setEditing(undefined);
   }
 
+  async function handlePriorityChange(
+    item: TodoEntry,
+    priority: TodoEntry["priority"],
+  ) {
+    const updated = {
+      ...item,
+      priority,
+      updatedAt: new Date().toISOString(),
+    };
+    await saveTodo(updated);
+    setViewing((current) => (current?.id === item.id ? updated : current));
+  }
+
+  async function handleCategoryChange(item: TodoEntry, category: string) {
+    const updated = {
+      ...item,
+      category,
+      updatedAt: new Date().toISOString(),
+    };
+    await saveTodo(updated);
+    setViewing((current) => (current?.id === item.id ? updated : current));
+  }
+
   async function handleDelete(id: string) {
     await deleteTodo(id);
     if (viewing?.id === id) setViewing(null);
+    setPendingDelete(null);
   }
 
   async function handleToggle(id: string, done: boolean) {
@@ -221,6 +282,11 @@ export function TodosListView({
             options={TODO_STATUS_FILTERS}
             value={statusFilter}
           />
+          <CategoryFilterSelect
+            onChange={setCategoryFilter}
+            options={filterCategories}
+            value={categoryFilter}
+          />
           <label className="relative block min-w-0 flex-1">
             <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input
@@ -231,6 +297,15 @@ export function TodosListView({
               value={query}
             />
           </label>
+          {filtersActive ? (
+            <ClearFiltersButton
+              onClear={() => {
+                setQuery("");
+                setCategoryFilter("");
+                setStatusFilter("undone");
+              }}
+            />
+          ) : null}
         </div>
 
         {filtered.length === 0 ? (
@@ -262,6 +337,7 @@ export function TodosListView({
           <Table className="table-fixed" wrapperClassName="min-h-0 flex-1">
             <TableHeader className="sticky top-0 bg-background text-xs uppercase text-muted-foreground">
               <TableRow>
+                <IndexTableHead />
                 <SortableTableHead
                   className="w-14 px-4"
                   column="done"
@@ -301,11 +377,12 @@ export function TodosListView({
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filtered.map((item) => (
+              {filtered.map((item, index) => (
                 <TableRow
                   className="border-b border-border hover:bg-accent/40"
                   key={item.id}
                 >
+                  <IndexTableCell index={index + 1} />
                   <TableCell className="px-4 py-3">
                     <Checkbox
                       aria-label={`Toggle ${item.title}`}
@@ -315,14 +392,17 @@ export function TodosListView({
                       }
                     />
                   </TableCell>
-                  <TableCell
-                    className={
-                      item.done
-                        ? "truncate px-4 py-3 text-muted-foreground line-through"
-                        : "truncate px-4 py-3 font-medium"
-                    }
-                  >
-                    {item.title}
+                  <TableCell className="truncate px-4 py-3">
+                    <ListItemTitle
+                      className={
+                        item.done
+                          ? "truncate text-muted-foreground line-through"
+                          : "truncate"
+                      }
+                      onOpen={() => setViewing(item)}
+                    >
+                      {item.title}
+                    </ListItemTitle>
                   </TableCell>
                   <TableCell className="px-4 py-3">
                     {item.done || !item.dueAt ? (
@@ -330,14 +410,40 @@ export function TodosListView({
                         {formatDateTime(item.dueAt)}
                       </span>
                     ) : (
-                      <DueStatusBadge done={item.done} dueAt={item.dueAt} />
+                      <DueStatusBadge dueAt={item.dueAt} />
                     )}
                   </TableCell>
                   <TableCell className="px-4 py-3">
-                    <PriorityPill priority={item.priority} />
+                    <InlineSelect
+                      aria-label={`Priority for ${item.title}`}
+                      display={<PriorityPill priority={item.priority} />}
+                      onChange={(priority) =>
+                        void handlePriorityChange(
+                          item,
+                          priority as TodoEntry["priority"],
+                        )
+                      }
+                      options={TODO_PRIORITIES.map((priority) => ({
+                        value: priority,
+                        label: priority[0].toUpperCase() + priority.slice(1),
+                      }))}
+                      value={item.priority}
+                    />
                   </TableCell>
                   <TableCell className="truncate px-4 py-3 text-muted-foreground">
-                    {item.category || "-"}
+                    <InlineSelect
+                      aria-label={`Category for ${item.title}`}
+                      className="truncate text-muted-foreground"
+                      display={item.category || "-"}
+                      onChange={(category) =>
+                        void handleCategoryChange(item, category)
+                      }
+                      options={optionsWithExtras(
+                        categoryOptions,
+                        item.category,
+                      )}
+                      value={item.category || DEFAULT_CATEGORY}
+                    />
                   </TableCell>
                   <TableCell className="px-2 py-2">
                     <div className="flex items-center justify-end gap-1">
@@ -370,7 +476,11 @@ export function TodosListView({
                             label: "Delete",
                             icon: <Trash2 className="h-4 w-4" />,
                             destructive: true,
-                            onSelect: () => void handleDelete(item.id),
+                            onSelect: () =>
+                              setPendingDelete({
+                                id: item.id,
+                                name: item.title,
+                              }),
                           },
                         ]}
                       />
@@ -405,7 +515,12 @@ export function TodosListView({
                   Edit
                 </Button>
                 <Button
-                  onClick={() => void handleDelete(viewing.id)}
+                  onClick={() =>
+                    setPendingDelete({
+                      id: viewing.id,
+                      name: viewing.title,
+                    })
+                  }
                   type="button"
                   variant="outline"
                 >
@@ -421,6 +536,15 @@ export function TodosListView({
         >
           {viewing && <TodoDetailView item={viewing} />}
         </DetailModal>
+
+        <ConfirmDeleteDialog
+          itemName={pendingDelete?.name ?? ""}
+          onCancel={() => setPendingDelete(null)}
+          onConfirm={() => {
+            if (pendingDelete) void handleDelete(pendingDelete.id);
+          }}
+          open={pendingDelete !== null}
+        />
       </div>
     </div>
   );
@@ -461,7 +585,7 @@ export function TodoDetailView({ item }: { item: TodoEntry }) {
         <DetailField label="Due">
           <div className="mt-1 flex flex-wrap items-center gap-2 text-sm">
             <span>{formatDateTime(item.dueAt)}</span>
-            <DueStatusBadge done={item.done} dueAt={item.dueAt} />
+            <DueStatusBadge dueAt={item.dueAt} inactive={item.done} />
           </div>
         </DetailField>
         <DetailField
@@ -606,7 +730,7 @@ export function TodoEditView({
         Notes
         <textarea
           aria-label="Todo notes"
-          className="min-h-24 w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="min-h-24 w-full rounded-md border border-input bg-card px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
           onChange={(event) => update("notes", event.target.value)}
           value={form.notes}
         />
@@ -642,35 +766,6 @@ function PriorityPill({ priority }: { priority: TodoEntry["priority"] }) {
     >
       <Icon aria-hidden className="size-3 shrink-0" />
       {label}
-    </span>
-  );
-}
-
-const DUE_STATUS_BADGE_CLASS: Record<TodoDueStatus["kind"], string> = {
-  overdue:
-    "bg-rose-500/15 text-rose-700 dark:bg-rose-400/20 dark:text-rose-300",
-  today:
-    "bg-amber-500/20 text-amber-800 dark:bg-amber-400/20 dark:text-amber-200",
-  upcoming: "bg-sky-500/15 text-sky-800 dark:bg-sky-400/20 dark:text-sky-200",
-};
-
-function DueStatusBadge({
-  dueAt,
-  done,
-}: {
-  dueAt: string | null;
-  done: boolean;
-}) {
-  const status = todoDueStatus(dueAt, done);
-  if (!status) return null;
-  return (
-    <span
-      className={cn(
-        "inline-flex w-fit rounded-sm px-2 py-0.5 text-xs font-medium",
-        DUE_STATUS_BADGE_CLASS[status.kind],
-      )}
-    >
-      {status.label}
     </span>
   );
 }

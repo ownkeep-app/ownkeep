@@ -1,8 +1,9 @@
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import dayjs from "dayjs";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { chooseRowAction } from "@/test/row-actions";
+import { chooseRowAction, confirmDelete } from "@/test/row-actions";
 import { pickDate } from "@/test/date-picker";
 import { useVaultStore } from "@/stores/vault-store";
 import { createDefaultModel } from "@/vault/model";
@@ -11,6 +12,11 @@ import {
   SubscriptionsListView,
 } from "./SubscriptionsModule";
 import type { SubscriptionEntry } from "./types";
+
+const openUrl = vi.fn(async (_url: string) => {});
+vi.mock("@tauri-apps/plugin-opener", () => ({
+  openUrl: (url: string) => openUrl(url),
+}));
 
 const actions = {
   saveSubscription: useVaultStore.getState().saveSubscription,
@@ -78,6 +84,59 @@ describe("SubscriptionsListView", () => {
     await user.type(screen.getByLabelText("Filter subscriptions"), "design");
     expect(screen.getAllByText("Figma")[0]).toBeVisible();
     expect(screen.queryByText("Linode")).not.toBeInTheDocument();
+  });
+
+  it("edits cycle and renew inline from the list", async () => {
+    const user = userEvent.setup();
+    render(<SubscriptionsListView items={[item]} />);
+
+    await user.click(screen.getByRole("button", { name: "Cycle for Linode" }));
+    await user.selectOptions(
+      screen.getByLabelText("Cycle for Linode"),
+      "yearly",
+    );
+    expect(saveSubscription).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: "sub-1",
+        cycle: "yearly",
+        customIntervalDays: null,
+      }),
+    );
+
+    await user.click(
+      screen.getByRole("button", { name: "Renewal for Linode" }),
+    );
+    await user.selectOptions(
+      screen.getByLabelText("Renewal for Linode"),
+      "manual",
+    );
+    expect(saveSubscription).toHaveBeenCalledWith(
+      expect.objectContaining({ id: "sub-1", autoRenew: false }),
+    );
+  });
+
+  it("opens billing URLs from the list link column for http(s) only", async () => {
+    const user = userEvent.setup();
+    render(
+      <SubscriptionsListView
+        items={[
+          item,
+          { ...item, id: "ftp", service: "FTP", url: "ftp://x" },
+          { ...item, id: "none", service: "None", url: "" },
+        ]}
+      />,
+    );
+
+    await user.click(
+      screen.getByRole("button", { name: /open billing url for linode/i }),
+    );
+    expect(openUrl).toHaveBeenCalledWith(item.url);
+    expect(
+      screen.queryByRole("button", { name: /open billing url for ftp/i }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /open billing url for none/i }),
+    ).not.toBeInTheDocument();
   });
 
   it("opens the requested subscription detail when focused by the shell", async () => {
@@ -162,7 +221,7 @@ describe("SubscriptionsListView", () => {
     expect(subscriptionRowServices()).toEqual(["Linode", "Apple", "Figma"]);
   });
 
-  it("shows converted summary totals when finance FX settings are enabled", () => {
+  it("groups native currency totals by billing period", () => {
     const base = createDefaultModel("2026-07-08T12:00:00.000Z");
     useVaultStore.setState({
       model: {
@@ -172,8 +231,8 @@ describe("SubscriptionsListView", () => {
           modules: {
             finance: {
               enabled: true,
-              baseCurrency: "USD",
-              fxRates: { SGD: 0.75 },
+              baseCurrency: "CNY",
+              fxRates: { USD: 7 },
             },
           },
         },
@@ -182,13 +241,29 @@ describe("SubscriptionsListView", () => {
 
     render(
       <SubscriptionsListView
-        items={[item, { ...item, id: "sub-2", currency: "SGD", amount: 30 }]}
+        items={[item, { ...item, id: "sub-2", currency: "CNY", amount: 30 }]}
       />,
     );
 
-    expect(
-      screen.getByText("USD 42.50 monthly / USD 510.00 annual"),
-    ).toBeVisible();
+    const monthlyTotals = screen.getByRole("region", {
+      name: "Monthly subscription totals",
+    });
+    expect(within(monthlyTotals).getByText("CNY")).toBeVisible();
+    expect(within(monthlyTotals).getByText("CNY 30.00")).toBeVisible();
+    expect(within(monthlyTotals).getByText("USD")).toBeVisible();
+    expect(within(monthlyTotals).getByText("USD 20.00")).toBeVisible();
+    expect(within(monthlyTotals).getByText("Base total")).toBeVisible();
+    expect(within(monthlyTotals).getByText("CNY 170.00")).toBeVisible();
+
+    const yearlyTotals = screen.getByRole("region", {
+      name: "Yearly subscription totals",
+    });
+    expect(within(yearlyTotals).getByText("CNY")).toBeVisible();
+    expect(within(yearlyTotals).getByText("CNY 360.00")).toBeVisible();
+    expect(within(yearlyTotals).getByText("USD")).toBeVisible();
+    expect(within(yearlyTotals).getByText("USD 240.00")).toBeVisible();
+    expect(within(yearlyTotals).getByText("Base total")).toBeVisible();
+    expect(within(yearlyTotals).getByText("CNY 2040.00")).toBeVisible();
   });
 
   it("creates a subscription entry from the edit form", async () => {
@@ -253,7 +328,7 @@ describe("SubscriptionsListView", () => {
     expect(screen.getByText(/service is required/i)).toBeVisible();
   });
 
-  it("edits, advances due date, and deletes through the store", async () => {
+  it("edits and deletes through the store", async () => {
     const user = userEvent.setup();
     render(<SubscriptionsListView items={[item]} />);
 
@@ -278,33 +353,17 @@ describe("SubscriptionsListView", () => {
       }),
     );
 
-    await chooseRowAction(user, "Linode", "Advance due date");
-    expect(saveSubscription).toHaveBeenLastCalledWith(
-      expect.objectContaining({
-        id: "sub-1",
-        nextDueDate: "2026-08-10T00:00:00.000Z",
-      }),
-    );
-
     await chooseRowAction(user, "Linode", "Delete");
+    await confirmDelete(user);
     expect(deleteSubscription).toHaveBeenCalledWith("sub-1");
   });
 
-  it("runs detail advance, edit, close, and delete actions", async () => {
+  it("runs detail edit, close, and delete actions", async () => {
     const user = userEvent.setup();
     render(<SubscriptionsListView items={[item]} />);
 
     await chooseRowAction(user, "Linode", "View");
     let dialog = screen.getByRole("dialog", { name: "Linode" });
-    await user.click(
-      within(dialog).getByRole("button", { name: /advance due date/i }),
-    );
-    expect(saveSubscription).toHaveBeenCalledWith(
-      expect.objectContaining({
-        id: "sub-1",
-        nextDueDate: "2026-08-10T00:00:00.000Z",
-      }),
-    );
 
     await user.click(within(dialog).getByRole("button", { name: "Edit" }));
     expect(
@@ -330,7 +389,40 @@ describe("SubscriptionsListView", () => {
     await chooseRowAction(user, "Linode", "View");
     dialog = screen.getByRole("dialog", { name: "Linode" });
     await user.click(within(dialog).getByRole("button", { name: "Delete" }));
+    await confirmDelete(user);
     expect(deleteSubscription).toHaveBeenCalledWith("sub-1");
+  });
+
+  it("shows a due-status badge for next due dates", () => {
+    const now = dayjs();
+    render(
+      <SubscriptionsListView
+        items={[
+          {
+            ...item,
+            id: "overdue",
+            service: "Overdue sub",
+            nextDueDate: now.subtract(2, "day").toISOString(),
+          },
+          {
+            ...item,
+            id: "today",
+            service: "Today sub",
+            nextDueDate: now.toISOString(),
+          },
+          {
+            ...item,
+            id: "soon",
+            service: "Soon sub",
+            nextDueDate: now.add(2, "day").toISOString(),
+          },
+        ]}
+      />,
+    );
+
+    expect(screen.getByText("Overdue")).toBeVisible();
+    expect(screen.getByText("Due today")).toBeVisible();
+    expect(screen.getByText("Due in 2 days")).toBeVisible();
   });
 
   it("renders detail fields", () => {
@@ -348,6 +440,7 @@ describe("SubscriptionsListView", () => {
     expect(screen.getByRole("heading", { name: "Linode" })).toBeVisible();
     expect(screen.getByText("Manual")).toBeVisible();
     expect(screen.getByText("Every 45 days")).toBeVisible();
+    expect(screen.getByText(/Due in|Due today|Overdue/)).toBeVisible();
   });
 });
 
@@ -355,5 +448,5 @@ function subscriptionRowServices(): string[] {
   return screen
     .getAllByRole("row")
     .slice(1)
-    .map((row) => within(row).getAllByRole("cell")[0].textContent ?? "");
+    .map((row) => within(row).getAllByRole("cell")[1].textContent ?? "");
 }

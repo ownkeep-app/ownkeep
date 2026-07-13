@@ -3,7 +3,6 @@ import { describe, expect, it, vi } from "vitest";
 import { runSchedulerTick } from "@/lib/scheduler";
 import { createDefaultModel } from "@/vault/model";
 import {
-  advanceNextDueDate,
   annualizedAmount,
   buildSubscriptionIndex,
   collectSubscriptionReminders,
@@ -201,25 +200,6 @@ describe("subscription module logic", () => {
         amount: "1",
       }),
     ).toMatch(/next due/i);
-  });
-
-  it("recomputes next due dates for each cycle", () => {
-    expect(advanceNextDueDate("2026-07-08T00:00:00.000Z", "weekly", null)).toBe(
-      "2026-07-15T00:00:00.000Z",
-    );
-    expect(
-      advanceNextDueDate("2026-01-31T00:00:00.000Z", "monthly", null),
-    ).toBe("2026-02-28T00:00:00.000Z");
-    expect(advanceNextDueDate("2024-02-29T00:00:00.000Z", "yearly", null)).toBe(
-      "2025-02-28T00:00:00.000Z",
-    );
-    expect(advanceNextDueDate("2026-07-08T00:00:00.000Z", "custom", 45)).toBe(
-      "2026-08-22T00:00:00.000Z",
-    );
-    expect(advanceNextDueDate("bad", "monthly", null)).toBeNull();
-    expect(
-      advanceNextDueDate("2026-07-08T00:00:00.000Z", "custom", null),
-    ).toBeNull();
   });
 
   it("calculates annualized and FX-converted summaries", () => {

@@ -1,7 +1,7 @@
 import { ArrowDownUp, ChevronDown, ChevronUp } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { TableHead } from "@/components/ui/table";
+import { TableCell, TableHead } from "@/components/ui/table";
 import type { SortState } from "@/lib/table-sort";
 import { cn } from "@/lib/utils";
 
@@ -44,8 +44,11 @@ export function SortableTableHead<Column extends string>({
       <Button
         aria-label={`Sort ${label} ${nextDirection}`}
         className={cn(
-          "-ml-2 h-7 whitespace-nowrap px-2 text-xs font-medium uppercase text-muted-foreground hover:text-foreground",
+          "-ml-2 h-7 whitespace-nowrap px-2 text-xs font-medium uppercase",
           align === "right" && "ml-auto -mr-2",
+          active
+            ? "bg-accent text-accent-foreground hover:bg-accent hover:text-accent-foreground"
+            : "text-muted-foreground hover:text-foreground",
         )}
         onClick={() => onSort(column)}
         size="sm"
@@ -62,6 +65,32 @@ export function SortableTableHead<Column extends string>({
         />
       </Button>
     </TableHead>
+  );
+}
+
+export function IndexTableHead({ className }: { className?: string }) {
+  return (
+    <TableHead
+      className={cn("w-10 px-1.5 text-center", className)}
+      scope="col"
+    >
+      <span className="sr-only">Row</span>
+      <span
+        aria-hidden="true"
+        className="text-xs font-medium uppercase text-muted-foreground"
+      >
+        #
+      </span>
+    </TableHead>
+  );
+}
+
+/** Display-only 1-based row index (not stored in the vault). */
+export function IndexTableCell({ index }: { index: number }) {
+  return (
+    <TableCell className="w-10 px-1.5 py-3 text-center tabular-nums text-muted-foreground">
+      {index}
+    </TableCell>
   );
 }
 

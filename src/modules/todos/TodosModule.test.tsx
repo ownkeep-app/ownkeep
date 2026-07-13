@@ -3,7 +3,7 @@ import userEvent from "@testing-library/user-event";
 import dayjs from "dayjs";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { chooseRowAction } from "@/test/row-actions";
+import { chooseRowAction, confirmDelete } from "@/test/row-actions";
 import { useVaultStore } from "@/stores/vault-store";
 import { TodoDetailView, TodosListView } from "./TodosModule";
 import type { TodoEntry } from "./types";
@@ -105,10 +105,19 @@ describe("TodosListView", () => {
     await user.click(screen.getByRole("radio", { name: "Done" }));
     expect(screen.queryByText("Renew passport")).not.toBeInTheDocument();
     expect(screen.getByText("Done task")).toBeVisible();
+    expect(
+      screen.getByRole("button", { name: "Clear Filters" }),
+    ).toBeVisible();
 
     await user.click(screen.getByRole("radio", { name: "All" }));
     expect(screen.getByText("Renew passport")).toBeVisible();
     expect(screen.getByText("Done task")).toBeVisible();
+
+    await user.click(screen.getByRole("button", { name: "Clear Filters" }));
+    expect(screen.getByRole("radio", { name: "Undone" })).toBeChecked();
+    expect(
+      screen.queryByRole("button", { name: "Clear Filters" }),
+    ).not.toBeInTheDocument();
   });
 
   it("shows an empty Done state when nothing is completed", async () => {
@@ -161,6 +170,33 @@ describe("TodosListView", () => {
 
     // Done rows are hidden by the default Undone filter, so no overdue badge for them.
     expect(screen.queryByText("Done task")).not.toBeInTheDocument();
+  });
+
+  it("edits priority and category inline from the list", async () => {
+    const user = userEvent.setup();
+    render(<TodosListView items={[item]} />);
+
+    await user.click(
+      screen.getByRole("button", { name: "Priority for Renew passport" }),
+    );
+    await user.selectOptions(
+      screen.getByLabelText("Priority for Renew passport"),
+      "low",
+    );
+    expect(saveTodo).toHaveBeenCalledWith(
+      expect.objectContaining({ id: "todo-1", priority: "low" }),
+    );
+
+    await user.click(
+      screen.getByRole("button", { name: "Category for Renew passport" }),
+    );
+    await user.selectOptions(
+      screen.getByLabelText("Category for Renew passport"),
+      "Work",
+    );
+    expect(saveTodo).toHaveBeenCalledWith(
+      expect.objectContaining({ id: "todo-1", category: "Work" }),
+    );
   });
 
   it("shows colorful priority badges in the list", () => {
@@ -300,6 +336,7 @@ describe("TodosListView", () => {
     await chooseRowAction(user, "Renew", "View");
     dialog = screen.getByRole("dialog", { name: "Renew passport" });
     await user.click(within(dialog).getByRole("button", { name: "Delete" }));
+    await confirmDelete(user);
     expect(deleteTodo).toHaveBeenCalledWith("todo-1");
   });
 
@@ -361,6 +398,7 @@ describe("TodosListView", () => {
     expect(toggleTodoDone).toHaveBeenCalledWith("todo-1");
 
     await chooseRowAction(user, "Renew", "Delete");
+    await confirmDelete(user);
     expect(deleteTodo).toHaveBeenCalledWith("todo-1");
   });
 });
@@ -369,5 +407,5 @@ function todoRowTitles(): string[] {
   return screen
     .getAllByRole("row")
     .slice(1)
-    .map((row) => within(row).getAllByRole("cell")[1].textContent ?? "");
+    .map((row) => within(row).getAllByRole("cell")[2].textContent ?? "");
 }

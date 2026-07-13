@@ -35,7 +35,10 @@ export function RowActionsMenu({
       }
     }
     function onKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") setOpen(false);
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+      event.stopPropagation();
+      setOpen(false);
     }
 
     document.addEventListener("mousedown", onPointerDown);

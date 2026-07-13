@@ -29,7 +29,7 @@ export function TagMultiSelect({
     <div
       aria-label={ariaLabel}
       className={cn(
-        "grid max-h-40 grid-cols-2 gap-x-3 gap-y-2 overflow-auto rounded-md border border-input bg-background p-3 sm:grid-cols-4",
+        "grid max-h-40 grid-cols-2 gap-x-3 gap-y-2 overflow-auto rounded-md border border-input bg-card p-3 sm:grid-cols-4",
         className,
       )}
       role="group"

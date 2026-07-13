@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { writeClipboard } from "@/lib/clipboard";
 import { toastClipboard, toastError, toastSecretCopied } from "@/lib/toast";
-import { chooseRowAction } from "@/test/row-actions";
+import { chooseRowAction, confirmDelete } from "@/test/row-actions";
 import { useVaultStore } from "@/stores/vault-store";
 import { PasswordsListView } from "./PasswordsModule";
 import type { PasswordEntry } from "./types";
@@ -79,6 +79,16 @@ describe("PasswordsListView", () => {
     expect(screen.getAllByText("sha")[0]).toBeVisible();
     expect(screen.queryByText("super-secret-value")).not.toBeInTheDocument();
     expect(screen.getAllByText("********")[0]).toBeVisible();
+    const dataRow = screen.getAllByRole("row")[1];
+    expect(within(dataRow).getAllByRole("cell")[0]).toHaveTextContent("1");
+  });
+
+  it("opens detail when the password name is clicked", async () => {
+    const user = userEvent.setup();
+    render(<PasswordsListView items={[item]} />);
+
+    await user.click(screen.getByRole("button", { name: "GitHub" }));
+    expect(screen.getByRole("dialog", { name: "GitHub" })).toBeVisible();
   });
 
   it("filters password rows by metadata", async () => {
@@ -102,6 +112,95 @@ describe("PasswordsListView", () => {
 
     expect(screen.getAllByText("Fastmail")[0]).toBeVisible();
     expect(screen.queryByText("GitHub")).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Clear Filters" }),
+    ).toBeVisible();
+
+    await user.click(screen.getByRole("button", { name: "Clear Filters" }));
+    expect(screen.getByLabelText(/filter passwords/i)).toHaveValue("");
+    expect(screen.getAllByText("GitHub")[0]).toBeVisible();
+    expect(
+      screen.queryByRole("button", { name: "Clear Filters" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("clears filters on Escape", async () => {
+    const user = userEvent.setup();
+    render(
+      <PasswordsListView
+        items={[
+          item,
+          {
+            ...item,
+            id: "mail",
+            name: "Fastmail",
+            username: "me@example.com",
+            category: "Work",
+          },
+        ]}
+      />,
+    );
+
+    await user.type(screen.getByLabelText(/filter passwords/i), "work");
+    expect(
+      screen.getByRole("button", { name: "Clear Filters" }),
+    ).toBeVisible();
+
+    await user.keyboard("{Escape}");
+    expect(screen.getByLabelText(/filter passwords/i)).toHaveValue("");
+    expect(screen.getByLabelText("Filter by category")).toHaveValue("");
+    expect(screen.getAllByText("GitHub")[0]).toBeVisible();
+    expect(
+      screen.queryByRole("button", { name: "Clear Filters" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("edits category inline from the list", async () => {
+    const user = userEvent.setup();
+    render(<PasswordsListView items={[item]} />);
+
+    await user.click(
+      screen.getByRole("button", { name: "Category for GitHub" }),
+    );
+    await user.selectOptions(
+      screen.getByLabelText("Category for GitHub"),
+      "Work",
+    );
+    expect(savePassword).toHaveBeenCalledWith(
+      expect.objectContaining({ id: "github", category: "Work" }),
+    );
+  });
+
+  it("filters password rows by category", async () => {
+    const user = userEvent.setup();
+    render(
+      <PasswordsListView
+        items={[
+          item,
+          {
+            ...item,
+            id: "mail",
+            name: "Fastmail",
+            username: "me@example.com",
+            category: "Work",
+          },
+        ]}
+      />,
+    );
+
+    await user.selectOptions(
+      screen.getByLabelText("Filter by category"),
+      "Work",
+    );
+    expect(screen.getAllByText("Fastmail")[0]).toBeVisible();
+    expect(screen.queryByText("GitHub")).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Clear Filters" }),
+    ).toBeVisible();
+
+    await user.click(screen.getByRole("button", { name: "Clear Filters" }));
+    expect(screen.getByLabelText("Filter by category")).toHaveValue("");
+    expect(screen.getAllByText("GitHub")[0]).toBeVisible();
   });
 
   it("sorts rows by clicked table headers", async () => {
@@ -266,6 +365,7 @@ describe("PasswordsListView", () => {
     await chooseRowAction(user, "GitHub", "View");
     dialog = screen.getByRole("dialog", { name: "GitHub" });
     await user.click(within(dialog).getByRole("button", { name: "Delete" }));
+    await confirmDelete(user);
     expect(deletePassword).toHaveBeenCalledWith("github");
   });
 
@@ -289,7 +389,13 @@ describe("PasswordsListView", () => {
 
   it("creates a password entry from the edit form", async () => {
     const user = userEvent.setup();
-    vi.stubGlobal("crypto", { randomUUID: () => "new-id" });
+    vi.stubGlobal("crypto", {
+      randomUUID: () => "new-id",
+      getRandomValues: (arr: Uint8Array) => {
+        for (let i = 0; i < arr.length; i += 1) arr[i] = i % 256;
+        return arr;
+      },
+    });
     render(<PasswordsListView items={[]} />);
 
     await user.click(screen.getByRole("button", { name: "New" }));
@@ -309,6 +415,52 @@ describe("PasswordsListView", () => {
         category: "Personal",
       }),
     );
+  });
+
+  it("fills the create form password with Generate", async () => {
+    const user = userEvent.setup();
+    vi.stubGlobal("crypto", {
+      randomUUID: () => "new-id",
+      getRandomValues: (arr: Uint8Array) => {
+        for (let i = 0; i < arr.length; i += 1) arr[i] = (i * 3) % 256;
+        return arr;
+      },
+    });
+    render(<PasswordsListView items={[]} />);
+
+    await user.click(screen.getByRole("button", { name: "New" }));
+    expect(screen.getByRole("button", { name: "Generate" })).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "Generate" }));
+
+    const passwordInput = screen.getByLabelText(
+      "Password value",
+    ) as HTMLInputElement;
+    expect(passwordInput.value).toHaveLength(16);
+    expect(clipboard.writeClipboard).toHaveBeenCalledWith(passwordInput.value);
+    await waitFor(() =>
+      expect(toasts.toastClipboard).toHaveBeenCalledWith(
+        true,
+        "Password generated and copied",
+      ),
+    );
+
+    await user.type(screen.getByLabelText("Password name"), "Generated");
+    await user.click(screen.getByRole("button", { name: "Save" }));
+    expect(savePassword).toHaveBeenCalledWith(
+      expect.objectContaining({
+        name: "Generated",
+        password: passwordInput.value,
+      }),
+    );
+  });
+
+  it("hides Generate when editing an existing password", async () => {
+    const user = userEvent.setup();
+    render(<PasswordsListView items={[item]} />);
+    await chooseRowAction(user, "GitHub", "Edit");
+    expect(
+      screen.queryByRole("button", { name: "Generate" }),
+    ).not.toBeInTheDocument();
   });
 
   it("shows a validation error and does not save when the form is invalid", async () => {
@@ -349,6 +501,7 @@ describe("PasswordsListView", () => {
     render(<PasswordsListView items={[item]} />);
 
     await chooseRowAction(user, "GitHub", "Delete");
+    await confirmDelete(user);
 
     expect(deletePassword).toHaveBeenCalledWith("github");
   });
@@ -415,5 +568,5 @@ function passwordRowNames(): string[] {
   return screen
     .getAllByRole("row")
     .slice(1)
-    .map((row) => within(row).getAllByRole("cell")[0].textContent ?? "");
+    .map((row) => within(row).getAllByRole("cell")[1].textContent ?? "");
 }

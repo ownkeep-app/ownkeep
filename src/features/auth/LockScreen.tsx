@@ -103,7 +103,7 @@ export function LockScreen() {
               aria-label="Recovery code"
               rows={3}
               disabled={loading}
-              className="rounded-md border border-border bg-transparent p-2 font-mono text-sm"
+              className="rounded-md border border-border bg-card p-2 font-mono text-sm"
               placeholder="Your 12-word recovery code"
               value={value}
               onChange={(e) => setValue(e.target.value)}

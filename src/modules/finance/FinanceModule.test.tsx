@@ -2,7 +2,7 @@ import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { chooseRowAction } from "@/test/row-actions";
+import { chooseRowAction, confirmDelete } from "@/test/row-actions";
 import { pickDate } from "@/test/date-picker";
 import { useVaultStore } from "@/stores/vault-store";
 import { createDefaultModel } from "@/vault/model";
@@ -163,6 +163,7 @@ describe("FinanceListView", () => {
     const user = userEvent.setup();
     render(<FinanceListView items={snapshots} />);
     await chooseRowAction(user, "snapshot Jul", "Delete");
+    await confirmDelete(user);
     expect(deleteSnapshot).toHaveBeenCalledWith("s2");
   });
 
@@ -184,6 +185,7 @@ describe("FinanceListView", () => {
     await chooseRowAction(user, "snapshot Jul 1, 2026", "View");
     dialog = screen.getByRole("dialog", { name: /jul 1, 2026/i });
     await user.click(within(dialog).getByRole("button", { name: "Delete" }));
+    await confirmDelete(user);
     expect(deleteSnapshot).toHaveBeenCalledWith("s2");
   });
 
@@ -289,5 +291,5 @@ function financeRowDates(): string[] {
   return screen
     .getAllByRole("row")
     .slice(1)
-    .map((row) => within(row).getAllByRole("cell")[0].textContent ?? "");
+    .map((row) => within(row).getAllByRole("cell")[1].textContent ?? "");
 }

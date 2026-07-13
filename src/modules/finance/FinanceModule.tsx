@@ -11,6 +11,7 @@ import {
   X,
 } from "lucide-react";
 
+import { ConfirmDeleteDialog } from "@/components/ConfirmDeleteDialog";
 import { DatePicker } from "@/components/date-picker";
 import { DetailModal } from "@/components/DetailModal";
 import {
@@ -21,12 +22,16 @@ import {
 } from "@/components/detail-fields";
 import { EmptyState } from "@/components/EmptyState";
 import { ItemFormShell } from "@/components/ItemFormShell";
+import { ClearFiltersButton } from "@/components/ClearFiltersButton";
+import { ListItemTitle } from "@/components/ListItemTitle";
 import { RowActionsMenu } from "@/components/RowActionsMenu";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { CurrencySelect, DEFAULT_CURRENCY } from "@/components/currency-select";
 import {
   ActionsTableHead,
+  IndexTableCell,
+  IndexTableHead,
   SortableTableHead,
 } from "@/components/ui/sortable-table-head";
 import {
@@ -42,6 +47,7 @@ import {
   type SortState,
   type SortValue,
 } from "@/lib/table-sort";
+import { useClearFiltersOnEscape } from "@/hooks/use-clear-filters-on-escape";
 import type { ListViewProps } from "@/modules/types";
 import { useVaultStore } from "@/stores/vault-store";
 import { defaultSettings } from "@/vault/model";
@@ -77,6 +83,10 @@ export function FinanceListView({ items }: ListViewProps<Snapshot>) {
   const [query, setQuery] = useState("");
   const [viewing, setViewing] = useState<Snapshot | null>(null);
   const [editing, setEditing] = useState<Snapshot | null | undefined>();
+  const [pendingDelete, setPendingDelete] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
   const [showFx, setShowFx] = useState(false);
   const [sortState, setSortState] =
     useState<SortState<FinanceSortColumn> | null>(null);
@@ -85,6 +95,8 @@ export function FinanceListView({ items }: ListViewProps<Snapshot>) {
   const fx = useMemo(() => readFinanceFx(settings), [settings]);
   const series = useMemo(() => netWorthSeries(snapshots, fx), [snapshots, fx]);
   const sorted = useMemo(() => sortSnapshots(snapshots), [snapshots]);
+  const filtersActive = Boolean(query.trim());
+  useClearFiltersOnEscape(filtersActive, () => setQuery(""));
   const filtered = useMemo(() => {
     const term = query.trim().toLowerCase();
     const visible = term
@@ -123,6 +135,7 @@ export function FinanceListView({ items }: ListViewProps<Snapshot>) {
   async function handleDelete(id: string) {
     await deleteSnapshot(id);
     if (viewing?.id === id) setViewing(null);
+    setPendingDelete(null);
   }
 
   if (editing !== undefined) {
@@ -169,8 +182,8 @@ export function FinanceListView({ items }: ListViewProps<Snapshot>) {
       <TrendChart currency={fx.baseCurrency} points={series} />
 
       <div className="flex min-h-0 flex-1 flex-col border-t border-border">
-        <div className="border-b border-border p-4">
-          <label className="relative block">
+        <div className="flex items-center gap-3 border-b border-border p-4">
+          <label className="relative block min-w-0 flex-1">
             <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input
               aria-label="Filter snapshots"
@@ -180,6 +193,9 @@ export function FinanceListView({ items }: ListViewProps<Snapshot>) {
               value={query}
             />
           </label>
+          {filtersActive ? (
+            <ClearFiltersButton onClear={() => setQuery("")} />
+          ) : null}
         </div>
 
         {filtered.length === 0 ? (
@@ -204,6 +220,7 @@ export function FinanceListView({ items }: ListViewProps<Snapshot>) {
           <Table className="table-fixed" wrapperClassName="min-h-0 flex-1">
             <TableHeader className="sticky top-0 bg-background text-xs uppercase text-muted-foreground">
               <TableRow>
+                <IndexTableHead />
                 <SortableTableHead
                   className="w-[22%] px-4"
                   column="date"
@@ -229,7 +246,7 @@ export function FinanceListView({ items }: ListViewProps<Snapshot>) {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filtered.map((snapshot) => {
+              {filtered.map((snapshot, index) => {
                 const stats = computeSnapshotStats(snapshot, fx);
                 const dateLabel = formatSnapshotDate(snapshot.date);
                 return (
@@ -237,8 +254,14 @@ export function FinanceListView({ items }: ListViewProps<Snapshot>) {
                     className="border-b border-border hover:bg-accent/40"
                     key={snapshot.id}
                   >
-                    <TableCell className="truncate px-4 py-3 font-medium">
-                      {dateLabel}
+                    <IndexTableCell index={index + 1} />
+                    <TableCell className="truncate px-4 py-3">
+                      <ListItemTitle
+                        className="truncate"
+                        onOpen={() => setViewing(snapshot)}
+                      >
+                        {dateLabel}
+                      </ListItemTitle>
                     </TableCell>
                     <TableCell className="truncate px-4 py-3 text-muted-foreground">
                       {formatMoney(stats.totalBase, fx.baseCurrency)}
@@ -269,7 +292,11 @@ export function FinanceListView({ items }: ListViewProps<Snapshot>) {
                             label: "Delete",
                             icon: <Trash2 className="h-4 w-4" />,
                             destructive: true,
-                            onSelect: () => void handleDelete(snapshot.id),
+                            onSelect: () =>
+                              setPendingDelete({
+                                id: snapshot.id,
+                                name: dateLabel,
+                              }),
                           },
                         ]}
                       />
@@ -297,7 +324,12 @@ export function FinanceListView({ items }: ListViewProps<Snapshot>) {
                   Edit
                 </Button>
                 <Button
-                  onClick={() => void handleDelete(viewing.id)}
+                  onClick={() =>
+                    setPendingDelete({
+                      id: viewing.id,
+                      name: formatSnapshotDate(viewing.date),
+                    })
+                  }
                   type="button"
                   variant="outline"
                 >
@@ -313,6 +345,15 @@ export function FinanceListView({ items }: ListViewProps<Snapshot>) {
         >
           {viewing && <FinanceDetailView fx={fx} snapshot={viewing} />}
         </DetailModal>
+
+        <ConfirmDeleteDialog
+          itemName={pendingDelete?.name ?? ""}
+          onCancel={() => setPendingDelete(null)}
+          onConfirm={() => {
+            if (pendingDelete) void handleDelete(pendingDelete.id);
+          }}
+          open={pendingDelete !== null}
+        />
       </div>
     </div>
   );

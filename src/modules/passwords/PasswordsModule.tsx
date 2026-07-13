@@ -10,7 +10,10 @@ import {
   Trash2,
 } from "lucide-react";
 
+import { CategoryFilterSelect, categoryFilterOptions } from "@/components/category-filter-select";
 import { CategorySelect } from "@/components/category-select";
+import { ConfirmDeleteDialog } from "@/components/ConfirmDeleteDialog";
+import { ClearFiltersButton } from "@/components/ClearFiltersButton";
 import { DetailModal } from "@/components/DetailModal";
 import {
   DetailField,
@@ -22,11 +25,15 @@ import {
 } from "@/components/detail-fields";
 import { EmptyState } from "@/components/EmptyState";
 import { ItemFormShell } from "@/components/ItemFormShell";
+import { InlineSelect } from "@/components/inline-select";
+import { ListItemTitle } from "@/components/ListItemTitle";
 import { RowActionsMenu } from "@/components/RowActionsMenu";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
   ActionsTableHead,
+  IndexTableCell,
+  IndexTableHead,
   SortableTableHead,
 } from "@/components/ui/sortable-table-head";
 import {
@@ -47,12 +54,15 @@ import { writeClipboard } from "@/lib/clipboard";
 import { toastClipboard, toastError, toastSecretCopied } from "@/lib/toast";
 import { isHttpUrl, openExternalUrl } from "@/lib/url";
 import { cn } from "@/lib/utils";
+import { useClearFiltersOnEscape } from "@/hooks/use-clear-filters-on-escape";
 import { useTaxonomySettings } from "@/hooks/use-taxonomy-settings";
 import type { ListViewProps } from "@/modules/types";
 import { useVaultStore } from "@/stores/vault-store";
+import { DEFAULT_CATEGORY, optionsWithExtras } from "@/vault/taxonomy";
 import {
   emptyPasswordForm,
   formFromPassword,
+  generateSecurePassword,
   passwordEntries,
   validatePasswordInput,
   createPasswordEntry,
@@ -73,18 +83,40 @@ export function PasswordsListView({ items }: ListViewProps<PasswordEntry>) {
   const clearSeconds = useVaultStore(
     (s) => s.model?.settings.clipboardClearSeconds ?? 30,
   );
+  const { categoryOptions } = useTaxonomySettings();
   const [query, setQuery] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState("");
   const [viewing, setViewing] = useState<PasswordEntry | null>(null);
   const [editing, setEditing] = useState<PasswordEntry | null | undefined>();
+  const [pendingDelete, setPendingDelete] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
   const [sortState, setSortState] =
     useState<SortState<PasswordSortColumn> | null>(null);
 
   const passwords = useMemo(() => passwordEntries(items), [items]);
+  const filterCategories = useMemo(
+    () =>
+      categoryFilterOptions(
+        categoryOptions,
+        passwords.map((item) => item.category),
+      ),
+    [categoryOptions, passwords],
+  );
+  const filtersActive = Boolean(query.trim()) || Boolean(categoryFilter);
+  useClearFiltersOnEscape(filtersActive, () => {
+    setQuery("");
+    setCategoryFilter("");
+  });
   const filtered = useMemo(() => {
     const term = query.trim().toLowerCase();
     const sorted = [...passwords].sort((a, b) => a.name.localeCompare(b.name));
+    const byCategory = categoryFilter
+      ? sorted.filter((item) => item.category === categoryFilter)
+      : sorted;
     const visible = term
-      ? sorted.filter((item) =>
+      ? byCategory.filter((item) =>
           [
             item.name,
             item.username,
@@ -97,11 +129,11 @@ export function PasswordsListView({ items }: ListViewProps<PasswordEntry>) {
             .toLowerCase()
             .includes(term),
         )
-      : sorted;
+      : byCategory;
     return sortState
       ? stableSortBy(visible, sortState, passwordSortValue)
       : visible;
-  }, [passwords, query, sortState]);
+  }, [passwords, query, categoryFilter, sortState]);
   const handleSort = (column: PasswordSortColumn) =>
     setSortState((current) => nextSortState(current, column));
 
@@ -113,9 +145,20 @@ export function PasswordsListView({ items }: ListViewProps<PasswordEntry>) {
     setEditing(undefined);
   }
 
+  async function handleCategoryChange(item: PasswordEntry, category: string) {
+    const updated = {
+      ...item,
+      category,
+      updatedAt: new Date().toISOString(),
+    };
+    await savePassword(updated);
+    setViewing((current) => (current?.id === item.id ? updated : current));
+  }
+
   async function handleDelete(id: string) {
     await deletePassword(id);
     if (viewing?.id === id) setViewing(null);
+    setPendingDelete(null);
   }
 
   async function handleCopy(id: string) {
@@ -167,8 +210,13 @@ export function PasswordsListView({ items }: ListViewProps<PasswordEntry>) {
       </header>
 
       <div className="flex min-h-0 flex-1 flex-col">
-        <div className="border-b border-border p-4">
-          <label className="relative block">
+        <div className="flex flex-col gap-3 border-b border-border p-4 sm:flex-row sm:items-center">
+          <CategoryFilterSelect
+            onChange={setCategoryFilter}
+            options={filterCategories}
+            value={categoryFilter}
+          />
+          <label className="relative block min-w-0 flex-1">
             <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input
               aria-label="Filter passwords"
@@ -178,6 +226,14 @@ export function PasswordsListView({ items }: ListViewProps<PasswordEntry>) {
               value={query}
             />
           </label>
+          {filtersActive ? (
+            <ClearFiltersButton
+              onClear={() => {
+                setQuery("");
+                setCategoryFilter("");
+              }}
+            />
+          ) : null}
         </div>
 
         {filtered.length === 0 ? (
@@ -202,6 +258,7 @@ export function PasswordsListView({ items }: ListViewProps<PasswordEntry>) {
           <Table className="table-fixed" wrapperClassName="min-h-0 flex-1">
             <TableHeader className="sticky top-0 bg-background text-xs uppercase text-muted-foreground">
               <TableRow>
+                <IndexTableHead />
                 <SortableTableHead
                   className="w-[22%] px-4"
                   column="name"
@@ -237,13 +294,19 @@ export function PasswordsListView({ items }: ListViewProps<PasswordEntry>) {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filtered.map((item) => (
+              {filtered.map((item, index) => (
                 <TableRow
                   className="border-b border-border hover:bg-accent/40"
                   key={item.id}
                 >
-                  <TableCell className="break-words px-4 py-3 font-medium whitespace-normal">
-                    {item.name}
+                  <IndexTableCell index={index + 1} />
+                  <TableCell className="break-words px-4 py-3 whitespace-normal">
+                    <ListItemTitle
+                      className="break-words whitespace-normal"
+                      onOpen={() => setViewing(item)}
+                    >
+                      {item.name}
+                    </ListItemTitle>
                   </TableCell>
                   <TableCell className="px-4 py-3 text-muted-foreground">
                     <div className="flex items-center justify-between gap-2">
@@ -285,7 +348,19 @@ export function PasswordsListView({ items }: ListViewProps<PasswordEntry>) {
                     </div>
                   </TableCell>
                   <TableCell className="truncate px-4 py-3 text-muted-foreground">
-                    {item.category || "-"}
+                    <InlineSelect
+                      aria-label={`Category for ${item.name}`}
+                      className="truncate text-muted-foreground"
+                      display={item.category || "-"}
+                      onChange={(category) =>
+                        void handleCategoryChange(item, category)
+                      }
+                      options={optionsWithExtras(
+                        categoryOptions,
+                        item.category,
+                      )}
+                      value={item.category || DEFAULT_CATEGORY}
+                    />
                   </TableCell>
                   <TableCell className="px-2 py-2">
                     <div className="flex justify-end">
@@ -321,7 +396,11 @@ export function PasswordsListView({ items }: ListViewProps<PasswordEntry>) {
                           label: "Delete",
                           icon: <Trash2 className="h-4 w-4" />,
                           destructive: true,
-                          onSelect: () => void handleDelete(item.id),
+                          onSelect: () =>
+                            setPendingDelete({
+                              id: item.id,
+                              name: item.name,
+                            }),
                         },
                       ]}
                     />
@@ -348,7 +427,12 @@ export function PasswordsListView({ items }: ListViewProps<PasswordEntry>) {
                   Edit
                 </Button>
                 <Button
-                  onClick={() => void handleDelete(viewing.id)}
+                  onClick={() =>
+                    setPendingDelete({
+                      id: viewing.id,
+                      name: viewing.name,
+                    })
+                  }
                   type="button"
                   variant="outline"
                 >
@@ -370,6 +454,15 @@ export function PasswordsListView({ items }: ListViewProps<PasswordEntry>) {
             />
           )}
         </DetailModal>
+
+        <ConfirmDeleteDialog
+          itemName={pendingDelete?.name ?? ""}
+          onCancel={() => setPendingDelete(null)}
+          onConfirm={() => {
+            if (pendingDelete) void handleDelete(pendingDelete.id);
+          }}
+          open={pendingDelete !== null}
+        />
       </div>
     </div>
   );
@@ -469,6 +562,13 @@ export function PasswordEditView({
     setForm((current) => ({ ...current, [key]: value }));
   }
 
+  async function handleGeneratePassword() {
+    const password = generateSecurePassword();
+    update("password", password);
+    const ok = await writeClipboard(password);
+    toastClipboard(ok, "Password generated and copied");
+  }
+
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const validation = validatePasswordInput(form, mode);
@@ -516,14 +616,27 @@ export function PasswordEditView({
           value={form.category}
         />
       </Field>
-      <Field label={item ? "Password (leave blank to keep)" : "Password"}>
-        <Input
-          aria-label="Password value"
-          onChange={(event) => update("password", event.target.value)}
-          type="password"
-          value={form.password}
-        />
-      </Field>
+      <div className="flex flex-col gap-1 text-sm font-medium">
+        <span>{item ? "Password (leave blank to keep)" : "Password"}</span>
+        <div className="flex items-center gap-2">
+          <Input
+            aria-label="Password value"
+            className="min-w-0 flex-1"
+            onChange={(event) => update("password", event.target.value)}
+            type="password"
+            value={form.password}
+          />
+          {mode === "create" ? (
+            <Button
+              onClick={() => void handleGeneratePassword()}
+              type="button"
+              variant="outline"
+            >
+              Generate
+            </Button>
+          ) : null}
+        </div>
+      </div>
       <Field label="Login URL">
         <Input
           aria-label="Login URL"
@@ -541,7 +654,7 @@ export function PasswordEditView({
       <Field className="col-span-2" label="Notes">
         <textarea
           aria-label="Password notes"
-          className="min-h-24 rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+          className="min-h-24 rounded-md border border-input bg-card px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
           onChange={(event) => update("notes", event.target.value)}
           value={form.notes}
         />

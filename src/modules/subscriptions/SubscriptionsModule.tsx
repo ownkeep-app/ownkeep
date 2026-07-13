@@ -1,19 +1,27 @@
 import { type FormEvent, useEffect, useMemo, useState } from "react";
 
 import {
-  CalendarDays,
+  type LucideIcon,
   CreditCard,
   ExternalLink,
   Eye,
+  Link,
   Pencil,
   Plus,
   Search,
+  TrendingUp,
   Trash2,
 } from "lucide-react";
 
 import { CategorySelect } from "@/components/category-select";
+import {
+  CategoryFilterSelect,
+  categoryFilterOptions,
+} from "@/components/category-filter-select";
+import { ConfirmDeleteDialog } from "@/components/ConfirmDeleteDialog";
 import { DatePicker } from "@/components/date-picker";
 import { DetailModal } from "@/components/DetailModal";
+import { DueStatusBadge } from "@/components/DueStatusBadge";
 import {
   DetailField,
   DetailFields,
@@ -24,6 +32,9 @@ import {
 } from "@/components/detail-fields";
 import { EmptyState } from "@/components/EmptyState";
 import { ItemFormShell } from "@/components/ItemFormShell";
+import { ClearFiltersButton } from "@/components/ClearFiltersButton";
+import { InlineSelect } from "@/components/inline-select";
+import { ListItemTitle } from "@/components/ListItemTitle";
 import { RowActionsMenu } from "@/components/RowActionsMenu";
 import { TagMultiSelect } from "@/components/tag-multi-select";
 import { Button } from "@/components/ui/button";
@@ -33,12 +44,15 @@ import { Select } from "@/components/ui/select";
 import { CurrencySelect } from "@/components/currency-select";
 import {
   ActionsTableHead,
+  IndexTableCell,
+  IndexTableHead,
   SortableTableHead,
 } from "@/components/ui/sortable-table-head";
 import {
   Table,
   TableBody,
   TableCell,
+  TableHead,
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
@@ -48,13 +62,13 @@ import {
   type SortState,
   type SortValue,
 } from "@/lib/table-sort";
+import { isHttpUrl, openExternalUrl } from "@/lib/url";
+import { useClearFiltersOnEscape } from "@/hooks/use-clear-filters-on-escape";
 import { useTaxonomySettings } from "@/hooks/use-taxonomy-settings";
 import type { ListViewProps } from "@/modules/types";
 import { useVaultStore } from "@/stores/vault-store";
-import { cn } from "@/lib/utils";
 import { defaultSettings } from "@/vault/model";
 import {
-  advanceNextDueDate,
   createSubscriptionEntry,
   emptySubscriptionForm,
   formatCurrencyAmount,
@@ -80,15 +94,34 @@ export function SubscriptionsListView({
   const model = useVaultStore((s) => s.model);
   const saveSubscription = useVaultStore((s) => s.saveSubscription);
   const deleteSubscription = useVaultStore((s) => s.deleteSubscription);
+  const { categoryOptions } = useTaxonomySettings();
   const [query, setQuery] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState("");
   const [viewing, setViewing] = useState<SubscriptionEntry | null>(null);
   const [editing, setEditing] = useState<
     SubscriptionEntry | null | undefined
   >();
+  const [pendingDelete, setPendingDelete] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
   const [sortState, setSortState] =
     useState<SortState<SubscriptionSortColumn> | null>(null);
 
   const subscriptions = useMemo(() => subscriptionEntries(items), [items]);
+  const filterCategories = useMemo(
+    () =>
+      categoryFilterOptions(
+        categoryOptions,
+        subscriptions.map((item) => item.category),
+      ),
+    [categoryOptions, subscriptions],
+  );
+  const filtersActive = Boolean(query.trim()) || Boolean(categoryFilter);
+  useClearFiltersOnEscape(filtersActive, () => {
+    setQuery("");
+    setCategoryFilter("");
+  });
   const summary = useMemo(
     () =>
       summarizeSubscriptions(
@@ -100,18 +133,28 @@ export function SubscriptionsListView({
   const filtered = useMemo(() => {
     const term = query.trim().toLowerCase();
     const sorted = sortSubscriptions(subscriptions);
+    const byCategory = categoryFilter
+      ? sorted.filter((item) => item.category === categoryFilter)
+      : sorted;
     const visible = term
-      ? sorted.filter((item) =>
-          [item.service, item.url, item.currency, item.cycle, item.notes]
+      ? byCategory.filter((item) =>
+          [
+            item.service,
+            item.url,
+            item.currency,
+            item.cycle,
+            item.notes,
+            item.category,
+          ]
             .join(" ")
             .toLowerCase()
             .includes(term),
         )
-      : sorted;
+      : byCategory;
     return sortState
       ? stableSortBy(visible, sortState, subscriptionSortValue)
       : visible;
-  }, [subscriptions, query, sortState]);
+  }, [subscriptions, query, categoryFilter, sortState]);
   const handleSort = (column: SubscriptionSortColumn) =>
     setSortState((current) => nextSortState(current, column));
 
@@ -133,28 +176,35 @@ export function SubscriptionsListView({
     setEditing(undefined);
   }
 
+  async function handleCycleChange(
+    item: SubscriptionEntry,
+    cycle: SubscriptionEntry["cycle"],
+  ) {
+    const updated: SubscriptionEntry = {
+      ...item,
+      cycle,
+      customIntervalDays:
+        cycle === "custom" ? (item.customIntervalDays ?? 30) : null,
+      updatedAt: new Date().toISOString(),
+    };
+    await saveSubscription(updated);
+    setViewing((current) => (current?.id === item.id ? updated : current));
+  }
+
+  async function handleRenewChange(item: SubscriptionEntry, autoRenew: boolean) {
+    const updated: SubscriptionEntry = {
+      ...item,
+      autoRenew,
+      updatedAt: new Date().toISOString(),
+    };
+    await saveSubscription(updated);
+    setViewing((current) => (current?.id === item.id ? updated : current));
+  }
+
   async function handleDelete(id: string) {
     await deleteSubscription(id);
     if (viewing?.id === id) setViewing(null);
-  }
-
-  async function handleAdvance(item: SubscriptionEntry) {
-    const nextDueDate = advanceNextDueDate(
-      item.nextDueDate,
-      item.cycle,
-      item.customIntervalDays,
-    );
-    if (!nextDueDate) return;
-    await saveSubscription({
-      ...item,
-      nextDueDate,
-      updatedAt: new Date().toISOString(),
-    });
-    setViewing((current) =>
-      current?.id === item.id
-        ? { ...item, nextDueDate, updatedAt: new Date().toISOString() }
-        : current,
-    );
+    setPendingDelete(null);
   }
 
   if (editing !== undefined) {
@@ -187,8 +237,13 @@ export function SubscriptionsListView({
       </header>
 
       <div className="flex min-h-0 flex-1 flex-col">
-        <div className="border-b border-border p-4">
-          <label className="relative block">
+        <div className="flex flex-col gap-3 border-b border-border p-4 sm:flex-row sm:items-center">
+          <CategoryFilterSelect
+            onChange={setCategoryFilter}
+            options={filterCategories}
+            value={categoryFilter}
+          />
+          <label className="relative block min-w-0 flex-1">
             <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input
               aria-label="Filter subscriptions"
@@ -198,6 +253,14 @@ export function SubscriptionsListView({
               value={query}
             />
           </label>
+          {filtersActive ? (
+            <ClearFiltersButton
+              onClear={() => {
+                setQuery("");
+                setCategoryFilter("");
+              }}
+            />
+          ) : null}
         </div>
 
         {filtered.length === 0 ? (
@@ -222,8 +285,9 @@ export function SubscriptionsListView({
           <Table className="table-fixed" wrapperClassName="min-h-0 flex-1">
             <TableHeader className="sticky top-0 bg-background text-xs uppercase text-muted-foreground">
               <TableRow>
+                <IndexTableHead />
                 <SortableTableHead
-                  className="w-[22%] px-4"
+                  className="w-[20%] px-4"
                   column="service"
                   label="Service"
                   onSort={handleSort}
@@ -244,7 +308,7 @@ export function SubscriptionsListView({
                   sort={sortState}
                 />
                 <SortableTableHead
-                  className="w-[18%] px-4"
+                  className="w-[16%] px-4"
                   column="nextDue"
                   label="Next due"
                   onSort={handleSort}
@@ -257,29 +321,80 @@ export function SubscriptionsListView({
                   onSort={handleSort}
                   sort={sortState}
                 />
+                <TableHead className="w-12 px-2 text-right" scope="col">
+                  <span className="sr-only">Billing URL</span>
+                </TableHead>
                 <ActionsTableHead />
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filtered.map((item) => (
+              {filtered.map((item, index) => (
                 <TableRow
                   className="border-b border-border hover:bg-accent/40"
                   key={item.id}
                 >
-                  <TableCell className="truncate px-4 py-3 font-medium">
-                    {item.service}
+                  <IndexTableCell index={index + 1} />
+                  <TableCell className="truncate px-4 py-3">
+                    <ListItemTitle
+                      className="truncate"
+                      onOpen={() => setViewing(item)}
+                    >
+                      {item.service}
+                    </ListItemTitle>
                   </TableCell>
                   <TableCell className="truncate px-4 py-3 text-muted-foreground">
                     {formatCurrencyAmount(item.amount, item.currency)}
                   </TableCell>
                   <TableCell className="px-4 py-3">
-                    <CyclePill cycle={item.cycle} />
+                    <InlineSelect
+                      aria-label={`Cycle for ${item.service}`}
+                      display={<CyclePill cycle={item.cycle} />}
+                      onChange={(cycle) =>
+                        void handleCycleChange(
+                          item,
+                          cycle as SubscriptionEntry["cycle"],
+                        )
+                      }
+                      options={SUBSCRIPTION_CYCLES.map((cycle) => ({
+                        value: cycle,
+                        label: cycle[0].toUpperCase() + cycle.slice(1),
+                      }))}
+                      value={item.cycle}
+                    />
                   </TableCell>
-                  <TableCell className="truncate px-4 py-3 text-muted-foreground">
-                    {formatDate(item.nextDueDate)}
+                  <TableCell className="px-4 py-3">
+                    <DueStatusBadge dueAt={item.nextDueDate} />
                   </TableCell>
                   <TableCell className="px-4 py-3 text-muted-foreground">
-                    {item.autoRenew ? "Auto" : "Manual"}
+                    <InlineSelect
+                      aria-label={`Renewal for ${item.service}`}
+                      className="text-muted-foreground"
+                      display={item.autoRenew ? "Auto" : "Manual"}
+                      onChange={(value) =>
+                        void handleRenewChange(item, value === "auto")
+                      }
+                      options={[
+                        { value: "auto", label: "Auto" },
+                        { value: "manual", label: "Manual" },
+                      ]}
+                      value={item.autoRenew ? "auto" : "manual"}
+                    />
+                  </TableCell>
+                  <TableCell className="px-2 py-2">
+                    <div className="flex justify-end">
+                      {isHttpUrl(item.url) ? (
+                        <Button
+                          aria-label={`Open billing URL for ${item.service}`}
+                          onClick={() => void openExternalUrl(item.url)}
+                          size="icon"
+                          title={item.url}
+                          type="button"
+                          variant="ghost"
+                        >
+                          <Link className="h-4 w-4" />
+                        </Button>
+                      ) : null}
+                    </div>
                   </TableCell>
                   <TableCell className="px-2 py-2">
                     <RowActionsMenu
@@ -291,11 +406,6 @@ export function SubscriptionsListView({
                           onSelect: () => setViewing(item),
                         },
                         {
-                          label: "Advance due date",
-                          icon: <CalendarDays className="h-4 w-4" />,
-                          onSelect: () => void handleAdvance(item),
-                        },
-                        {
                           label: "Edit",
                           icon: <Pencil className="h-4 w-4" />,
                           onSelect: () => setEditing(item),
@@ -304,7 +414,11 @@ export function SubscriptionsListView({
                           label: "Delete",
                           icon: <Trash2 className="h-4 w-4" />,
                           destructive: true,
-                          onSelect: () => void handleDelete(item.id),
+                          onSelect: () =>
+                            setPendingDelete({
+                              id: item.id,
+                              name: item.service,
+                            }),
                         },
                       ]}
                     />
@@ -320,14 +434,6 @@ export function SubscriptionsListView({
             viewing && (
               <>
                 <Button
-                  onClick={() => void handleAdvance(viewing)}
-                  type="button"
-                  variant="outline"
-                >
-                  <CalendarDays className="h-4 w-4" />
-                  Advance due date
-                </Button>
-                <Button
                   onClick={() => {
                     setViewing(null);
                     setEditing(viewing);
@@ -339,7 +445,12 @@ export function SubscriptionsListView({
                   Edit
                 </Button>
                 <Button
-                  onClick={() => void handleDelete(viewing.id)}
+                  onClick={() =>
+                    setPendingDelete({
+                      id: viewing.id,
+                      name: viewing.service,
+                    })
+                  }
                   type="button"
                   variant="outline"
                 >
@@ -355,6 +466,15 @@ export function SubscriptionsListView({
         >
           {viewing && <SubscriptionDetailView item={viewing} />}
         </DetailModal>
+
+        <ConfirmDeleteDialog
+          itemName={pendingDelete?.name ?? ""}
+          onCancel={() => setPendingDelete(null)}
+          onConfirm={() => {
+            if (pendingDelete) void handleDelete(pendingDelete.id);
+          }}
+          open={pendingDelete !== null}
+        />
       </div>
     </div>
   );
@@ -399,7 +519,12 @@ export function SubscriptionDetailView({ item }: { item: SubscriptionEntry }) {
           value={formatCurrencyAmount(item.amount, item.currency)}
         />
         <DetailField label="Cycle" value={formatCycleDetail(item)} />
-        <DetailField label="Next due" value={formatDate(item.nextDueDate)} />
+        <DetailField label="Next due">
+          <div className="mt-1 flex flex-wrap items-center gap-2 text-sm">
+            <span>{formatDate(item.nextDueDate)}</span>
+            <DueStatusBadge dueAt={item.nextDueDate} />
+          </div>
+        </DetailField>
         <DetailField
           label="Reminder"
           value={`${item.notifyLeadDays} days before due`}
@@ -586,7 +711,7 @@ export function SubscriptionEditView({
         Notes
         <textarea
           aria-label="Subscription notes"
-          className="min-h-24 w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="min-h-24 w-full rounded-md border border-input bg-card px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
           onChange={(event) => update("notes", event.target.value)}
           value={form.notes}
         />
@@ -600,58 +725,140 @@ function SummaryStrip({
 }: {
   summary: ReturnType<typeof summarizeSubscriptions>;
 }) {
-  const rawMonthly = formatTotals(
-    summary.rawTotals.map((total) => ({
-      currency: total.currency,
-      amount: total.monthly,
-    })),
-  );
-  const rawAnnual = formatTotals(
-    summary.rawTotals.map((total) => ({
-      currency: total.currency,
-      amount: total.annual,
-    })),
-  );
+  const totals = summary.rawTotals.map((total) => ({
+    currency: total.currency,
+    monthly: formatCurrencyAmount(total.monthly, total.currency),
+    yearly: formatCurrencyAmount(total.annual, total.currency),
+  }));
   const converted =
     summary.converted && summary.converted.missingCurrencies.length === 0
-      ? `${formatCurrencyAmount(
-          summary.converted.monthly,
-          summary.converted.currency,
-        )} monthly / ${formatCurrencyAmount(
-          summary.converted.annual,
-          summary.converted.currency,
-        )} annual`
+      ? {
+          currency: summary.converted.currency,
+          monthly: formatCurrencyAmount(
+            summary.converted.monthly,
+            summary.converted.currency,
+          ),
+          yearly: formatCurrencyAmount(
+            summary.converted.annual,
+            summary.converted.currency,
+          ),
+        }
       : null;
+  const periods = [
+    {
+      label: "Monthly",
+      icon: CreditCard,
+      tone: "blue" as const,
+      totals: totals.map(({ currency, monthly }) => ({
+        currency,
+        value: monthly,
+      })),
+      convertedTotal: converted ? { value: converted.monthly } : null,
+    },
+    {
+      label: "Yearly",
+      icon: TrendingUp,
+      tone: "emerald" as const,
+      totals: totals.map(({ currency, yearly }) => ({
+        currency,
+        value: yearly,
+      })),
+      convertedTotal: converted ? { value: converted.yearly } : null,
+    },
+  ];
 
   return (
-    <div className="mt-4 grid gap-3 text-sm md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,2fr)]">
-      <SummaryMetric label="Monthly" value={rawMonthly} />
-      <SummaryMetric label="Annual" value={rawAnnual} />
-      <SummaryMetric label="Converted" value={converted ?? "No FX base"} wide />
+    <div
+      aria-label="Subscription spend summary"
+      className="mt-3 grid gap-4 md:grid-cols-2"
+    >
+      {periods.map((period) => (
+        <SummaryPeriodCard key={period.label} {...period} />
+      ))}
     </div>
   );
 }
 
-function SummaryMetric({
+type SummaryTone = "blue" | "emerald";
+
+const summaryToneClasses: Record<SummaryTone, { card: string; icon: string }> =
+  {
+    blue: {
+      card: "border-sky-200/80 bg-sky-50/80 dark:border-sky-400/20 dark:bg-sky-400/10",
+      icon: "bg-sky-500/10 text-sky-700 dark:bg-sky-300/15 dark:text-sky-200",
+    },
+    emerald: {
+      card: "border-emerald-200/80 bg-emerald-50/80 dark:border-emerald-400/20 dark:bg-emerald-400/10",
+      icon: "bg-emerald-500/10 text-emerald-700 dark:bg-emerald-300/15 dark:text-emerald-200",
+    },
+  };
+
+function SummaryPeriodCard({
   label,
-  value,
-  wide = false,
+  icon: Icon,
+  tone,
+  totals,
+  convertedTotal,
 }: {
   label: string;
+  icon: LucideIcon;
+  tone: SummaryTone;
+  totals: { currency: string; value: string }[];
+  convertedTotal: { value: string } | null;
+}) {
+  const classes = summaryToneClasses[tone];
+
+  return (
+    <section
+      aria-label={`${label} subscription totals`}
+      className={`min-w-0 rounded-lg border p-3 shadow-sm ${classes.card}`}
+    >
+      <div className="flex items-center gap-2">
+        <div
+          className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-md ${classes.icon}`}
+        >
+          <Icon aria-hidden="true" className="h-5 w-5" />
+        </div>
+        <p className="text-sm font-semibold text-foreground">{label}</p>
+      </div>
+      <div className="mt-3 border-t border-border/60 pt-1">
+        {totals.length === 0 ? (
+          <SummaryCurrencyTotal currency="No spend" value="-" />
+        ) : (
+          totals.map((total) => (
+            <SummaryCurrencyTotal key={total.currency} {...total} />
+          ))
+        )}
+      </div>
+      {convertedTotal ? (
+        <div className="mt-1.5 flex min-w-0 items-baseline justify-between gap-4 border-t border-border/60 pt-2">
+          <span className="text-xs font-medium text-muted-foreground">
+            Base total
+          </span>
+          <span className="break-words text-right text-base font-semibold text-foreground">
+            {convertedTotal.value}
+          </span>
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
+function SummaryCurrencyTotal({
+  currency,
+  value,
+}: {
+  currency: string;
   value: string;
-  wide?: boolean;
 }) {
   return (
-    <div className="min-w-0 border-l border-border pl-3">
-      <p className="text-xs uppercase text-muted-foreground">{label}</p>
-      <p
-        className={cn(
-          "mt-1 font-medium",
-          wide ? "break-words whitespace-normal" : "truncate",
-        )}
-      >
+    <div className="flex min-w-0 items-baseline justify-between gap-4 py-0.5">
+      <span className="text-xs font-semibold uppercase text-muted-foreground">
+        {currency}
+      </span>
+      <span className="break-words text-right text-base font-semibold text-foreground">
         {value}
-      </p>
+      </span>
     </div>
   );
 }
@@ -670,11 +877,4 @@ function formatCycleDetail(item: SubscriptionEntry): string {
     return `Every ${item.customIntervalDays} days`;
   }
   return item.cycle;
-}
-
-function formatTotals(totals: { currency: string; amount: number }[]): string {
-  if (totals.length === 0) return "-";
-  return totals
-    .map((total) => formatCurrencyAmount(total.amount, total.currency))
-    .join(", ");
 }

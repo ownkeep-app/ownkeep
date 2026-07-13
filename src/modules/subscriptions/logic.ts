@@ -224,25 +224,6 @@ export function validateSubscriptionInput(
   return null;
 }
 
-export function advanceNextDueDate(
-  nextDueDate: string,
-  cycle: SubscriptionCycle,
-  customIntervalDays: number | null,
-): string | null {
-  const due = new Date(nextDueDate);
-  if (Number.isNaN(due.getTime())) return null;
-
-  if (cycle === "weekly") {
-    return new Date(due.getTime() + 7 * DAY_MS).toISOString();
-  }
-  if (cycle === "monthly") return addUtcMonthsClamped(due, 1).toISOString();
-  if (cycle === "yearly") return addUtcMonthsClamped(due, 12).toISOString();
-  if (cycle === "custom" && customIntervalDays && customIntervalDays > 0) {
-    return new Date(due.getTime() + customIntervalDays * DAY_MS).toISOString();
-  }
-  return null;
-}
-
 export function annualizedAmount(item: SubscriptionEntry): number {
   if (item.cycle === "weekly") return item.amount * 52;
   if (item.cycle === "monthly") return item.amount * 12;
@@ -420,26 +401,6 @@ function readFinanceSettings(
     return { baseCurrency, rates: {} };
   }
   return { baseCurrency, rates: rates as Record<string, number> };
-}
-
-function addUtcMonthsClamped(date: Date, months: number): Date {
-  const originalDay = date.getUTCDate();
-  const target = new Date(
-    Date.UTC(
-      date.getUTCFullYear(),
-      date.getUTCMonth() + months,
-      1,
-      date.getUTCHours(),
-      date.getUTCMinutes(),
-      date.getUTCSeconds(),
-      date.getUTCMilliseconds(),
-    ),
-  );
-  const lastDay = new Date(
-    Date.UTC(target.getUTCFullYear(), target.getUTCMonth() + 1, 0),
-  ).getUTCDate();
-  target.setUTCDate(Math.min(originalDay, lastDay));
-  return target;
 }
 
 function formatReminderBody(item: SubscriptionEntry): string {

@@ -238,7 +238,7 @@ export function SettingsPanel() {
               <h2 className="mb-3 text-sm font-medium text-muted-foreground">
                 Modules
               </h2>
-              <ul className="flex flex-col divide-y divide-border rounded-md border border-border">
+              <ul className="flex flex-col divide-y divide-border rounded-md border border-border bg-card">
                 {MODULES.map((m) => {
                   const enabled =
                     model.settings.modules[m.id]?.enabled ?? false;
@@ -279,7 +279,7 @@ export function SettingsPanel() {
               <h2 className="mb-3 text-sm font-medium text-muted-foreground">
                 Hotkeys
               </h2>
-              <div className="flex flex-col gap-3 rounded-md border border-border p-3">
+              <div className="flex flex-col gap-3 rounded-md border border-border bg-card p-3">
                 <label className="flex flex-col gap-1.5 text-sm">
                   Global hotkey
                   <Input
@@ -305,7 +305,7 @@ export function SettingsPanel() {
               <h2 className="mb-3 text-sm font-medium text-muted-foreground">
                 Categories
               </h2>
-              <div className="rounded-md border border-border p-3">
+              <div className="rounded-md border border-border bg-card p-3">
                 <label className="grid gap-1 text-sm">
                   <span className="font-medium">Category options</span>
                   <span className="text-xs text-muted-foreground">
@@ -314,7 +314,7 @@ export function SettingsPanel() {
                   </span>
                   <textarea
                     aria-label="Category options"
-                    className="min-h-28 rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    className="min-h-28 rounded-md border border-input bg-card px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
                     onBlur={() => void persistTaxonomy()}
                     onChange={(event) =>
                       setCategoryOptionsText(event.target.value)
@@ -329,7 +329,7 @@ export function SettingsPanel() {
               <h2 className="mb-3 text-sm font-medium text-muted-foreground">
                 Tags
               </h2>
-              <div className="rounded-md border border-border p-3">
+              <div className="rounded-md border border-border bg-card p-3">
                 <label className="grid gap-1 text-sm">
                   <span className="font-medium">Tag options</span>
                   <span className="text-xs text-muted-foreground">
@@ -338,7 +338,7 @@ export function SettingsPanel() {
                   </span>
                   <textarea
                     aria-label="Tag options"
-                    className="min-h-36 rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    className="min-h-36 rounded-md border border-input bg-card px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
                     onBlur={() => void persistTaxonomy()}
                     onChange={(event) => setTagOptionsText(event.target.value)}
                     value={tagOptionsText}
@@ -353,7 +353,7 @@ export function SettingsPanel() {
               <h2 className="mb-3 text-sm font-medium text-muted-foreground">
                 Security
               </h2>
-              <div className="flex flex-col divide-y divide-border rounded-md border border-border">
+              <div className="flex flex-col divide-y divide-border rounded-md border border-border bg-card">
                 <label className="flex items-center gap-3 px-3 py-2.5">
                   <span className="flex-1 text-sm">Auto-lock</span>
                   <Select
@@ -438,7 +438,7 @@ export function SettingsPanel() {
               <h2 className="mb-3 text-sm font-medium text-muted-foreground">
                 Appearance
               </h2>
-              <div className="flex flex-col divide-y divide-border rounded-md border border-border">
+              <div className="flex flex-col divide-y divide-border rounded-md border border-border bg-card">
                 <label className="flex items-center gap-3 px-3 py-2.5">
                   <span className="flex-1 text-sm">Theme</span>
                   <Select
@@ -492,7 +492,7 @@ export function SettingsPanel() {
               <h2 className="mb-3 text-sm font-medium text-muted-foreground">
                 Vault file
               </h2>
-              <div className="rounded-md border border-border p-3">
+              <div className="rounded-md border border-border bg-card p-3">
                 <VaultPathHint className="text-sm text-muted-foreground" />
                 <p className="mt-2 text-xs text-muted-foreground">
                   This encrypted file is outside the app bundle. Backups and
@@ -505,7 +505,7 @@ export function SettingsPanel() {
               <h2 className="mb-3 text-sm font-medium text-muted-foreground">
                 Backup & restore
               </h2>
-              <div className="flex flex-col gap-3 rounded-md border border-border p-3">
+              <div className="flex flex-col gap-3 rounded-md border border-border bg-card p-3">
                 <Button
                   disabled={busy}
                   onClick={() => void onBackup()}
@@ -573,7 +573,7 @@ export function SettingsPanel() {
               <h2 className="mb-3 text-sm font-medium text-muted-foreground">
                 Emergency Kit
               </h2>
-              <div className="flex flex-col gap-3 rounded-md border border-border p-3">
+              <div className="flex flex-col gap-3 rounded-md border border-border bg-card p-3">
                 <Button
                   disabled={busy}
                   onClick={() => {
@@ -592,7 +592,7 @@ export function SettingsPanel() {
                       <KeyRound className="h-4 w-4" />
                       New recovery code
                     </div>
-                    <code className="select-all rounded-md border border-border bg-background p-2 font-mono text-xs leading-relaxed">
+                    <code className="select-all rounded-md border border-border bg-card p-2 font-mono text-xs leading-relaxed">
                       {pendingKit.recovery_code}
                     </code>
                     <label className="flex items-center gap-2 text-sm">
