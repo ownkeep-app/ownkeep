@@ -167,7 +167,7 @@ with a **browsable Dashboard** (sidebar + content pane) and a safe upgrade path 
 - **Deps:** P7 (independent of P8 — can swap order).
 
 ### Phase 10 — 📈 Finance module (M3) · 2–3 d
-- [x] `financeModule`: `Snapshot[]` of `{place,category,amount,currency}` entries; total + by-category **derived on the fly** (a rate edit re-totals).
+- [x] `financeModule`: `Snapshot[]` of `{place,holder,category,amount,currency,dueDate?}` entries; total + by-category **derived on the fly** (a rate edit re-totals). Holder / category option lists live in Finance settings (`holderOptions` / `categoryOptions`).
 - [x] Manual **FX rate table** (base currency + rates in `settings.modules.finance`); convert to `baseCurrency`; **uPlot** net-worth trend.
 - [x] `ListView` (dashboard): the uPlot trend atop the right pane + the snapshot table + by-category detail.
 - [x] **Tests:** total + by-category + FX conversion; re-total after a rate edit (Vitest).

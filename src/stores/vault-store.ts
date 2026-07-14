@@ -113,6 +113,8 @@ interface VaultState {
   updateFinanceSettings: (patch: {
     baseCurrency?: string;
     fxRates?: Record<string, number>;
+    holderOptions?: string[];
+    categoryOptions?: string[];
   }) => Promise<void>;
   copySecret: (id: string, field: string) => Promise<void>;
   revealSecret: (id: string, field: string) => Promise<void>;

@@ -18,7 +18,15 @@ const snapshots: Snapshot[] = [
     id: "s1",
     date: "2026-06-01T00:00:00.000Z",
     note: "june",
-    entries: [{ place: "DBS", category: "bank", amount: 100, currency: "USD" }],
+    entries: [
+      {
+        place: "DBS",
+        holder: "Me",
+        category: "bank",
+        amount: 100,
+        currency: "USD",
+      },
+    ],
     updatedAt: "2026-06-01T00:00:00.000Z",
   },
   {
@@ -26,8 +34,20 @@ const snapshots: Snapshot[] = [
     date: "2026-07-01T00:00:00.000Z",
     note: "july",
     entries: [
-      { place: "Chase", category: "bank", amount: 200, currency: "USD" },
-      { place: "DBS", category: "bank", amount: 100, currency: "SGD" },
+      {
+        place: "Chase",
+        holder: "Me",
+        category: "bank",
+        amount: 200,
+        currency: "USD",
+      },
+      {
+        place: "DBS",
+        holder: "Me",
+        category: "bank",
+        amount: 100,
+        currency: "SGD",
+      },
     ],
     updatedAt: "2026-07-01T00:00:00.000Z",
   },
@@ -39,6 +59,8 @@ const updateFinanceSettings = vi.fn<
   (patch: {
     baseCurrency?: string;
     fxRates?: Record<string, number>;
+    holderOptions?: string[];
+    categoryOptions?: string[];
   }) => Promise<void>
 >(async () => {});
 
@@ -81,6 +103,7 @@ describe("FinanceListView", () => {
             entries: [
               {
                 place: "Wallet",
+                holder: "Me",
                 category: "cash",
                 amount: 50,
                 currency: "USD",
@@ -129,19 +152,70 @@ describe("FinanceListView", () => {
     ]);
   });
 
+  it("duplicates the latest snapshot into a create form with today's date", async () => {
+    const user = userEvent.setup();
+    render(<FinanceListView items={snapshots} />);
+    await user.click(screen.getByRole("button", { name: /duplicate last/i }));
+
+    expect(
+      screen.getByRole("heading", { name: /new snapshot/i }),
+    ).toBeInTheDocument();
+    const today = new Date().toLocaleDateString(undefined, {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    });
+    expect(screen.getByLabelText("Snapshot date")).toHaveTextContent(today);
+    expect(screen.getByLabelText("Entry 1 place")).toHaveValue("Chase");
+    expect(screen.getByLabelText("Entry 1 amount")).toHaveValue(200);
+    expect(screen.getByLabelText("Entry 2 place")).toHaveValue("DBS");
+    expect(screen.getByLabelText("Entry 2 amount")).toHaveValue(100);
+
+    await user.clear(screen.getByLabelText("Entry 1 amount"));
+    await user.type(screen.getByLabelText("Entry 1 amount"), "250");
+    await user.click(screen.getByRole("button", { name: "Save" }));
+
+    expect(saveSnapshot).toHaveBeenCalledTimes(1);
+    const saved = saveSnapshot.mock.calls[0][0];
+    expect(saved.id).not.toBe("s2");
+    expect(saved.entries[0]).toMatchObject({
+      place: "Chase",
+      amount: 250,
+      currency: "USD",
+    });
+    expect(saved.entries[1]).toMatchObject({
+      place: "DBS",
+      amount: 100,
+      currency: "SGD",
+    });
+  });
+
   it("adds a snapshot through the form", async () => {
     const user = userEvent.setup();
     render(<FinanceListView items={snapshots} />);
     await user.click(screen.getByRole("button", { name: /new snapshot/i }));
     await pickDate(user, "Snapshot date", "2026-08-01");
+    await user.type(screen.getByLabelText("Snapshot note"), "cash stash");
     await user.type(screen.getByLabelText("Entry 1 place"), "Cash");
+    await user.selectOptions(screen.getByLabelText("Entry 1 holder"), "Wife");
+    await user.selectOptions(screen.getByLabelText("Entry 1 category"), "Gold");
     await user.type(screen.getByLabelText("Entry 1 amount"), "500");
+    await user.selectOptions(screen.getByLabelText("Entry 1 currency"), "USD");
+    await pickDate(user, "Entry 1 due date", "2026-09-15");
     await user.click(screen.getByRole("button", { name: "Save" }));
 
     expect(saveSnapshot).toHaveBeenCalledTimes(1);
     const saved = saveSnapshot.mock.calls[0][0];
     expect(saved.date).toBe(new Date(2026, 7, 1, 23, 59, 59, 0).toISOString());
-    expect(saved.entries[0]).toMatchObject({ place: "Cash", amount: 500 });
+    expect(saved.note).toBe("cash stash");
+    expect(saved.entries[0]).toMatchObject({
+      place: "Cash",
+      holder: "Wife",
+      category: "Gold",
+      amount: 500,
+      currency: "USD",
+      dueDate: new Date(2026, 8, 15, 23, 59, 59, 0).toISOString(),
+    });
   });
 
   it("re-totals when an FX rate is edited", async () => {
@@ -189,6 +263,35 @@ describe("FinanceListView", () => {
     expect(deleteSnapshot).toHaveBeenCalledWith("s2");
   });
 
+  it("shows holding due dates in the detail pane", async () => {
+    const user = userEvent.setup();
+    const withDue: Snapshot[] = [
+      {
+        id: "s4",
+        date: "2026-09-01T00:00:00.000Z",
+        note: "",
+        entries: [
+          {
+            place: "Loan",
+            holder: "Me",
+            category: "Lent",
+            amount: 50,
+            currency: "USD",
+            dueDate: new Date(2026, 9, 1, 23, 59, 59, 0).toISOString(),
+          },
+        ],
+        updatedAt: "2026-09-01T00:00:00.000Z",
+      },
+    ];
+    render(<FinanceListView items={withDue} />);
+    await chooseRowAction(user, "snapshot Sep 1, 2026", "View");
+    expect(
+      within(screen.getByRole("dialog", { name: /sep 1, 2026/i })).getByText(
+        /due oct 1, 2026/i,
+      ),
+    ).toBeInTheDocument();
+  });
+
   it("shows the detail pane with a missing-rate warning, note, and edit", async () => {
     const user = userEvent.setup();
     const withEur: Snapshot[] = [
@@ -197,7 +300,13 @@ describe("FinanceListView", () => {
         date: "2026-08-01T00:00:00.000Z",
         note: "aug note",
         entries: [
-          { place: "N26", category: "bank", amount: 50, currency: "EUR" },
+          {
+            place: "N26",
+            holder: "Me",
+            category: "bank",
+            amount: 50,
+            currency: "EUR",
+          },
         ],
         updatedAt: "2026-08-01T00:00:00.000Z",
       },
@@ -215,14 +324,17 @@ describe("FinanceListView", () => {
     ).toBeInTheDocument();
   });
 
-  it("adds, removes, and re-seeds entry rows and blocks an undated snapshot", async () => {
+  it("adds, removes, and re-seeds entry rows and defaults date to today", async () => {
     const user = userEvent.setup();
     render(<FinanceListView items={snapshots} />);
     await user.click(screen.getByRole("button", { name: /new snapshot/i }));
 
-    await user.click(screen.getByRole("button", { name: "Save" }));
-    expect(screen.getByText(/snapshot date is required/i)).toBeInTheDocument();
-    expect(saveSnapshot).not.toHaveBeenCalled();
+    const today = new Date().toLocaleDateString(undefined, {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    });
+    expect(screen.getByLabelText("Snapshot date")).toHaveTextContent(today);
 
     await user.click(screen.getByRole("button", { name: /add row/i }));
     expect(screen.getByLabelText("Entry 2 place")).toBeInTheDocument();
@@ -235,6 +347,35 @@ describe("FinanceListView", () => {
     await user.click(screen.getByRole("button", { name: "Cancel" }));
     expect(
       screen.getByRole("heading", { name: "Finance" }),
+    ).toBeInTheDocument();
+  });
+
+  it("edits finance holder and category option lists from Settings", async () => {
+    const user = userEvent.setup();
+    render(<FinanceListView items={snapshots} />);
+    await user.click(screen.getByRole("button", { name: "Settings" }));
+    expect(
+      screen.getByRole("heading", { name: "Finance settings" }),
+    ).toBeVisible();
+
+    await user.clear(screen.getByLabelText("Holder options"));
+    await user.type(screen.getByLabelText("Holder options"), "Me\nPartner");
+    await user.clear(screen.getByLabelText("Finance category options"));
+    await user.type(
+      screen.getByLabelText("Finance category options"),
+      "Bank\nCrypto",
+    );
+    await user.click(screen.getByRole("button", { name: "Save settings" }));
+    expect(updateFinanceSettings).toHaveBeenCalledWith({
+      holderOptions: ["Me", "Partner"],
+      categoryOptions: ["Bank", "Crypto"],
+    });
+
+    await user.click(screen.getByRole("button", { name: "Settings" }));
+    await user.clear(screen.getByLabelText("Holder options"));
+    await user.click(screen.getByRole("button", { name: "Save settings" }));
+    expect(
+      screen.getByText(/keep at least one holder and one category option/i),
     ).toBeInTheDocument();
   });
 

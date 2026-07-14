@@ -14,7 +14,15 @@ const snapshot: Snapshot = {
   id: "s1",
   date: "2026-07-01T00:00:00.000Z",
   note: "",
-  entries: [{ place: "DBS", category: "bank", amount: 100, currency: "USD" }],
+  entries: [
+    {
+      place: "DBS",
+      holder: "Me",
+      category: "bank",
+      amount: 100,
+      currency: "USD",
+    },
+  ],
   updatedAt: "2026-07-01T00:00:00.000Z",
 };
 
@@ -51,6 +59,17 @@ describe("financeModule", () => {
     render(<EditView item={snapshot} onCancel={() => {}} onSave={() => {}} />);
     expect(
       screen.getByRole("heading", { name: /edit snapshot/i }),
+    ).toBeInTheDocument();
+  });
+
+  it("opens EditView for create when the item is not a snapshot", () => {
+    const EditView = financeModule.EditView;
+    if (!EditView) throw new Error("finance EditView should be defined");
+    render(
+      <EditView item={{ id: "nope" }} onCancel={() => {}} onSave={() => {}} />,
+    );
+    expect(
+      screen.getByRole("heading", { name: /new snapshot/i }),
     ).toBeInTheDocument();
   });
 });

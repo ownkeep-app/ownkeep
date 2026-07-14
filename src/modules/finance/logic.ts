@@ -1,6 +1,13 @@
-import { dateInputToIso, formatDate, isoToDateInput } from "@/lib/date";
+import { dateInputToIso, dateToDateInput, formatDate, isoToDateInput } from "@/lib/date";
 import type { IndexEntry } from "@/modules/types";
 import type { VaultSettings } from "@/vault/model";
+import {
+  DEFAULT_FINANCE_CATEGORY,
+  DEFAULT_HOLDER,
+  defaultFinanceCategory,
+  defaultHolder,
+  type FinanceTaxonomy,
+} from "./settings";
 import {
   DEFAULT_BASE_CURRENCY,
   FINANCE_MODULE_ID,
@@ -11,6 +18,15 @@ import {
 } from "./types";
 
 export { dateInputToIso, formatDate, isoToDateInput };
+export {
+  defaultFinanceCategory,
+  defaultFinanceCategoryOptions,
+  defaultHolder,
+  defaultHolderOptions,
+  parseFinanceOptionLines,
+  readFinanceTaxonomy,
+  type FinanceTaxonomy,
+} from "./settings";
 
 export const formatSnapshotDate = formatDate;
 
@@ -41,12 +57,19 @@ export interface TrendPoint {
 export function isFinanceEntry(value: unknown): value is FinanceEntry {
   if (!value || typeof value !== "object") return false;
   const entry = value as Partial<FinanceEntry>;
-  return (
-    typeof entry.place === "string" &&
-    typeof entry.category === "string" &&
-    typeof entry.amount === "number" &&
-    typeof entry.currency === "string"
-  );
+  if (
+    typeof entry.place !== "string" ||
+    typeof entry.holder !== "string" ||
+    typeof entry.category !== "string" ||
+    typeof entry.amount !== "number" ||
+    typeof entry.currency !== "string"
+  ) {
+    return false;
+  }
+  if (entry.dueDate !== undefined && typeof entry.dueDate !== "string") {
+    return false;
+  }
+  return true;
 }
 
 export function isSnapshot(value: unknown): value is Snapshot {
@@ -146,8 +169,10 @@ export function buildFinanceIndex(snapshots: Snapshot[]): IndexEntry[] {
       snapshot.note,
       ...snapshot.entries.flatMap((entry) => [
         entry.place,
+        entry.holder,
         entry.category,
         entry.currency,
+        entry.dueDate ? formatSnapshotDate(entry.dueDate) : "",
       ]),
     ]
       .filter(Boolean)
@@ -174,31 +199,59 @@ function sortSnapshotsAscending(snapshots: Snapshot[]): Snapshot[] {
 
 // --- forms ---
 
-export function emptyEntryInput(): FinanceEntryInput {
+export function emptyEntryInput(taxonomy?: FinanceTaxonomy): FinanceEntryInput {
   return {
     place: "",
-    category: "",
+    holder: defaultHolder(taxonomy),
+    category: defaultFinanceCategory(taxonomy),
     amount: "",
     currency: DEFAULT_BASE_CURRENCY,
+    dueDate: "",
   };
 }
 
-export function emptySnapshotForm(): SnapshotFormInput {
-  return { date: "", note: "", entries: [emptyEntryInput()] };
+export function emptySnapshotForm(
+  taxonomy?: FinanceTaxonomy,
+): SnapshotFormInput {
+  return {
+    date: dateToDateInput(new Date()),
+    note: "",
+    entries: [emptyEntryInput(taxonomy)],
+  };
 }
 
-export function formFromSnapshot(snapshot: Snapshot): SnapshotFormInput {
+export function formFromSnapshot(
+  snapshot: Snapshot,
+  taxonomy?: FinanceTaxonomy,
+): SnapshotFormInput {
   return {
     date: isoToDateInput(snapshot.date),
     note: snapshot.note,
     entries: snapshot.entries.length
       ? snapshot.entries.map((entry) => ({
           place: entry.place,
-          category: entry.category,
+          holder: entry.holder || defaultHolder(taxonomy),
+          category: entry.category || defaultFinanceCategory(taxonomy),
           amount: String(entry.amount),
           currency: entry.currency,
+          dueDate: isoToDateInput(entry.dueDate),
         }))
-      : [emptyEntryInput()],
+      : [emptyEntryInput(taxonomy)],
+  };
+}
+
+/**
+ * Start a new snapshot from an existing one: same holdings (and note),
+ * date set to today so the user can tweak amounts and save.
+ */
+export function duplicateSnapshotForm(
+  snapshot: Snapshot,
+  taxonomy?: FinanceTaxonomy,
+  now: Date = new Date(),
+): SnapshotFormInput {
+  return {
+    ...formFromSnapshot(snapshot, taxonomy),
+    date: dateToDateInput(now),
   };
 }
 
@@ -245,6 +298,9 @@ export function validateSnapshotInput(input: SnapshotFormInput): string | null {
       return "Each amount must be zero or greater.";
     }
     if (!entry.currency.trim()) return "Each entry needs a currency.";
+    if (entry.dueDate.trim() && !dateInputToIso(entry.dueDate)) {
+      return "Each due date must be a valid date.";
+    }
   }
   return null;
 }
@@ -260,18 +316,27 @@ export function formatMoney(amount: number, currency: string): string {
 function filledEntries(entries: FinanceEntryInput[]): FinanceEntryInput[] {
   return entries.filter(
     (entry) =>
-      entry.place.trim() || entry.amount.trim() || entry.category.trim(),
+      entry.place.trim() ||
+      entry.amount.trim() ||
+      entry.holder.trim() ||
+      entry.category.trim() ||
+      entry.dueDate.trim(),
   );
 }
 
 function parseEntries(entries: FinanceEntryInput[]): FinanceEntry[] {
   return filledEntries(entries)
-    .map((entry) => ({
-      place: entry.place.trim(),
-      category: entry.category.trim() || "uncategorized",
-      amount: parseAmount(entry.amount),
-      currency: normalizeCurrency(entry.currency),
-    }))
+    .map((entry) => {
+      const dueDate = dateInputToIso(entry.dueDate);
+      return {
+        place: entry.place.trim(),
+        holder: entry.holder.trim() || DEFAULT_HOLDER,
+        category: entry.category.trim() || DEFAULT_FINANCE_CATEGORY,
+        amount: parseAmount(entry.amount),
+        currency: normalizeCurrency(entry.currency),
+        ...(dueDate ? { dueDate } : {}),
+      };
+    })
     .filter((entry) => entry.place.length > 0);
 }
 

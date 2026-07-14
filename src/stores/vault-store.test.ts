@@ -562,7 +562,13 @@ describe("vault store", () => {
       id: "s1",
       date: "2026-07-01T00:00:00.000Z",
       entries: [
-        { place: "DBS", category: "bank", amount: 100, currency: "USD" },
+        {
+          place: "DBS",
+          holder: "Me",
+          category: "bank",
+          amount: 100,
+          currency: "USD",
+        },
       ],
       note: "old",
       updatedAt: "2026-07-07T00:00:00.000Z",
@@ -633,6 +639,26 @@ describe("vault store", () => {
     const saved = JSON.parse(api.saveVault.mock.calls[0][0] as string);
     expect(saved.settings.modules.finance.baseCurrency).toBe("SGD");
     expect(saved.settings.modules.finance.fxRates).toEqual({ USD: 1.35 });
+  });
+
+  it("updateFinanceSettings persists finance holder and category option lists", async () => {
+    api.isUnlocked.mockResolvedValue(true);
+    api.getVault.mockResolvedValue("{}");
+    await useVaultStore.getState().init();
+
+    await useVaultStore.getState().updateFinanceSettings({
+      holderOptions: ["Me", "Partner"],
+      categoryOptions: ["Bank", "Gold"],
+    });
+    const saved = JSON.parse(api.saveVault.mock.calls[0][0] as string);
+    expect(saved.settings.modules.finance.holderOptions).toEqual([
+      "Me",
+      "Partner",
+    ]);
+    expect(saved.settings.modules.finance.categoryOptions).toEqual([
+      "Bank",
+      "Gold",
+    ]);
   });
 
   it("finance mutations no-op without a model and coerce a non-array slice", async () => {

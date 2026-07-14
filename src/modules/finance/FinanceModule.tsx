@@ -2,10 +2,12 @@ import { type FormEvent, useMemo, useState } from "react";
 
 import {
   Coins,
+  Copy,
   Eye,
   Pencil,
   Plus,
   Search,
+  Settings2,
   Trash2,
   TrendingUp,
   X,
@@ -27,6 +29,7 @@ import { ListItemTitle } from "@/components/ListItemTitle";
 import { RowActionsMenu } from "@/components/RowActionsMenu";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
 import { CurrencySelect, DEFAULT_CURRENCY } from "@/components/currency-select";
 import {
   ActionsTableHead,
@@ -47,14 +50,17 @@ import {
   type SortState,
   type SortValue,
 } from "@/lib/table-sort";
+import { toastSuccess } from "@/lib/toast";
 import { useClearFiltersOnEscape } from "@/hooks/use-clear-filters-on-escape";
 import type { ListViewProps } from "@/modules/types";
 import { useVaultStore } from "@/stores/vault-store";
 import { defaultSettings } from "@/vault/model";
+import { optionsWithExtras } from "@/vault/taxonomy";
 import { TrendChart } from "./TrendChart";
 import {
   computeSnapshotStats,
   createSnapshot,
+  duplicateSnapshotForm,
   emptyEntryInput,
   emptySnapshotForm,
   financeSnapshots,
@@ -62,7 +68,9 @@ import {
   formatSnapshotDate,
   formFromSnapshot,
   netWorthSeries,
+  parseFinanceOptionLines,
   readFinanceFx,
+  readFinanceTaxonomy,
   sortSnapshots,
   updateSnapshot,
   validateSnapshotInput,
@@ -83,18 +91,27 @@ export function FinanceListView({ items }: ListViewProps<Snapshot>) {
   const [query, setQuery] = useState("");
   const [viewing, setViewing] = useState<Snapshot | null>(null);
   const [editing, setEditing] = useState<Snapshot | null | undefined>();
+  const [createDraft, setCreateDraft] = useState<SnapshotFormInput | null>(
+    null,
+  );
   const [pendingDelete, setPendingDelete] = useState<{
     id: string;
     name: string;
   } | null>(null);
   const [showFx, setShowFx] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
   const [sortState, setSortState] =
     useState<SortState<FinanceSortColumn> | null>(null);
 
   const snapshots = useMemo(() => financeSnapshots(items), [items]);
   const fx = useMemo(() => readFinanceFx(settings), [settings]);
+  const taxonomy = useMemo(
+    () => readFinanceTaxonomy(settings),
+    [settings],
+  );
   const series = useMemo(() => netWorthSeries(snapshots, fx), [snapshots, fx]);
   const sorted = useMemo(() => sortSnapshots(snapshots), [snapshots]);
+  const latestSnapshot = sorted[0] ?? null;
   const filtersActive = Boolean(query.trim());
   useClearFiltersOnEscape(filtersActive, () => setQuery(""));
   const filtered = useMemo(() => {
@@ -106,8 +123,10 @@ export function FinanceListView({ items }: ListViewProps<Snapshot>) {
             snapshot.note,
             ...snapshot.entries.flatMap((entry) => [
               entry.place,
+              entry.holder,
               entry.category,
               entry.currency,
+              entry.dueDate ? formatSnapshotDate(entry.dueDate) : "",
             ]),
           ]
             .join(" ")
@@ -124,11 +143,21 @@ export function FinanceListView({ items }: ListViewProps<Snapshot>) {
   const handleSort = (column: FinanceSortColumn) =>
     setSortState((current) => nextSortState(current, column));
 
-  const startCreate = () => setEditing(null);
+  const startCreate = () => {
+    setCreateDraft(null);
+    setEditing(null);
+  };
+
+  const startDuplicateLast = () => {
+    if (!latestSnapshot) return;
+    setCreateDraft(duplicateSnapshotForm(latestSnapshot, taxonomy));
+    setEditing(null);
+  };
 
   async function handleSave(entry: Snapshot) {
     await saveSnapshot(entry);
     setViewing(null);
+    setCreateDraft(null);
     setEditing(undefined);
   }
 
@@ -141,8 +170,12 @@ export function FinanceListView({ items }: ListViewProps<Snapshot>) {
   if (editing !== undefined) {
     return (
       <FinanceEditView
+        draft={editing ? undefined : (createDraft ?? undefined)}
         item={editing ?? undefined}
-        onCancel={() => setEditing(undefined)}
+        onCancel={() => {
+          setCreateDraft(null);
+          setEditing(undefined);
+        }}
         onSave={(entry) => void handleSave(entry)}
       />
     );
@@ -150,11 +183,14 @@ export function FinanceListView({ items }: ListViewProps<Snapshot>) {
   if (showFx) {
     return <FxRatesView onClose={() => setShowFx(false)} />;
   }
+  if (showSettings) {
+    return <FinanceSettingsView onClose={() => setShowSettings(false)} />;
+  }
 
   const latest = series.length ? series[series.length - 1].total : 0;
 
   return (
-    <div className="flex h-full flex-col overflow-x-hidden">
+    <div className="relative flex h-full flex-col overflow-x-hidden">
       <header className="border-b border-border px-6 py-4">
         <div className="flex items-center gap-3">
           <div className="min-w-0 flex-1">
@@ -164,6 +200,14 @@ export function FinanceListView({ items }: ListViewProps<Snapshot>) {
               net worth {formatMoney(latest, fx.baseCurrency)}
             </p>
           </div>
+          <Button
+            onClick={() => setShowSettings(true)}
+            type="button"
+            variant="outline"
+          >
+            <Settings2 className="h-4 w-4" />
+            Settings
+          </Button>
           <Button
             onClick={() => setShowFx(true)}
             type="button"
@@ -354,6 +398,18 @@ export function FinanceListView({ items }: ListViewProps<Snapshot>) {
           }}
           open={pendingDelete !== null}
         />
+
+        {latestSnapshot ? (
+          <Button
+            aria-label="Duplicate last snapshot"
+            className="absolute bottom-4 right-4 z-20 shadow-lg"
+            onClick={startDuplicateLast}
+            type="button"
+          >
+            <Copy className="h-4 w-4" />
+            Duplicate last
+          </Button>
+        ) : null}
       </div>
     </div>
   );
@@ -432,8 +488,17 @@ export function FinanceDetailView({
                 className="flex justify-between gap-3"
                 key={`${entry.place}-${index}`}
               >
-                <span className="truncate">{entry.place}</span>
-                <span className="text-muted-foreground">
+                <span className="min-w-0 truncate">
+                  {entry.place}
+                  <span className="text-muted-foreground">
+                    {" "}
+                    · {entry.holder} · {entry.category}
+                    {entry.dueDate
+                      ? ` · due ${formatSnapshotDate(entry.dueDate)}`
+                      : ""}
+                  </span>
+                </span>
+                <span className="shrink-0 text-muted-foreground">
                   {formatMoney(entry.amount, entry.currency)}
                 </span>
               </li>
@@ -451,15 +516,25 @@ export function FinanceDetailView({
 
 export function FinanceEditView({
   item,
+  draft,
   onSave,
   onCancel,
 }: {
   item?: Snapshot;
+  /** Prefill for create (e.g. duplicate-last); ignored when editing an item. */
+  draft?: SnapshotFormInput;
   onSave: (item: Snapshot) => void;
   onCancel: () => void;
 }) {
+  const model = useVaultStore((s) => s.model);
+  const taxonomy = useMemo(
+    () => readFinanceTaxonomy(model?.settings ?? defaultSettings()),
+    [model?.settings],
+  );
   const [form, setForm] = useState<SnapshotFormInput>(
-    item ? formFromSnapshot(item) : emptySnapshotForm(),
+    item
+      ? formFromSnapshot(item, taxonomy)
+      : (draft ?? emptySnapshotForm(taxonomy)),
   );
   const [error, setError] = useState<string | null>(null);
 
@@ -479,7 +554,7 @@ export function FinanceEditView({
   function addRow() {
     setForm((current) => ({
       ...current,
-      entries: [...current.entries, emptyEntryInput()],
+      entries: [...current.entries, emptyEntryInput(taxonomy)],
     }));
   }
 
@@ -488,7 +563,7 @@ export function FinanceEditView({
       const entries = current.entries.filter((_, i) => i !== index);
       return {
         ...current,
-        entries: entries.length ? entries : [emptyEntryInput()],
+        entries: entries.length ? entries : [emptyEntryInput(taxonomy)],
       };
     });
   }
@@ -542,56 +617,91 @@ export function FinanceEditView({
             Add row
           </Button>
         </div>
-        {form.entries.map((entry, index) => (
-          <div
-            className="grid grid-cols-[1fr_1fr_1fr_5rem_2rem] items-center gap-2"
-            key={index}
-          >
-            <Input
-              aria-label={`Entry ${index + 1} place`}
-              onChange={(event) =>
-                updateEntry(index, "place", event.target.value)
-              }
-              placeholder="Place"
-              value={entry.place}
-            />
-            <Input
-              aria-label={`Entry ${index + 1} category`}
-              onChange={(event) =>
-                updateEntry(index, "category", event.target.value)
-              }
-              placeholder="Category"
-              value={entry.category}
-            />
-            <Input
-              aria-label={`Entry ${index + 1} amount`}
-              min={0}
-              onChange={(event) =>
-                updateEntry(index, "amount", event.target.value)
-              }
-              placeholder="Amount"
-              step="0.01"
-              type="number"
-              value={entry.amount}
-            />
-            <CurrencySelect
-              aria-label={`Entry ${index + 1} currency`}
-              onChange={(event) =>
-                updateEntry(index, "currency", event.target.value)
-              }
-              value={entry.currency}
-            />
-            <Button
-              aria-label={`Remove entry ${index + 1}`}
-              onClick={() => removeRow(index)}
-              size="icon"
-              type="button"
-              variant="ghost"
-            >
-              <Trash2 className="h-4 w-4" />
-            </Button>
-          </div>
-        ))}
+        {form.entries.map((entry, index) => {
+          const holderChoices = optionsWithExtras(
+            taxonomy.holderOptions,
+            entry.holder,
+          );
+          const categoryChoices = optionsWithExtras(
+            taxonomy.categoryOptions,
+            entry.category,
+          );
+          return (
+            <div className="space-y-2" key={index}>
+              <div className="grid grid-cols-[minmax(0,1.1fr)_minmax(0,0.7fr)_minmax(0,0.9fr)_minmax(0,0.8fr)_5rem_2rem] items-center gap-2">
+                <Input
+                  aria-label={`Entry ${index + 1} place`}
+                  onChange={(event) =>
+                    updateEntry(index, "place", event.target.value)
+                  }
+                  placeholder="Place"
+                  value={entry.place}
+                />
+                <Select
+                  aria-label={`Entry ${index + 1} holder`}
+                  onChange={(event) =>
+                    updateEntry(index, "holder", event.target.value)
+                  }
+                  value={entry.holder}
+                >
+                  {holderChoices.map((option) => (
+                    <option key={option} value={option}>
+                      {option}
+                    </option>
+                  ))}
+                </Select>
+                <Select
+                  aria-label={`Entry ${index + 1} category`}
+                  onChange={(event) =>
+                    updateEntry(index, "category", event.target.value)
+                  }
+                  value={entry.category}
+                >
+                  {categoryChoices.map((option) => (
+                    <option key={option} value={option}>
+                      {option}
+                    </option>
+                  ))}
+                </Select>
+                <Input
+                  aria-label={`Entry ${index + 1} amount`}
+                  min={0}
+                  onChange={(event) =>
+                    updateEntry(index, "amount", event.target.value)
+                  }
+                  placeholder="Amount"
+                  step="0.01"
+                  type="number"
+                  value={entry.amount}
+                />
+                <CurrencySelect
+                  aria-label={`Entry ${index + 1} currency`}
+                  onChange={(event) =>
+                    updateEntry(index, "currency", event.target.value)
+                  }
+                  value={entry.currency}
+                />
+                <Button
+                  aria-label={`Remove entry ${index + 1}`}
+                  onClick={() => removeRow(index)}
+                  size="icon"
+                  type="button"
+                  variant="ghost"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </div>
+              <DatePicker
+                aria-label={`Entry ${index + 1} due date`}
+                clearable
+                className="max-w-xs"
+                onChange={(date) => updateEntry(index, "dueDate", date)}
+                placeholder="Due date (optional)"
+                value={entry.dueDate}
+              />
+            </div>
+          );
+        })}
       </div>
     </ItemFormShell>
   );
@@ -739,6 +849,98 @@ export function FxRatesView({ onClose }: { onClose: () => void }) {
         </Button>
         <Button onClick={() => void save()} type="button">
           Save rates
+        </Button>
+      </footer>
+    </div>
+  );
+}
+
+/** Finance-only holder and category option lists for snapshot holdings. */
+export function FinanceSettingsView({ onClose }: { onClose: () => void }) {
+  const model = useVaultStore((s) => s.model);
+  const updateFinanceSettings = useVaultStore((s) => s.updateFinanceSettings);
+  const taxonomy = readFinanceTaxonomy(model?.settings ?? defaultSettings());
+
+  const [holderOptionsText, setHolderOptionsText] = useState(
+    taxonomy.holderOptions.join("\n"),
+  );
+  const [categoryOptionsText, setCategoryOptionsText] = useState(
+    taxonomy.categoryOptions.join("\n"),
+  );
+  const [error, setError] = useState<string | null>(null);
+
+  async function save() {
+    setError(null);
+    const holderOptions = parseFinanceOptionLines(holderOptionsText);
+    const categoryOptions = parseFinanceOptionLines(categoryOptionsText);
+    if (holderOptions.length === 0 || categoryOptions.length === 0) {
+      setError("Keep at least one holder and one category option.");
+      return;
+    }
+    setHolderOptionsText(holderOptions.join("\n"));
+    setCategoryOptionsText(categoryOptions.join("\n"));
+    await updateFinanceSettings({ holderOptions, categoryOptions });
+    toastSuccess("Finance settings saved");
+    onClose();
+  }
+
+  return (
+    <div className="flex h-full flex-col">
+      <header className="flex items-center gap-3 border-b border-border px-6 py-4">
+        <div className="min-w-0 flex-1">
+          <h1 className="text-lg font-semibold">Finance settings</h1>
+          <p className="text-sm text-muted-foreground">
+            Configure holders and asset categories used in snapshot holdings.
+          </p>
+        </div>
+        <Button
+          aria-label="Close finance settings"
+          onClick={onClose}
+          size="icon"
+          type="button"
+          variant="ghost"
+        >
+          <X className="h-4 w-4" />
+        </Button>
+      </header>
+
+      <div className="flex-1 space-y-6 overflow-auto p-6">
+        <label className="grid gap-1 text-sm">
+          <span className="font-medium">Holder options</span>
+          <span className="text-xs text-muted-foreground">
+            One label per line. Shown as the holder select on each holding row.
+          </span>
+          <textarea
+            aria-label="Holder options"
+            className="min-h-28 rounded-md border border-input bg-card px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            onChange={(event) => setHolderOptionsText(event.target.value)}
+            value={holderOptionsText}
+          />
+        </label>
+
+        <label className="grid gap-1 text-sm">
+          <span className="font-medium">Category options</span>
+          <span className="text-xs text-muted-foreground">
+            One label per line. Shown as the category select on each holding
+            row.
+          </span>
+          <textarea
+            aria-label="Finance category options"
+            className="min-h-36 rounded-md border border-input bg-card px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            onChange={(event) => setCategoryOptionsText(event.target.value)}
+            value={categoryOptionsText}
+          />
+        </label>
+
+        {error && <p className="text-sm text-destructive">{error}</p>}
+      </div>
+
+      <footer className="flex justify-end gap-2 border-t border-border px-6 py-4">
+        <Button onClick={onClose} type="button" variant="outline">
+          Cancel
+        </Button>
+        <Button onClick={() => void save()} type="button">
+          Save settings
         </Button>
       </footer>
     </div>

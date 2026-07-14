@@ -1,11 +1,13 @@
 import { describe, expect, it } from "vitest";
 
+import { dateToDateInput } from "@/lib/date";
 import { defaultSettings, type VaultSettings } from "@/vault/model";
 import {
   buildFinanceIndex,
   computeSnapshotStats,
   createSnapshot,
   dateInputToIso,
+  duplicateSnapshotForm,
   emptySnapshotForm,
   financeSnapshots,
   formatMoney,
@@ -45,12 +47,31 @@ describe("guards", () => {
     expect(
       isFinanceEntry({
         place: "DBS",
+        holder: "Me",
         category: "bank",
         amount: 1,
         currency: "SGD",
       }),
     ).toBe(true);
     expect(isFinanceEntry({ place: "DBS" })).toBe(false);
+    expect(
+      isFinanceEntry({
+        place: "DBS",
+        category: "bank",
+        amount: 1,
+        currency: "SGD",
+      }),
+    ).toBe(false);
+    expect(
+      isFinanceEntry({
+        place: "DBS",
+        holder: "Me",
+        category: "bank",
+        amount: 1,
+        currency: "SGD",
+        dueDate: 1,
+      }),
+    ).toBe(false);
     expect(isFinanceEntry(null)).toBe(false);
 
     const good = snapshot("2026-07-01T00:00:00.000Z", []);
@@ -92,9 +113,27 @@ describe("readFinanceFx", () => {
 
 describe("computeSnapshotStats", () => {
   const mixed = snapshot("2026-07-01T00:00:00.000Z", [
-    { place: "DBS", category: "bank", amount: 12000, currency: "SGD" },
-    { place: "Chase", category: "bank", amount: 5000, currency: "USD" },
-    { place: "WeChat", category: "wallet", amount: 800, currency: "CNY" },
+    {
+      place: "DBS",
+      holder: "Me",
+      category: "bank",
+      amount: 12000,
+      currency: "SGD",
+    },
+    {
+      place: "Chase",
+      holder: "Me",
+      category: "bank",
+      amount: 5000,
+      currency: "USD",
+    },
+    {
+      place: "WeChat",
+      holder: "Me",
+      category: "wallet",
+      amount: 800,
+      currency: "CNY",
+    },
   ]);
 
   it("totals in base currency, groups by category, flags missing rates", () => {
@@ -112,8 +151,20 @@ describe("computeSnapshotStats", () => {
   it("normalizes odd amounts and blank categories while retaining raw currency totals", () => {
     const stats = computeSnapshotStats(
       snapshot("2026-07-01T00:00:00.000Z", [
-        { place: "Cash", category: "  ", amount: Number.NaN, currency: "usd" },
-        { place: "Wallet", category: "  ", amount: 2.005, currency: " usd " },
+        {
+          place: "Cash",
+          holder: "Me",
+          category: "  ",
+          amount: Number.NaN,
+          currency: "usd",
+        },
+        {
+          place: "Wallet",
+          holder: "Me",
+          category: "  ",
+          amount: 2.005,
+          currency: " usd ",
+        },
       ]),
       { baseCurrency: "USD", rates: {} },
     );
@@ -125,7 +176,13 @@ describe("computeSnapshotStats", () => {
 
   it("re-totals when the FX rate changes (exit criterion)", () => {
     const sgd = snapshot("2026-07-01T00:00:00.000Z", [
-      { place: "DBS", category: "bank", amount: 100, currency: "SGD" },
+      {
+        place: "DBS",
+        holder: "Me",
+        category: "bank",
+        amount: 100,
+        currency: "SGD",
+      },
     ]);
     expect(
       computeSnapshotStats(sgd, { baseCurrency: "USD", rates: { SGD: 0.74 } })
@@ -143,12 +200,28 @@ describe("netWorthSeries", () => {
     const fx: FinanceFx = { baseCurrency: "USD", rates: {} };
     const feb = snapshot(
       "2026-02-01T00:00:00.000Z",
-      [{ place: "x", category: "bank", amount: 100, currency: "USD" }],
+      [
+        {
+          place: "x",
+          holder: "Me",
+          category: "bank",
+          amount: 100,
+          currency: "USD",
+        },
+      ],
       "feb",
     );
     const jan = snapshot(
       "2026-01-01T00:00:00.000Z",
-      [{ place: "y", category: "bank", amount: 50, currency: "USD" }],
+      [
+        {
+          place: "y",
+          holder: "Me",
+          category: "bank",
+          amount: 50,
+          currency: "USD",
+        },
+      ],
       "jan",
     );
     expect(netWorthSeries([feb, jan], fx)).toEqual([
@@ -162,7 +235,13 @@ describe("index + sort", () => {
   it("builds one searchable index entry per snapshot", () => {
     const [entry] = buildFinanceIndex([
       snapshot("2026-07-01T00:00:00.000Z", [
-        { place: "DBS", category: "bank", amount: 1, currency: "SGD" },
+        {
+          place: "DBS",
+          holder: "Me",
+          category: "bank",
+          amount: 1,
+          currency: "SGD",
+        },
       ]),
     ]);
     expect(entry.moduleId).toBe("finance");
@@ -172,8 +251,20 @@ describe("index + sort", () => {
 
     const [multiEntry] = buildFinanceIndex([
       snapshot("2026-07-01T00:00:00.000Z", [
-        { place: "DBS", category: "bank", amount: 1, currency: "SGD" },
-        { place: "Chase", category: "bank", amount: 1, currency: "USD" },
+        {
+          place: "DBS",
+          holder: "Me",
+          category: "bank",
+          amount: 1,
+          currency: "SGD",
+        },
+        {
+          place: "Chase",
+          holder: "Me",
+          category: "bank",
+          amount: 1,
+          currency: "USD",
+        },
       ]),
     ]);
     expect(multiEntry.displayLine).toContain("2 places");
@@ -208,8 +299,22 @@ describe("snapshot forms", () => {
         date: "2026-07-01",
         note: "  saved  ",
         entries: [
-          { place: "DBS", category: "bank", amount: "12000", currency: "sgd" },
-          { place: "", category: "", amount: "", currency: "USD" },
+          {
+            place: "DBS",
+            holder: "Me",
+            category: "bank",
+            amount: "12000",
+            currency: "sgd",
+            dueDate: "2026-12-31",
+          },
+          {
+            place: "",
+            holder: "",
+            category: "",
+            amount: "",
+            currency: "USD",
+            dueDate: "",
+          },
         ],
       },
       NOW,
@@ -221,7 +326,44 @@ describe("snapshot forms", () => {
     );
     expect(created.note).toBe("saved");
     expect(created.entries).toEqual([
-      { place: "DBS", category: "bank", amount: 12000, currency: "SGD" },
+      {
+        place: "DBS",
+        holder: "Me",
+        category: "bank",
+        amount: 12000,
+        currency: "SGD",
+        dueDate: new Date(2026, 11, 31, 23, 59, 59, 0).toISOString(),
+      },
+    ]);
+  });
+
+  it("fills blank holder and category with finance defaults", () => {
+    const created = createSnapshot(
+      {
+        date: "2026-07-01",
+        note: "",
+        entries: [
+          {
+            place: "Cash",
+            holder: "  ",
+            category: "  ",
+            amount: "10",
+            currency: "  ",
+            dueDate: "",
+          },
+        ],
+      },
+      NOW,
+      "id-defaults",
+    );
+    expect(created.entries).toEqual([
+      {
+        place: "Cash",
+        holder: "Me",
+        category: "Bank",
+        amount: 10,
+        currency: "CNY",
+      },
     ]);
   });
 
@@ -231,7 +373,14 @@ describe("snapshot forms", () => {
         date: "2026-07-01",
         note: "n",
         entries: [
-          { place: "DBS", category: "bank", amount: "100", currency: "SGD" },
+          {
+            place: "DBS",
+            holder: "Me",
+            category: "bank",
+            amount: "100",
+            currency: "SGD",
+            dueDate: "",
+          },
         ],
       },
       NOW,
@@ -241,10 +390,21 @@ describe("snapshot forms", () => {
     expect(form.date).toBe("2026-07-01");
     expect(form.entries[0]).toEqual({
       place: "DBS",
+      holder: "Me",
       category: "bank",
       amount: "100",
       currency: "SGD",
+      dueDate: "",
     });
+
+    const duplicated = duplicateSnapshotForm(
+      created,
+      undefined,
+      new Date(2026, 7, 2),
+    );
+    expect(duplicated.date).toBe("2026-08-02");
+    expect(duplicated.note).toBe("n");
+    expect(duplicated.entries).toEqual(form.entries);
 
     const updated = updateSnapshot(
       created,
@@ -269,7 +429,10 @@ describe("snapshot forms", () => {
     expect(
       formFromSnapshot(snapshot("2026-07-01T00:00:00.000Z", [])).entries,
     ).toHaveLength(1);
-    expect(emptySnapshotForm().entries).toHaveLength(1);
+    const empty = emptySnapshotForm();
+    expect(empty.entries).toHaveLength(1);
+    expect(empty.date).toBe(dateToDateInput(new Date()));
+    expect(empty.entries[0].dueDate).toBe("");
   });
 
   it("validates the date and entry fields", () => {
@@ -281,7 +444,14 @@ describe("snapshot forms", () => {
         date: "2026-07-01",
         note: "",
         entries: [
-          { place: "", category: "bank", amount: "1", currency: "USD" },
+          {
+            place: "",
+            holder: "Me",
+            category: "bank",
+            amount: "1",
+            currency: "USD",
+            dueDate: "",
+          },
         ],
       }),
     ).toMatch(/place/i);
@@ -290,7 +460,14 @@ describe("snapshot forms", () => {
         date: "2026-07-01",
         note: "",
         entries: [
-          { place: "DBS", category: "bank", amount: "-5", currency: "USD" },
+          {
+            place: "DBS",
+            holder: "Me",
+            category: "bank",
+            amount: "-5",
+            currency: "USD",
+            dueDate: "",
+          },
         ],
       }),
     ).toMatch(/amount/i);
@@ -299,7 +476,14 @@ describe("snapshot forms", () => {
         date: "2026-07-01",
         note: "",
         entries: [
-          { place: "DBS", category: "bank", amount: "1", currency: "  " },
+          {
+            place: "DBS",
+            holder: "Me",
+            category: "bank",
+            amount: "1",
+            currency: "  ",
+            dueDate: "",
+          },
         ],
       }),
     ).toMatch(/currency/i);
@@ -308,7 +492,30 @@ describe("snapshot forms", () => {
         date: "2026-07-01",
         note: "",
         entries: [
-          { place: "DBS", category: "bank", amount: "1", currency: "USD" },
+          {
+            place: "DBS",
+            holder: "Me",
+            category: "bank",
+            amount: "1",
+            currency: "USD",
+            dueDate: "not-a-date",
+          },
+        ],
+      }),
+    ).toMatch(/due date/i);
+    expect(
+      validateSnapshotInput({
+        date: "2026-07-01",
+        note: "",
+        entries: [
+          {
+            place: "DBS",
+            holder: "Me",
+            category: "bank",
+            amount: "1",
+            currency: "USD",
+            dueDate: "",
+          },
         ],
       }),
     ).toBeNull();

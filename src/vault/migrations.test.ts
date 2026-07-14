@@ -81,6 +81,8 @@ describe("migration registry", () => {
       [6, 7],
       [7, 8],
       [8, 9],
+      [9, 10],
+      [10, 11],
     ]);
   });
 
@@ -398,7 +400,243 @@ describe("migration registry", () => {
     expect(prepared.model.settings.modules.finance).toEqual({
       enabled: false,
       searchable: false,
+      holderOptions: ["Me", "Wife", "Child", "Parent"],
+      categoryOptions: [
+        "Bank",
+        "Crypto",
+        "Real estate",
+        "Stock",
+        "Gold",
+        "Lent",
+        "E-wallet",
+      ],
     });
+  });
+
+  it("adds holder and finance option lists during the v9 to v10 migration", () => {
+    const model = {
+      ...createDefaultModel(NOW),
+      meta: {
+        schemaVersion: 9,
+        appVersion: "1.0",
+        createdAt: NOW,
+        updatedAt: NOW,
+      },
+      settings: {
+        ...createDefaultModel(NOW).settings,
+        modules: {
+          finance: {
+            enabled: true,
+            searchable: false,
+            baseCurrency: "CNY",
+            fxRates: { USD: 7 },
+          },
+        },
+      },
+      modules: {
+        finance: [
+          {
+            id: "s1",
+            date: NOW,
+            note: "",
+            entries: [
+              {
+                place: "DBS",
+                category: "bank",
+                amount: 100,
+                currency: "SGD",
+              },
+            ],
+            updatedAt: NOW,
+          },
+        ],
+      },
+    };
+
+    const prepared = prepareVaultModel(model, modules);
+    expect(prepared.migration?.changes.map((c) => c.path)).toEqual(
+      expect.arrayContaining([
+        "modules.finance[].entries[].holder",
+        "settings.modules.finance.holderOptions",
+        "settings.modules.finance.categoryOptions",
+      ]),
+    );
+    expect(prepared.model.settings.modules.finance).toEqual(
+      expect.objectContaining({
+        enabled: true,
+        searchable: false,
+        baseCurrency: "CNY",
+        fxRates: { USD: 7 },
+        holderOptions: ["Me", "Wife", "Child", "Parent"],
+        categoryOptions: expect.arrayContaining(["Bank", "Crypto"]),
+      }),
+    );
+    expect(prepared.model.modules.finance).toEqual([
+      expect.objectContaining({
+        id: "s1",
+        entries: [
+          expect.objectContaining({
+            place: "DBS",
+            holder: "Me",
+            category: "bank",
+          }),
+        ],
+      }),
+    ]);
+  });
+
+  it("keeps existing finance option lists and skips malformed holdings on v9→v10", () => {
+    const model = {
+      ...createDefaultModel(NOW),
+      meta: {
+        schemaVersion: 9,
+        appVersion: "1.0",
+        createdAt: NOW,
+        updatedAt: NOW,
+      },
+      settings: {
+        ...createDefaultModel(NOW).settings,
+        modules: {
+          finance: {
+            enabled: true,
+            searchable: false,
+            holderOptions: ["Me", "Partner"],
+            categoryOptions: ["Bank", "Gold"],
+          },
+        },
+      },
+      modules: {
+        finance: [
+          {
+            id: "s1",
+            date: NOW,
+            note: "",
+            entries: [
+              "skip-me",
+              ["array-entry"],
+              {
+                place: "DBS",
+                holder: "   ",
+                category: "Gold",
+                amount: 10,
+                currency: "CNY",
+              },
+              {
+                place: "Chase",
+                holder: "Wife",
+                category: "Bank",
+                amount: 1,
+                currency: "USD",
+              },
+              null,
+            ],
+            updatedAt: NOW,
+          },
+          {
+            id: "s2",
+            date: NOW,
+            note: "",
+            entries: "not-an-array",
+            updatedAt: NOW,
+          },
+          "not-a-snapshot",
+        ],
+      },
+    };
+
+    const prepared = prepareVaultModel(model, modules);
+    expect(prepared.model.settings.modules.finance).toEqual(
+      expect.objectContaining({
+        holderOptions: ["Me", "Partner"],
+        categoryOptions: ["Bank", "Gold"],
+      }),
+    );
+    expect(prepared.model.modules.finance).toEqual([
+      expect.objectContaining({
+        id: "s1",
+        entries: [
+          "skip-me",
+          ["array-entry"],
+          expect.objectContaining({
+            place: "DBS",
+            holder: "Me",
+            category: "Gold",
+          }),
+          expect.objectContaining({
+            place: "Chase",
+            holder: "Wife",
+          }),
+          null,
+        ],
+      }),
+      expect.objectContaining({
+        id: "s2",
+        entries: "not-an-array",
+      }),
+      "not-a-snapshot",
+    ]);
+  });
+
+  it("leaves a non-array finance slice untouched during v9→v10", () => {
+    const model = {
+      ...createDefaultModel(NOW),
+      meta: {
+        schemaVersion: 9,
+        appVersion: "1.0",
+        createdAt: NOW,
+        updatedAt: NOW,
+      },
+      modules: {
+        finance: { snapshots: [] },
+      },
+    };
+
+    const prepared = prepareVaultModel(model, modules);
+    expect(prepared.model.modules.finance).toEqual({ snapshots: [] });
+    expect(prepared.model.settings.modules.finance).toEqual(
+      expect.objectContaining({
+        holderOptions: ["Me", "Wife", "Child", "Parent"],
+        categoryOptions: expect.arrayContaining(["Bank"]),
+      }),
+    );
+  });
+
+  it("documents optional finance dueDate during the v10 to v11 migration", () => {
+    const model = {
+      ...createDefaultModel(NOW),
+      meta: {
+        schemaVersion: 10,
+        appVersion: "1.0",
+        createdAt: NOW,
+        updatedAt: NOW,
+      },
+      modules: {
+        finance: [
+          {
+            id: "s1",
+            date: NOW,
+            note: "",
+            entries: [
+              {
+                place: "DBS",
+                holder: "Me",
+                category: "Bank",
+                amount: 100,
+                currency: "SGD",
+              },
+            ],
+            updatedAt: NOW,
+          },
+        ],
+      },
+    };
+
+    const prepared = prepareVaultModel(model, modules);
+    expect(prepared.migration?.changes.map((c) => c.path)).toContain(
+      "modules.finance[].entries[].dueDate",
+    );
+    expect(prepared.model.meta.schemaVersion).toBe(11);
+    expect(prepared.model.modules.finance).toEqual(model.modules.finance);
   });
 
   it("returns no migration for current-schema vaults", () => {

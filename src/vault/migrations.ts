@@ -1,5 +1,9 @@
 import { MODULES } from "@/modules/registry";
 import {
+  defaultFinanceCategoryOptions,
+  defaultHolderOptions,
+} from "@/modules/finance/settings";
+import {
   DEFAULT_SUBSCRIPTION_LEAD_DAYS,
   SUBSCRIPTION_CYCLES,
   type SubscriptionCycle,
@@ -427,6 +431,111 @@ const schemaEightToNine: Migration = {
   },
 };
 
+const schemaNineToTen: Migration = {
+  from: 9,
+  to: 10,
+  summary:
+    "Add finance holding holder field and configurable finance holder/category option lists.",
+  changes: [
+    {
+      kind: "added",
+      path: "modules.finance[].entries[].holder",
+      note: 'Defaults to "Me" for existing holdings.',
+    },
+    {
+      kind: "added",
+      path: "settings.modules.finance.holderOptions",
+      note: "Editable list used by the snapshot holding form (default Me / Wife / Child / Parent).",
+    },
+    {
+      kind: "added",
+      path: "settings.modules.finance.categoryOptions",
+      note: "Finance-only asset categories (Bank / Crypto / Real estate / …), separate from global categoryOptions.",
+    },
+  ],
+  apply: (model) => {
+    const financeSettings = model.settings.modules.finance ?? {
+      enabled: false,
+      searchable: false,
+    };
+    const nextFinanceSettings = {
+      ...financeSettings,
+      holderOptions: Array.isArray(financeSettings.holderOptions)
+        ? financeSettings.holderOptions
+        : defaultHolderOptions(),
+      categoryOptions: Array.isArray(financeSettings.categoryOptions)
+        ? financeSettings.categoryOptions
+        : defaultFinanceCategoryOptions(),
+    };
+
+    const financeSlice = model.modules.finance;
+    const snapshots = Array.isArray(financeSlice)
+      ? financeSlice.map((item) => {
+          if (!item || typeof item !== "object" || Array.isArray(item)) {
+            return item;
+          }
+          const snapshot = item as Record<string, unknown>;
+          const entries = Array.isArray(snapshot.entries)
+            ? snapshot.entries.map((entry) => {
+                if (
+                  !entry ||
+                  typeof entry !== "object" ||
+                  Array.isArray(entry)
+                ) {
+                  return entry;
+                }
+                const holding = entry as Record<string, unknown>;
+                return {
+                  ...holding,
+                  holder:
+                    typeof holding.holder === "string" && holding.holder.trim()
+                      ? holding.holder
+                      : "Me",
+                };
+              })
+            : snapshot.entries;
+          return { ...snapshot, entries };
+        })
+      : financeSlice;
+
+    return {
+      ...model,
+      meta: { ...model.meta, schemaVersion: 10 },
+      settings: {
+        ...model.settings,
+        modules: {
+          ...model.settings.modules,
+          finance: nextFinanceSettings,
+        },
+      },
+      modules:
+        financeSlice === undefined
+          ? model.modules
+          : {
+              ...model.modules,
+              finance: snapshots,
+            },
+    };
+  },
+};
+
+const schemaTenToEleven: Migration = {
+  from: 10,
+  to: 11,
+  summary: "Allow optional dueDate on finance snapshot holdings.",
+  changes: [
+    {
+      kind: "added",
+      path: "modules.finance[].entries[].dueDate",
+      note: "Optional holding due date (ISO local end-of-day); omitted when unset.",
+    },
+  ],
+  apply: (model) => ({
+    ...model,
+    meta: { ...model.meta, schemaVersion: 11 },
+  }),
+};
+
 export const MIGRATIONS: Migration[] = [
   schemaOneToTwo,
   schemaTwoToThree,
@@ -436,6 +545,8 @@ export const MIGRATIONS: Migration[] = [
   schemaSixToSeven,
   schemaSevenToEight,
   schemaEightToNine,
+  schemaNineToTen,
+  schemaTenToEleven,
 ];
 
 function normalizePasswordMigrationItem(

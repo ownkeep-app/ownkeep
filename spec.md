@@ -357,7 +357,7 @@ never migrates another module's slice.
 
 ```jsonc
 {
-  "meta": { "schemaVersion": 9, "appVersion": "0.1", "createdAt": "ISO", "updatedAt": "ISO" },
+  "meta": { "schemaVersion": 11, "appVersion": "1.0", "createdAt": "ISO", "updatedAt": "ISO" },
 
   "settings": {
     "globalHotkey": "Cmd+Shift+Space",       // activate/toggle the search window
@@ -376,7 +376,7 @@ never migrates another module's slice.
       "commands":      { "enabled": true, "searchable": true, "placeholderSyntax": "{{ }}", "defaultCopyMode": "fill" },
       "todos":         { "enabled": true, "searchable": false, "scopePrefix": "t", "defaultLeadMinutes": 30 },
       "subscriptions": { "enabled": true, "searchable": false, "scopePrefix": "s", "defaultLeadDays": 3 },
-      "finance":       { "enabled": true, "searchable": false, "scopePrefix": "f", "baseCurrency": "CNY", "fxRates": { "USD": 7.2, "SGD": 5.3 } }
+      "finance":       { "enabled": true, "searchable": false, "scopePrefix": "f", "baseCurrency": "CNY", "fxRates": { "USD": 7.2, "SGD": 5.3 }, "holderOptions": ["Me", "Wife", "Child", "Parent"], "categoryOptions": ["Bank", "Crypto", "Real estate", "Stock", "Gold", "Lent", "E-wallet"] }
     }
   },
 
@@ -414,9 +414,9 @@ never migrates another module's slice.
     "finance": [
       { "id": "uuid", "date": "ISO",  // date-only UI; stored as local 23:59:59
         "entries": [
-          { "place": "DBS",     "category": "bank",   "amount": 12000, "currency": "SGD" },
-          { "place": "WeChat",  "category": "wechat", "amount": 800,   "currency": "CNY" },
-          { "place": "Binance", "category": "crypto", "amount": 5000,  "currency": "USD" }
+          { "place": "DBS",     "holder": "Me",    "category": "Bank",   "amount": 12000, "currency": "SGD" },
+          { "place": "WeChat",  "holder": "Wife",  "category": "E-wallet", "amount": 800, "currency": "CNY" },
+          { "place": "Binance", "holder": "Me",    "category": "Crypto", "amount": 5000,  "currency": "USD", "dueDate": "ISO" }
         ],
         "note": "Free text, e.g. paid annual insurance premium this month.",
         "updatedAt": "ISO" }
@@ -425,8 +425,7 @@ never migrates another module's slice.
 }
 ```
 
-*(The finance slice is a bare `Snapshot[]`, like every other module. FX rates + baseCurrency live
-under `settings.modules.finance`; totals + by-category are **derived on the fly** from the FX table,
+*(The finance slice is a bare `Snapshot[]`, like every other module. FX rates, baseCurrency, holderOptions, and finance categoryOptions live under `settings.modules.finance`; totals + by-category are **derived on the fly** from the FX table,
 so editing a rate re-totals every snapshot. Future calendar/notes modules add their own slice under
 `modules` with no impact on the above.)*
 
@@ -501,11 +500,15 @@ so editing a rate re-totals every snapshot. Future calendar/notes modules add th
 - **Acceptance:** editing due date/cycle reschedules; open dated rows show the correct due-status badge; a monthly total + annualized summary is shown across all subscriptions (converted to `finance.baseCurrency` if Finance is enabled, else raw); FX rates can be edited from the Subscriptions header.
 
 #### M3 — Finance snapshots (module `finance`)
-- **Monthly-ish snapshots**, each a set of `{place, category, amount, currency}` across bank/WeChat/Alipay/stocks/lent/crypto/etc.
+- **Monthly-ish snapshots**, each a set of `{place, holder, category, amount, currency, dueDate?}` across bank / crypto / real estate / stock / gold / lent / e-wallet / etc.
+- **Holder** and **category** are selects whose option lists live in Finance settings (`settings.modules.finance.holderOptions` defaults Me / Wife / Child / Parent; `categoryOptions` defaults Bank / Crypto / Real estate / Stock / Gold / Lent / E-wallet). Existing non-list values still appear when editing.
+- Optional **due date** per holding (date-only; clearable; omitted when unset).
+- **Duplicate last:** floating bottom-right action copies the newest snapshot’s holdings into a new create form with today’s date (amounts kept for manual tweak).
 - Per snapshot: **auto stats** (total in base currency, breakdown by category) + a **free-text note**.
 - A **net-worth trend line** across snapshots (uPlot).
 - **FX (offline):** a small editable manual rate table (`settings.modules.finance.fxRates`); multi-currency totals convert to `baseCurrency`. New forms and unset base currency default to **CNY**; currency pickers offer **CNY** and **USD** (existing non-list values still display when editing).
-- **Acceptance:** add snapshot → total + by-category recompute; the curve updates; notes persist; editing a rate re-totals all snapshots.
+- Header **Settings** edits holder/category option lists; **FX rates** edits the rate table.
+- **Acceptance:** add snapshot → total + by-category recompute; the curve updates; notes persist; editing a rate re-totals all snapshots; holder/category options changed in Finance settings drive new holding rows; optional per-holding due dates persist.
 
 #### Future candidates (architecture ready, not spec'd here)
 - **Calendar** (RRULE subset, DST/timezone care) — reuses the scheduler.
@@ -598,7 +601,7 @@ never) + lock-on-blur; clipboard auto-clear
 seconds; theme + accent; result limit; **category/tag option lists** (editable in Settings — one
 label per line; used by item edit forms); **per-module enable + searchable toggles + scope prefixes + module
 settings** (command placeholder/copy mode; todo default lead; subscription default lead days;
-finance base currency + FX table); Emergency Kit regeneration; **Touch ID / biometric unlock**
+finance base currency + FX table + holder/category option lists); Emergency Kit regeneration; **Touch ID / biometric unlock**
 enable / disable / re-enroll (§4.7 — device-local; state derived in Rust, not stored in the encrypted model).
 
 The default Settings menu stays focused on **Modules**, **Hotkeys**, **Categories**, and **Tags**.
