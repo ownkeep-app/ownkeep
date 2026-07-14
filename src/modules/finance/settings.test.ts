@@ -41,9 +41,9 @@ describe("finance settings taxonomy", () => {
   });
 
   it("defaults to the first option when Me / Bank are not listed", () => {
-    expect(defaultHolder({ holderOptions: ["Partner"], categoryOptions: [] })).toBe(
-      "Partner",
-    );
+    expect(
+      defaultHolder({ holderOptions: ["Partner"], categoryOptions: [] }),
+    ).toBe("Partner");
     expect(
       defaultFinanceCategory({
         holderOptions: [],
@@ -52,9 +52,9 @@ describe("finance settings taxonomy", () => {
     ).toBe("Cash");
     expect(defaultHolder()).toBe(DEFAULT_HOLDER);
     expect(defaultFinanceCategory()).toBe(DEFAULT_FINANCE_CATEGORY);
-    expect(
-      defaultHolder({ holderOptions: [""], categoryOptions: [] }),
-    ).toBe(DEFAULT_HOLDER);
+    expect(defaultHolder({ holderOptions: [""], categoryOptions: [] })).toBe(
+      DEFAULT_HOLDER,
+    );
     expect(
       defaultFinanceCategory({ holderOptions: [], categoryOptions: [""] }),
     ).toBe(DEFAULT_FINANCE_CATEGORY);

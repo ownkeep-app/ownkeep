@@ -105,10 +105,7 @@ export function FinanceListView({ items }: ListViewProps<Snapshot>) {
 
   const snapshots = useMemo(() => financeSnapshots(items), [items]);
   const fx = useMemo(() => readFinanceFx(settings), [settings]);
-  const taxonomy = useMemo(
-    () => readFinanceTaxonomy(settings),
-    [settings],
-  );
+  const taxonomy = useMemo(() => readFinanceTaxonomy(settings), [settings]);
   const series = useMemo(() => netWorthSeries(snapshots, fx), [snapshots, fx]);
   const sorted = useMemo(() => sortSnapshots(snapshots), [snapshots]);
   const latestSnapshot = sorted[0] ?? null;
