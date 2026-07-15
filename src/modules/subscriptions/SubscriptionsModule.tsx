@@ -304,7 +304,7 @@ export function SubscriptionsListView({
               <TableRow>
                 <IndexTableHead />
                 <SortableTableHead
-                  className="w-[20%] px-4"
+                  className="w-[16%] px-4"
                   column="service"
                   label="Service"
                   onSort={handleSort}
@@ -325,14 +325,14 @@ export function SubscriptionsListView({
                   sort={sortState}
                 />
                 <SortableTableHead
-                  className="w-[16%] px-4"
+                  className="w-[22%] px-4"
                   column="nextDue"
                   label="Next due"
                   onSort={handleSort}
                   sort={sortState}
                 />
                 <SortableTableHead
-                  className="w-[12%] px-4"
+                  className="w-[10%] px-4"
                   column="renew"
                   label="Renew"
                   onSort={handleSort}
@@ -379,7 +379,7 @@ export function SubscriptionsListView({
                       value={item.cycle}
                     />
                   </TableCell>
-                  <TableCell className="px-4 py-3">
+                  <TableCell className="whitespace-nowrap px-4 py-3">
                     <DueStatusBadge dueAt={item.nextDueDate} />
                   </TableCell>
                   <TableCell className="px-4 py-3 text-muted-foreground">
@@ -828,55 +828,36 @@ function SummaryPeriodCard({
   return (
     <section
       aria-label={`${label} subscription totals`}
-      className={`min-w-0 rounded-lg border p-3 shadow-sm ${classes.card}`}
+      className={`flex min-w-0 items-center gap-3 rounded-lg border px-3 py-2 shadow-sm ${classes.card}`}
     >
-      <div className="flex items-center gap-2">
+      <div className="flex shrink-0 items-center gap-2">
         <div
-          className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-md ${classes.icon}`}
+          className={`flex h-7 w-7 items-center justify-center rounded-md ${classes.icon}`}
         >
-          <Icon aria-hidden="true" className="h-5 w-5" />
+          <Icon aria-hidden="true" className="h-4 w-4" />
         </div>
         <p className="text-sm font-semibold text-foreground">{label}</p>
       </div>
-      <div className="mt-3 border-t border-border/60 pt-1">
+      <div className="min-w-0 flex-1 text-right">
         {totals.length === 0 ? (
-          <SummaryCurrencyTotal currency="No spend" value="-" />
+          <p className="text-sm font-semibold text-foreground">-</p>
         ) : (
           totals.map((total) => (
-            <SummaryCurrencyTotal key={total.currency} {...total} />
+            <p
+              className="truncate text-sm font-semibold text-foreground"
+              key={total.currency}
+            >
+              {total.value}
+            </p>
           ))
         )}
+        {convertedTotal ? (
+          <p className="truncate text-xs text-muted-foreground">
+            Base {convertedTotal.value}
+          </p>
+        ) : null}
       </div>
-      {convertedTotal ? (
-        <div className="mt-1.5 flex min-w-0 items-baseline justify-between gap-4 border-t border-border/60 pt-2">
-          <span className="text-xs font-medium text-muted-foreground">
-            Base total
-          </span>
-          <span className="break-words text-right text-base font-semibold text-foreground">
-            {convertedTotal.value}
-          </span>
-        </div>
-      ) : null}
     </section>
-  );
-}
-
-function SummaryCurrencyTotal({
-  currency,
-  value,
-}: {
-  currency: string;
-  value: string;
-}) {
-  return (
-    <div className="flex min-w-0 items-baseline justify-between gap-4 py-0.5">
-      <span className="text-xs font-semibold uppercase text-muted-foreground">
-        {currency}
-      </span>
-      <span className="break-words text-right text-base font-semibold text-foreground">
-        {value}
-      </span>
-    </div>
   );
 }
 

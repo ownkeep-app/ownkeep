@@ -131,7 +131,7 @@ with a **browsable Dashboard** (sidebar + content pane) and a safe upgrade path 
 - **Bridge (shipped):** non-password / non-command bar hits open the Dashboard on that module's pane and hide the launcher (module pane only — no per-item focus). Password/command hits keep copy / fill-in. Surfaces are mutually exclusive; traffic-light close confirms then quits the app.
 
 ### Phase 5 — 📋 Commands module (F2) · 2–3 d
-- [x] `commandsModule`: category/title/description/snippets; Shiki highlighting; `ListView` (grouped by category).
+- [x] `commandsModule`: category/title/description/snippets; Shiki highlighting; `ListView` (grouped by tag).
 - [x] `{{name}}` parser; typed `arguments` (text/enum); **interactive fill-in form** (Tab/Shift-Tab, Enter=copy completed).
 - [x] Raw-copy secondary action (`⌥⌘<n>` / `Opt+Enter`).
 - [x] **Tests:** `{{ }}` parse (names, reuse, invalid) + fill substitution + raw-vs-filled output (Vitest).

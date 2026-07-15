@@ -275,22 +275,16 @@ describe("SubscriptionsListView", () => {
     const monthlyTotals = screen.getByRole("region", {
       name: "Monthly subscription totals",
     });
-    expect(within(monthlyTotals).getByText("CNY")).toBeVisible();
     expect(within(monthlyTotals).getByText("CNY 30.00")).toBeVisible();
-    expect(within(monthlyTotals).getByText("USD")).toBeVisible();
     expect(within(monthlyTotals).getByText("USD 20.00")).toBeVisible();
-    expect(within(monthlyTotals).getByText("Base total")).toBeVisible();
-    expect(within(monthlyTotals).getByText("CNY 170.00")).toBeVisible();
+    expect(within(monthlyTotals).getByText("Base CNY 170.00")).toBeVisible();
 
     const yearlyTotals = screen.getByRole("region", {
       name: "Yearly subscription totals",
     });
-    expect(within(yearlyTotals).getByText("CNY")).toBeVisible();
     expect(within(yearlyTotals).getByText("CNY 360.00")).toBeVisible();
-    expect(within(yearlyTotals).getByText("USD")).toBeVisible();
     expect(within(yearlyTotals).getByText("USD 240.00")).toBeVisible();
-    expect(within(yearlyTotals).getByText("Base total")).toBeVisible();
-    expect(within(yearlyTotals).getByText("CNY 2040.00")).toBeVisible();
+    expect(within(yearlyTotals).getByText("Base CNY 2040.00")).toBeVisible();
   });
 
   it("creates a subscription entry from the edit form", async () => {

@@ -56,13 +56,13 @@ export function TrendChart({
 
   if (points.length < 2) {
     return (
-      <p className="border-t border-border px-6 py-4 text-sm text-muted-foreground">
+      <p className="px-6 py-4 text-sm text-muted-foreground">
         Add at least two snapshots to see the net-worth trend.
       </p>
     );
   }
   return (
-    <div className="border-t border-border px-6 py-3">
+    <div className="px-6 py-3">
       <div className="min-w-0 w-full overflow-hidden" ref={ref} />
     </div>
   );

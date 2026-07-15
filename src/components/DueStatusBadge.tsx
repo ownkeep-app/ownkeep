@@ -24,7 +24,7 @@ export function DueStatusBadge({
   return (
     <span
       className={cn(
-        "inline-flex w-fit rounded-sm px-2 py-0.5 text-xs font-medium",
+        "inline-flex w-fit whitespace-nowrap rounded-sm px-2 py-0.5 text-xs font-medium",
         DUE_STATUS_BADGE_CLASS[status.kind],
       )}
     >

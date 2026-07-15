@@ -76,7 +76,7 @@ describe("CommandsListView", () => {
     setModel([]);
   });
 
-  it("shows an empty state and groups commands by category once present", () => {
+  it("shows an empty state and groups commands by tag once present", () => {
     const { rerender } = render(<CommandsListView items={[]} />);
     expect(screen.getByText(/no commands yet/i)).toBeInTheDocument();
 
@@ -91,12 +91,15 @@ describe("CommandsListView", () => {
             description: "Start a container",
             snippets: [{ language: "bash", code: "docker run" }],
             primaryCopyTemplate: "docker run",
+            tags: ["containers"],
           }),
         ]}
       />,
     );
-    expect(screen.getByRole("heading", { name: "git" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "docker" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "vcs" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "containers" }),
+    ).toBeInTheDocument();
     expect(screen.getByText("Show status")).toBeInTheDocument();
     expect(screen.getByText("Start a container")).toBeInTheDocument();
     expect(screen.getByText("git status")).toBeInTheDocument();

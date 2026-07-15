@@ -82,25 +82,33 @@ export function buildCommandIndex(items: CommandEntry[]): IndexEntry[] {
 }
 
 export interface CommandGroup {
-  category: string;
+  tag: string;
   commands: CommandEntry[];
 }
 
-/** Group commands by category for the Dashboard `ListView` (§7.5); categories + titles sorted. */
-export function groupByCategory(items: CommandEntry[]): CommandGroup[] {
+const UNTAGGED_GROUP = "Untagged";
+
+/**
+ * Group commands by tag for the Dashboard `ListView` (§7.5).
+ * A command with multiple tags appears under each tag; tags + titles sorted.
+ */
+export function groupByTag(items: CommandEntry[]): CommandGroup[] {
   const groups = new Map<string, CommandEntry[]>();
   for (const item of items) {
-    const key = item.category || "Uncategorized";
-    const list = groups.get(key) ?? [];
-    list.push(item);
-    groups.set(key, list);
+    const tags = item.tags.map((tag) => tag.trim()).filter(Boolean);
+    const keys = tags.length > 0 ? tags : [UNTAGGED_GROUP];
+    for (const key of keys) {
+      const list = groups.get(key) ?? [];
+      list.push(item);
+      groups.set(key, list);
+    }
   }
   return [...groups.entries()]
-    .map(([category, commands]) => ({
-      category,
+    .map(([tag, commands]) => ({
+      tag,
       commands: [...commands].sort((a, b) => a.title.localeCompare(b.title)),
     }))
-    .sort((a, b) => a.category.localeCompare(b.category));
+    .sort((a, b) => a.tag.localeCompare(b.tag));
 }
 
 /** Parse the arguments editor text: one per line — `name` (text) or `name = a, b, c` (enum). */

@@ -7,7 +7,7 @@ import {
   createCommandEntry,
   fillTemplate,
   formFromCommand,
-  groupByCategory,
+  groupByTag,
   parseArguments,
   parsePlaceholders,
   updateCommandEntry,
@@ -109,20 +109,29 @@ describe("buildCommandIndex", () => {
   });
 });
 
-describe("groupByCategory", () => {
-  it("groups by category and sorts categories + titles", () => {
-    const groups = groupByCategory([
-      entry({ id: "b", category: "git", title: "Zeta" }),
-      entry({ id: "a", category: "git", title: "Alpha" }),
-      entry({ id: "d", category: "docker", title: "Compose" }),
+describe("groupByTag", () => {
+  it("groups by tag and sorts tags + titles", () => {
+    const groups = groupByTag([
+      entry({ id: "b", tags: ["git"], title: "Zeta" }),
+      entry({ id: "a", tags: ["git"], title: "Alpha" }),
+      entry({ id: "d", tags: ["docker"], title: "Compose" }),
     ]);
-    expect(groups.map((g) => g.category)).toEqual(["docker", "git"]);
+    expect(groups.map((g) => g.tag)).toEqual(["docker", "git"]);
     expect(groups[1].commands.map((c) => c.title)).toEqual(["Alpha", "Zeta"]);
   });
 
-  it("falls back to Uncategorized", () => {
-    expect(groupByCategory([entry({ category: "" })])[0].category).toBe(
-      "Uncategorized",
+  it("lists a multi-tag command under each tag and falls back to Untagged", () => {
+    const shared = entry({
+      id: "shared",
+      title: "Shared",
+      tags: ["git", "docker"],
+    });
+    const groups = groupByTag([shared, entry({ id: "plain", tags: [] })]);
+    expect(groups.map((g) => g.tag)).toEqual(["docker", "git", "Untagged"]);
+    expect(groups.find((g) => g.tag === "git")?.commands).toHaveLength(1);
+    expect(groups.find((g) => g.tag === "docker")?.commands).toHaveLength(1);
+    expect(groups.find((g) => g.tag === "Untagged")?.commands[0].id).toBe(
+      "plain",
     );
   });
 });

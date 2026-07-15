@@ -40,7 +40,7 @@ import {
   createCommandEntry,
   emptyCommandForm,
   formFromCommand,
-  groupByCategory,
+  groupByTag,
   parsePlaceholders,
   updateCommandEntry,
   validateCommandInput,
@@ -82,17 +82,23 @@ export function CommandsListView({ items }: ListViewProps<CommandEntry>) {
       : commands;
     if (!term) return byCategory;
     return byCategory.filter((item) =>
-      [item.title, item.category, item.description, item.primaryCopyTemplate]
+      [
+        item.title,
+        item.category,
+        item.description,
+        item.primaryCopyTemplate,
+        ...item.tags,
+      ]
         .join(" ")
         .toLowerCase()
         .includes(term),
     );
   }, [commands, query, categoryFilter]);
-  const groups = useMemo(() => groupByCategory(filtered), [filtered]);
+  const groups = useMemo(() => groupByTag(filtered), [filtered]);
   const indexedGroups = useMemo(() => {
     let next = 0;
     return groups.map((group) => ({
-      category: group.category,
+      tag: group.tag,
       commands: group.commands.map((command) => ({
         command,
         index: ++next,
@@ -198,9 +204,9 @@ export function CommandsListView({ items }: ListViewProps<CommandEntry>) {
         ) : (
           <div className="min-h-0 flex-1 overflow-auto p-4">
             {indexedGroups.map((group) => (
-              <section className="mb-6" key={group.category}>
+              <section className="mb-6" key={group.tag}>
                 <h2 className="mb-2 text-xs font-medium uppercase text-muted-foreground">
-                  {group.category}
+                  {group.tag}
                 </h2>
                 <ul className="space-y-3">
                   {group.commands.map(({ command, index }) => {
@@ -208,7 +214,7 @@ export function CommandsListView({ items }: ListViewProps<CommandEntry>) {
                     return (
                       <li
                         className="rounded-md border border-border bg-card p-3 hover:bg-accent/40"
-                        key={command.id}
+                        key={`${group.tag}-${command.id}`}
                       >
                         <div className="flex items-start gap-2">
                           <span

@@ -1,6 +1,6 @@
 [package]
 name = "keystash"
-version = "1.0.0"
+version = "1.1.0"
 description = "Offline-first macOS vault and command launcher"
 authors = ["Shaojiang"]
 edition = "2021"
