@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "keystash",
+  "productName": "OwnKeep",
   "version": "1.1.0",
-  "identifier": "com.shaojiang.keystash",
+  "identifier": "com.shaojiang.ownkeep",
   "build": {
     "beforeDevCommand": "pnpm dev:web",
     "devUrl": "http://localhost:1420",
@@ -21,7 +21,7 @@
       },
       {
         "label": "dashboard",
-        "title": "keystash",
+        "title": "OwnKeep",
         "width": 1024,
         "height": 720,
         "minWidth": 720,

@@ -176,7 +176,7 @@ export function Dashboard() {
   if (status !== "unlocked" || !model) {
     return (
       <main className="flex h-screen items-center justify-center bg-background p-6 text-center text-sm text-muted-foreground">
-        <p role="status">Unlock keystash to use the Dashboard.</p>
+        <p role="status">Unlock OwnKeep to use the Dashboard.</p>
       </main>
     );
   }
@@ -241,7 +241,7 @@ export function Dashboard() {
             onClick={() => void lock()}
           />
           <p className="px-2 pt-1 text-xs text-muted-foreground">
-            keystash v{APP_VERSION}
+            OwnKeep v{APP_VERSION}
           </p>
         </div>
       </nav>

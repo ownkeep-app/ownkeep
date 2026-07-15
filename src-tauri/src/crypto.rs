@@ -18,6 +18,11 @@ pub const KEY_LEN: usize = 32;
 pub const SALT_LEN: usize = 16;
 /// XChaCha20-Poly1305 nonce length in bytes (192-bit).
 pub const NONCE_LEN: usize = 24;
+/// Stable HKDF context used by every vault created before the OwnKeep rebrand.
+///
+/// This byte string is cryptographic format data, not display branding. Renaming it would derive a
+/// different recovery KEK and make every existing recovery code fail.
+const RECOVERY_KDF_INFO: &[u8] = b"keystash recovery kek v1";
 
 /// A 256-bit key held in memory and zeroized on drop.
 pub type Key = Zeroizing<[u8; KEY_LEN]>;
@@ -79,7 +84,7 @@ pub fn derive_kek_argon2id(password: &[u8], salt: &[u8], params: Argon2Params) -
 pub fn derive_kek_hkdf(ikm: &[u8], salt: &[u8]) -> Result<Key> {
     let hk = Hkdf::<Sha256>::new(Some(salt), ikm);
     let mut kek = Zeroizing::new([0u8; KEY_LEN]);
-    hk.expand(b"keystash recovery kek v1", kek.as_mut_slice())
+    hk.expand(RECOVERY_KDF_INFO, kek.as_mut_slice())
         .map_err(|_| Error::Kdf)?;
     Ok(kek)
 }
@@ -129,9 +134,9 @@ mod tests {
     #[test]
     fn seal_open_round_trip() {
         let key = random_key().unwrap();
-        let sealed = seal(&key, b"hello keystash").unwrap();
+        let sealed = seal(&key, b"hello OwnKeep").unwrap();
         let opened = open(&key, &sealed).unwrap();
-        assert_eq!(&opened[..], b"hello keystash");
+        assert_eq!(&opened[..], b"hello OwnKeep");
     }
 
     #[test]
@@ -172,6 +177,17 @@ mod tests {
         let other = random_salt().unwrap();
         let c = derive_kek_hkdf(b"entropy", &other).unwrap();
         assert_ne!(a[..], c[..]);
+    }
+
+    #[test]
+    fn recovery_kdf_context_remains_compatible_across_the_rebrand() {
+        let key = derive_kek_hkdf(b"entropy", &[7u8; SALT_LEN]).unwrap();
+        let expected = [
+            0xef, 0x01, 0x4d, 0xde, 0x51, 0xc3, 0xb8, 0xcc, 0x9b, 0x1c, 0x5e, 0x91, 0x2c, 0xf2,
+            0x8f, 0x98, 0x81, 0x23, 0x51, 0x50, 0xef, 0x70, 0x63, 0x4a, 0xae, 0x76, 0xb6, 0x93,
+            0x40, 0x73, 0x3c, 0x21,
+        ];
+        assert_eq!(&key[..], &expected);
     }
 
     use proptest::prelude::*;

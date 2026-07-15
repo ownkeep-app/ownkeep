@@ -27,7 +27,7 @@ vi.mock("@/vault/api", () => ({
     eraseVault: vi.fn(async () => {}),
     quitApp: vi.fn(async () => {}),
     createVault: vi.fn(async () => ({
-      app: "keystash",
+      app: "OwnKeep",
       recovery_code: "a b c",
       instructions: "store it",
     })),
@@ -80,12 +80,12 @@ describe("vault store", () => {
     api.isUnlocked.mockResolvedValue(false);
     api.vaultExists.mockResolvedValue(true);
     api.vaultIncompatibility.mockResolvedValue(
-      "This vault was written by a newer keystash. Please upgrade keystash.",
+      "This vault was written by a newer OwnKeep. Please upgrade OwnKeep.",
     );
     await useVaultStore.getState().init();
     const state = useVaultStore.getState();
     expect(state.status).toBe("incompatible");
-    expect(state.incompatibleMessage).toMatch(/newer keystash/i);
+    expect(state.incompatibleMessage).toMatch(/newer OwnKeep/i);
   });
 
   it("init → unlocked hydrates the model from the registry", async () => {
@@ -164,7 +164,7 @@ describe("vault store", () => {
     await useVaultStore.getState().acceptMigration();
 
     expect(api.backupVault).toHaveBeenCalledWith(
-      expect.stringMatching(/^keystash-pre-migration-v0\.0-to-v/),
+      expect.stringMatching(/^ownkeep-pre-migration-v0\.0-to-v/),
     );
     expect(api.saveVault).toHaveBeenCalledTimes(1);
     const saved = JSON.parse(api.saveVault.mock.calls[0][0] as string);
@@ -215,7 +215,7 @@ describe("vault store", () => {
     await useVaultStore.getState().backupMigrationAndQuit();
 
     expect(api.backupVaultToChosenLocation).toHaveBeenCalledWith(
-      expect.stringMatching(/^keystash-v0\.0-/),
+      expect.stringMatching(/^ownkeep-v0\.0-/),
     );
     expect(api.quitApp).toHaveBeenCalled();
   });
@@ -249,7 +249,7 @@ describe("vault store", () => {
 
     expect(backupPath).toBe("/tmp/chosen-backup.dat");
     expect(api.backupVaultToChosenLocation).toHaveBeenCalledWith(
-      expect.stringMatching(/^keystash-v\d+\.\d+-/),
+      expect.stringMatching(/^ownkeep-v\d+\.\d+-/),
     );
     expect(useVaultStore.getState().busy).toBe(false);
   });
@@ -283,7 +283,7 @@ describe("vault store", () => {
     expect(restoredPath).toBe("/tmp/restored.dat");
     expect(api.restoreVaultFromChosenLocationWithPassword).toHaveBeenCalledWith(
       "backup pw",
-      expect.stringMatching(/^keystash-pre-restore-/),
+      expect.stringMatching(/^ownkeep-pre-restore-/),
     );
     expect(api.setAutoLock).toHaveBeenCalledWith(15);
     expect(useVaultStore.getState().status).toBe("unlocked");
@@ -340,7 +340,7 @@ describe("vault store", () => {
     expect(restoredPath).toBe("/tmp/restored.dat");
     expect(api.restoreVaultFromChosenLocationWithRecovery).toHaveBeenCalledWith(
       "backup words",
-      expect.stringMatching(/^keystash-pre-restore-/),
+      expect.stringMatching(/^ownkeep-pre-restore-/),
     );
     expect(useVaultStore.getState().model?.settings.resultLimit).toBe(5);
   });
@@ -377,7 +377,7 @@ describe("vault store", () => {
 
     expect(path).toBe("/tmp/chosen-backup.dat");
     expect(api.backupVaultToChosenLocation).toHaveBeenCalledWith(
-      expect.stringMatching(/^keystash-abandoned-\d{8}-\d{4}\.dat$/),
+      expect.stringMatching(/^ownkeep-abandoned-\d{8}-\d{4}\.dat$/),
     );
     expect(api.eraseVault).toHaveBeenCalled();
     expect(useVaultStore.getState().status).toBe("onboarding");
@@ -501,7 +501,7 @@ describe("vault store", () => {
       status: "unlocked",
       model: null,
       pendingKit: {
-        app: "keystash",
+        app: "OwnKeep",
         recovery_code: "a b c",
         instructions: "save it",
       },
@@ -713,7 +713,7 @@ describe("vault store", () => {
               id: "github",
               name: "GitHub",
               username: "sha",
-              password: "__KEYSTASH_REDACTED_SECRET__",
+              password: "__OWNKEEP_REDACTED_SECRET__",
               loginUrl: "",
               recoveryUrl: "",
               notes: "",
@@ -742,7 +742,7 @@ describe("vault store", () => {
     expect(saved.modules.passwords[0].password).toBe("secret");
     const projected = useVaultStore.getState().model?.modules
       .passwords as Array<{ password: string }>;
-    expect(projected[0].password).toBe("__KEYSTASH_REDACTED_SECRET__");
+    expect(projected[0].password).toBe("__OWNKEEP_REDACTED_SECRET__");
   });
 
   it("savePassword creates a new entry when the slice is missing or not an array", async () => {
@@ -773,7 +773,7 @@ describe("vault store", () => {
                 id: "new",
                 name: "New",
                 username: "",
-                password: "__KEYSTASH_REDACTED_SECRET__",
+                password: "__OWNKEEP_REDACTED_SECRET__",
                 loginUrl: "",
                 recoveryUrl: "",
                 notes: "",
@@ -814,7 +814,7 @@ describe("vault store", () => {
               id: "github",
               name: "GitHub",
               username: "sha",
-              password: "__KEYSTASH_REDACTED_SECRET__",
+              password: "__OWNKEEP_REDACTED_SECRET__",
               loginUrl: "",
               recoveryUrl: "",
               notes: "",
@@ -1152,7 +1152,7 @@ describe("vault store", () => {
 
   it("regenerateRecovery stores the one-time kit for Settings to display", async () => {
     api.regenerateRecovery.mockResolvedValueOnce({
-      app: "keystash",
+      app: "OwnKeep",
       recovery_code: "fresh words",
       instructions: "Save it.",
     });

@@ -1,4 +1,4 @@
-# CLAUDE.md — keystash
+# CLAUDE.md — OwnKeep
 
 Project rules live in [`AGENTS.md`](AGENTS.md) and [`.cursor/rules/`](.cursor/rules/).
 

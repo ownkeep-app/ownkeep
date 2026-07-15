@@ -1,4 +1,4 @@
-# keystash — Development Plan & Schedule
+# OwnKeep — Development Plan & Schedule
 
 Companion to [spec.md](spec.md). A phased, dependency-ordered build for a **solo developer**,
 optimized for getting a genuinely useful app **running on macOS as early as possible**, then
@@ -92,13 +92,13 @@ with a **browsable Dashboard** (sidebar + content pane) and a safe upgrade path 
 
 ### Phase 2.1 — 🔀 Versioning, migration guide & migrations · 1–2 d
 *Lock in the forward-migration framework **now** — before Phases 3–10 start adding real module data — so every future schema change has a tested path and old vaults never break. The `.app` can already be replaced freely (data lives outside the bundle); the real "don't lose data" risk is schema drift, so this phase makes app/schema/container versions actionable (§11).*
-- [x] **Release-version source:** define the current working app version from `package.json.version` exactly (product format `main.minor`); inject it as `APP_VERSION`; stamp `meta.appVersion` on create/save/migration; show `keystash v<APP_VERSION>` at the bottom of the Dashboard sidebar. Treat the latest `v*` Git tag as the last shipped release baseline, not as the current working version.
+- [x] **Release-version source:** define the current working app version from `package.json.version` exactly (product format `main.minor`); inject it as `APP_VERSION`; stamp `meta.appVersion` on create/save/migration; show `OwnKeep v<APP_VERSION>` at the bottom of the Dashboard sidebar. Treat the latest `v*` Git tag as the last shipped release baseline, not as the current working version.
 - [x] **Version compare helper:** parse `main.minor` into integer pairs; refuse a vault whose `meta.appVersion` or `meta.schemaVersion` is newer than the running app with the old-version message from spec §11.2.
 - [x] **Model migration registry (TS):** an ordered registry of pure `migrate(vN -> vN+1)` steps keyed on `meta.schemaVersion`; each step owns its transform plus `changes[]` (`added`, `renamed`, `removed`, `transformed`) so the migration guide is generated from the same source that migrates data.
 - [x] **Migration guide UI:** after unlock, when `vault.schemaVersion < APP_SCHEMA_VERSION`, show the union of pending change lists before any write; summarize additive fields, show rename paths (`old -> new`), and render removals in red as data loss.
 - [x] **Accept / reject flow:** Accept writes a versioned pre-migration backup, applies migrations, stamps `APP_VERSION` + `APP_SCHEMA_VERSION`, re-seals, and atomically writes; Reject offers **Back up & quit**, **Erase & start fresh** (red danger confirm), or **Quit** with no vault writes.
 - [x] **Container/envelope versioning (Rust):** keep version-tagged readers so a newer build can still decrypt an older container; after deriving the DEK, if `container.version < CURRENT`, re-seal into the current format and persist only after the user accepts the migration path. Reject newer-than-known versions before unlock.
-- [x] **Versioned backups:** backup names include the vault/app version (`keystash-v<appVersion>-<timestamp>.dat`; pre-migration `keystash-pre-migration-v<old>-to-v<new>-<timestamp>.dat`), and backups preserve `container.version`, `meta.appVersion`, and `meta.schemaVersion`.
+- [x] **Versioned backups:** backup names include the vault/app version (`ownkeep-v<appVersion>-<timestamp>.dat`; pre-migration `ownkeep-pre-migration-v<old>-to-v<new>-<timestamp>.dat`), and backups preserve `container.version`, `meta.appVersion`, and `meta.schemaVersion`.
 - [x] **Tests:** version comparison; old-schema fixture migrates to current with data intact; added keys hydrate silently; renamed keys preserve values; removed keys appear in the guide as data loss; rejecting migration writes nothing; a failing step leaves the original file untouched; newer app/schema/container versions are refused safely.
 - [x] **AI verification hook:** update `$verify` / `/verify` instructions so every data-shape change after the latest `v*` release tag is checked for a migration guide entry, a `package.json.version` current-release check, and tests.
 - **Exit:** a v(N) vault opens in a v(N+1) build only through the migration-guide flow; accepting creates a versioned pre-migration backup and preserves data except user-confirmed removals; rejecting leaves the vault untouched or exits through an explicit backup/erase path; older app builds refuse newer vaults.
@@ -139,7 +139,7 @@ with a **browsable Dashboard** (sidebar + content pane) and a safe upgrade path 
 - **Deps:** P4.
 
 ### Phase 6 — 💾 Backup/restore (§11) + Settings UI (§9) · 2–3 d
-- [x] Backup: file dialog → copy encrypted container with versioned filename (`keystash-v<appVersion>-<timestamp>.dat`).
+- [x] Backup: file dialog → copy encrypted container with versioned filename (`ownkeep-v<appVersion>-<timestamp>.dat`).
 - [x] Restore: pick file → decrypt-verify → warn → optional `pre-restore` snapshot → atomic replace → reload.
 - [x] Settings UI: hotkeys, clipboard clear, theme/accent, result limit, per-module toggles; Emergency Kit regen. *(Auto-lock timeout — configurable presets incl. never, wired to the Rust idle timer — was pulled forward and shipped in Phase 2.1.)*
 - **Exit:** backup→restore round-trips on a fresh machine; backup filename includes the vault/app version; restore refuses a wrong password; settings persist (encrypted).
@@ -180,7 +180,12 @@ with a **browsable Dashboard** (sidebar + content pane) and a safe upgrade path 
 - [x] Motion UI polish: calm press/presence animations on shared primitives (`button`, `switch`, `select`, `checkbox`, `ButtonGroup` active pill), EmptyState / KeyboardHelp overlays, CommandBar result stagger, and Dashboard sidebar taps (shared sliding active pill) — all reduced-motion aware via `useReducedMotion` ([Motion](https://motion.dev/)). *(Input stays a plain native field — focus scale made the placeholder jump.)*
 - [x] **Create/edit form chrome:** shared `ItemFormShell` — dimmed pane + elevated dialog card with Creating/Editing badge; Esc + backdrop dismiss (all module New/Edit flows).
 - [x] **Window exclusivity + quit-on-close:** command bar and Dashboard never show together; traffic-light close confirms then quits the whole app (Esc/blur still only hides the launcher).
-- [ ] **Developer ID sign + notarize**; DMG/`.app` packaging; README + Emergency-Kit docs + migration-guide docs. *(Docs done: README now has a "Using keystash" section covering the Emergency Kit / recovery code, keyboard shortcuts, theme, and the upgrade/migration-guide flow. Signing, notarization, and DMG packaging still pending.)*
+- [x] **OwnKeep product rebrand:** rename user-facing copy, package/crate metadata, bundle identity,
+  backup prefixes, docs, agent tooling, and website to OwnKeep / `ownkeep.app`; when the new
+  `com.shaojiang.ownkeep` app-data path is empty, validate and atomically copy the former vault
+  without deleting it. Keep historical crypto format identifiers stable. **No schema/container
+  bump:** the encrypted model is unchanged and restore accepts old `.dat` backup names.
+- [ ] **Developer ID sign + notarize**; DMG/`.app` packaging; README + Emergency-Kit docs + migration-guide docs. *(Docs done: README now has a "Using OwnKeep" section covering the Emergency Kit / recovery code, keyboard shortcuts, theme, and the upgrade/migration-guide flow. Signing, notarization, and DMG packaging still pending.)*
 - [ ] **Release bookkeeping:** tag shipped commits as `v<main>.<minor>`; immediately after a shipped tag, bump the working app version in `package.json` to the next release version (`main.minor`), run `node scripts/sync-version.mjs` to derive SemVer-only package metadata, and keep those derived fields from becoming a second app-version source.
 - **Exit:** Gatekeeper opens it clean on a second Mac; permissions prompt correctly; the shipped `.dmg` includes the migration guide for every schema step since the previous `v*` tag. **← v1.0.**
 - **Deps:** all prior.
@@ -219,7 +224,7 @@ changes, update migrations + the migration guide in the same release per spec §
   like other sidebar rows: `[Keyboard icon] Help` plus the shortcut label **`⌘H`** on the right.
   Clicking the row opens the same Hotkey Help modal; `⌘H` continues to toggle it globally.
 - [x] **About in the Dashboard sidebar:** **About** row below Help (`⌘/`) opens a modal with
-  features, developer email, version, release date, and website (`https://keystash.info`); hotkey
+  features, developer email, version, release date, and website (`https://ownkeep.app`); hotkey
   works on the command bar too.
 - [x] **Command-bar searchable modules:** per-module `searchable` setting (schema v9); defaults on
   for passwords + commands only; Settings Modules row toggles Search + Enabled; unified index and
@@ -263,7 +268,7 @@ a reviewed, non-breaking container addition and keep `$verify` honest.*
 - [x] **Keychain + LocalAuthentication shim (Rust):** a `src-tauri/src/biometric.rs` that stores /
   reads / deletes a random 256-bit `KEK_biometric` as a Keychain item with
   `SecAccessControl(BiometryCurrentSet, WhenUnlockedThisDeviceOnly)`, non-synchronizable; prompts
-  Touch ID via `LAContext` (reason "Unlock keystash"); and probes availability (`canEvaluatePolicy`).
+  Touch ID via `LAContext` (reason "Unlock OwnKeep"); and probes availability (`canEvaluatePolicy`).
   Crates: `security-framework` + `objc2-local-authentication` (macOS-only target, beside the Phase 3
   `objc2` clipboard shim). Put the OS calls behind a small trait so session/command logic stays
   testable without hardware.

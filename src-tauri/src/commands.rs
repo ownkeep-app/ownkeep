@@ -21,10 +21,22 @@ use crate::storage;
 /// Managed session state.
 pub type SharedSession = Mutex<Session>;
 
+/// Previous bundle identifier. Used only to adopt an existing vault after the OwnKeep rebrand.
+const LEGACY_APP_DATA_DIR: &str = "com.shaojiang.keystash";
+
 /// Resolve the vault file path inside the OS app-data directory.
 fn resolve_vault_path(app: &AppHandle) -> Result<PathBuf, String> {
     let dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
-    Ok(dir.join(storage::VAULT_FILE))
+    let current_path = dir.join(storage::VAULT_FILE);
+
+    if let Some(app_data_root) = dir.parent() {
+        let legacy_path = app_data_root
+            .join(LEGACY_APP_DATA_DIR)
+            .join(storage::VAULT_FILE);
+        storage::adopt_legacy_vault(&legacy_path, &current_path).map_err(|e| e.to_string())?;
+    }
+
+    Ok(current_path)
 }
 
 /// Whether a vault already exists (drives onboarding vs. unlock on launch).
@@ -290,7 +302,7 @@ pub fn reveal_secret(
     // command has nothing to do after the user closes the dialog anyway.
     app.dialog()
         .message(secret.as_str())
-        .title("keystash secret")
+        .title("OwnKeep secret")
         .kind(MessageDialogKind::Info)
         .parent(&window)
         .show(|_| {});
@@ -316,9 +328,9 @@ pub async fn backup_vault_to_chosen_location(
     let destination = app
         .dialog()
         .file()
-        .set_title("Back up keystash vault")
+        .set_title("Back up OwnKeep vault")
         .set_file_name(file_name)
-        .add_filter("Keystash vault backup", &["dat"])
+        .add_filter("OwnKeep vault backup", &["dat"])
         .blocking_save_file();
 
     let Some(destination) = destination else {
@@ -409,8 +421,8 @@ fn pick_restore_path(app: &AppHandle) -> Result<Option<PathBuf>, String> {
     let source = app
         .dialog()
         .file()
-        .set_title("Restore keystash vault")
-        .add_filter("Keystash vault backup", &["dat"])
+        .set_title("Restore OwnKeep vault")
+        .add_filter("OwnKeep vault backup", &["dat"])
         .blocking_pick_file();
     source
         .map(|file| file.into_path().map_err(|e| e.to_string()))

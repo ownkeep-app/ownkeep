@@ -60,7 +60,7 @@ describe("mainWindowMode", () => {
   it("uses expanded size while the Emergency Kit is pending", () => {
     expect(
       mainWindowMode("unlocked", {
-        app: "keystash",
+        app: "OwnKeep",
         recovery_code: "word",
         instructions: "save it",
       }),

@@ -12,7 +12,7 @@ import {
 } from "./taxonomy";
 
 export const SCHEMA_VERSION = 11;
-export const APP_VERSION = __KEYSTASH_APP_VERSION__;
+export const APP_VERSION = __OWNKEEP_APP_VERSION__;
 
 export type Theme = "system" | "light" | "dark";
 

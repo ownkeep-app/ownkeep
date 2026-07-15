@@ -1,9 +1,9 @@
 ---
 name: implement
-description: Implement one scoped keystash task using the spec, plan, and core development principles. Use explicitly with $implement.
+description: Implement one scoped OwnKeep task using the spec, plan, and core development principles. Use explicitly with $implement.
 ---
 
-Implement one scoped keystash task.
+Implement one scoped OwnKeep task.
 
 ## Input
 

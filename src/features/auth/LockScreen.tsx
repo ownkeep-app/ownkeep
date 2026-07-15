@@ -94,7 +94,7 @@ export function LockScreen() {
 
   return (
     <Screen>
-      <h1 className="text-xl font-semibold">keystash is locked</h1>
+      <h1 className="text-xl font-semibold">OwnKeep is locked</h1>
       {!startFresh && (
         <form onSubmit={onSubmit} className="flex w-full flex-col gap-3">
           {recovery ? (
@@ -182,7 +182,7 @@ export function LockScreen() {
           </p>
           <p className="text-muted-foreground">
             Save a copy of the encrypted vault file somewhere safe first. Then
-            keystash erases the local vault so you can create a new empty one.
+            OwnKeep erases the local vault so you can create a new empty one.
             Without the master password or recovery code, the backup stays
             encrypted and unreadable.
           </p>

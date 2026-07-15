@@ -9,7 +9,10 @@ use serde::{Deserialize, Serialize};
 use crate::crypto::{Argon2Params, Sealed, NONCE_LEN};
 use crate::error::{Error, Result};
 
-/// Magic marker identifying a keystash container.
+/// Historical magic marker identifying an OwnKeep container.
+///
+/// `KSTH` remains stable across the product rebrand so existing encrypted vaults and backups stay
+/// readable. It is format data, not user-facing branding.
 pub const MAGIC: &str = "KSTH";
 /// Current container schema version (the newest format this build writes).
 pub const VERSION: u32 = 2;

@@ -1,8 +1,10 @@
-# keystash
+# OwnKeep
 
 An **offline-first, single-file, master-password-gated macOS app** — a keyboard-first **password
 vault** and **command-line library** behind one Spotlight-style command bar, plus backup/restore and
 configuration. No cloud, no database, no telemetry.
+
+Website: [ownkeep.app](https://ownkeep.app)
 
 - **What & why:** [`spec.md`](spec.md)
 - **Build order & status:** [`plan.md`](plan.md)
@@ -45,7 +47,7 @@ On first launch, macOS will ask you to grant **Accessibility** permission so the
 icon's **Search ... / Dashboard / Exit** menu, or the hotkey to toggle the window. It hides on **Esc** or when it loses
 focus.
 
-## Using keystash
+## Using OwnKeep
 
 ### First run & the Emergency Kit
 
@@ -59,12 +61,14 @@ if you forget it, the only other way in is the **recovery code** shown once duri
 - You can regenerate the Emergency Kit anytime from **Settings** (this re-wraps the recovery key; the
   old code stops working).
 
-The vault lives at `~/Library/Application Support/com.shaojiang.keystash/vault.dat`
-(`vault-dev.dat` in dev builds), outside the app bundle — see `spec.md` §3.2 and §4.
+The vault lives at `~/Library/Application Support/com.shaojiang.ownkeep/vault.dat`
+(`vault-dev.dat` in dev builds), outside the app bundle — see `spec.md` §3.2 and §4. On the first
+OwnKeep launch after the rename, if this path is empty, the app validates and copies the former
+app-data vault into the new directory without deleting the old copy.
 
 ### Keyboard shortcuts
 
-keystash is keyboard-first. Press **`⌘H`** on either surface to open the in-app shortcut cheat
+OwnKeep is keyboard-first. Press **`⌘H`** on either surface to open the in-app shortcut cheat
 sheet (also reachable from the Help row in the Dashboard sidebar). The essentials:
 
 | Where | Keys | Action |
@@ -72,7 +76,7 @@ sheet (also reachable from the Help row in the Dashboard sidebar). The essential
 | Anywhere | `⌘⇧Space` | Summon the command bar |
 | Anywhere | `⌘⇧D` | Toggle the Dashboard window |
 | Anywhere | `⌘H` | Show keyboard shortcuts |
-| Anywhere | `⌘/` | About keystash |
+| Anywhere | `⌘/` | About OwnKeep |
 | Command bar | `⌥⇧1`–`⌥⇧9` | Run a result's primary action (e.g. copy password) |
 | Command bar | `⌥⌘1`–`⌥⌘9` | Copy a command's raw template |
 | Command bar | `Esc` | Hide the launcher |
@@ -86,8 +90,14 @@ Light / dark / system and the accent color are set in **Settings → Appearance*
 
 ### Upgrading & the migration guide
 
-keystash upgrades by **manual replacement** — download a new `.dmg` and drag the new app over the old
-one. Your data is untouched because the vault lives outside the app bundle.
+OwnKeep upgrades by **manual replacement** — download a new `.dmg` and drag the new app over the old
+OwnKeep app. Your data is untouched because the vault lives outside the app bundle.
+
+For the one-time rename, install `OwnKeep.app` alongside the former app and launch OwnKeep once.
+After confirming that the vault opens correctly from the new path, the former app can be removed.
+macOS may ask for Accessibility and notification permissions again because OwnKeep has a new bundle
+identifier; Touch ID may need to be re-enrolled if the signing identity invalidates its Keychain
+access rule. Existing `.dat` backups remain restorable regardless of their filename prefix.
 
 When a new build introduces a data-shape change, opening your existing vault shows a **migration
 guide** before anything is written: it summarizes added fields, shows renamed paths (`old → new`), and
@@ -135,11 +145,14 @@ may warn on first open.
 ## Troubleshooting
 
 - **Global hotkey does nothing** — grant Accessibility: System Settings → Privacy & Security →
-  Accessibility → enable keystash (or your terminal, in dev). The app is designed to also work from
+  Accessibility → enable OwnKeep (or your terminal, in dev). The app is designed to also work from
   the tray if the permission is denied.
+- **OwnKeep opens an empty vault after upgrading from the former app** — confirm the old vault is in
+  `~/Library/Application Support/com.shaojiang.keystash/` and that the new OwnKeep path does not
+  already contain a vault. OwnKeep only performs the safe copy when its destination is empty.
 - **Window vanished** — that's the launcher behavior (hide on blur/Esc). Press `Cmd+Shift+Space` or
   use the tray's **Search ...**.
-- **`Port 1420 is already in use`** — another Vite/keystash dev server is running; stop it or free the
+- **`Port 1420 is already in use`** — another Vite/OwnKeep dev server is running; stop it or free the
   port (the dev server uses a fixed port on purpose).
 - **First `cargo`/Tauri build is slow** — the Rust core and Tauri dependencies compile from source
   the first time; subsequent builds are incremental.
@@ -147,7 +160,7 @@ may warn on first open.
 ## Layout
 
 ```
-keystash/
+ownkeep/
 ├── src/            # React + TypeScript front-end (UI only; no secrets)
 ├── src-tauri/      # Rust core (crypto, storage, concealed clipboard, scheduler)
 ├── spec.md         # product & technical spec

@@ -41,9 +41,9 @@ describe("url helpers", () => {
     const open = vi.fn();
     vi.stubGlobal("open", open);
 
-    await expect(openExternalUrl("https://keystash.info/")).resolves.toBe(true);
+    await expect(openExternalUrl("https://ownkeep.app/")).resolves.toBe(true);
     expect(open).toHaveBeenCalledWith(
-      "https://keystash.info/",
+      "https://ownkeep.app/",
       "_blank",
       "noopener,noreferrer",
     );

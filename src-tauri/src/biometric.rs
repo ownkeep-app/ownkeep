@@ -20,7 +20,7 @@ use crate::error::{Error, Result};
 pub struct BiometricStatus {
     /// Touch ID hardware is present and a fingerprint is enrolled on this Mac.
     pub available: bool,
-    /// keystash has a biometric key for this vault: the container wrap *and* the Keychain item exist.
+    /// OwnKeep has a biometric key for this vault: the container wrap *and* the Keychain item exist.
     pub enrolled: bool,
 }
 
@@ -28,7 +28,7 @@ pub struct BiometricStatus {
 pub trait BiometricKeyStore {
     /// Whether Touch ID can be used on this Mac right now (sensor present + a fingerprint enrolled).
     fn is_available(&self) -> bool;
-    /// Whether keystash's biometric key item exists — a non-prompting check (never shows Touch ID).
+    /// Whether OwnKeep's biometric key item exists — a non-prompting check (never shows Touch ID).
     fn has_key(&self) -> bool;
     /// Store (creating or replacing) the biometric-gated wrapping key.
     fn store_key(&self, key: &Key) -> Result<()>;
@@ -41,7 +41,10 @@ pub trait BiometricKeyStore {
 /// Derive the Touch ID status from the store plus whether the on-disk container carries a wrap
 /// (spec §4.7). Pure over the trait, so it is exercised without hardware. `enrolled` requires all
 /// three: hardware available, the container wrap present, and the Keychain key present.
-pub fn status_from<S: BiometricKeyStore + ?Sized>(store: &S, wrap_present: bool) -> BiometricStatus {
+pub fn status_from<S: BiometricKeyStore + ?Sized>(
+    store: &S,
+    wrap_present: bool,
+) -> BiometricStatus {
     let available = store.is_available();
     BiometricStatus {
         available,
@@ -84,8 +87,11 @@ pub fn system_store() -> SystemBiometricKeyStore {
 // --- macOS implementation -------------------------------------------------------------------------
 
 /// Keychain item identity for the biometric wrapping key.
+///
+/// This historical service name is intentionally stable: it is an internal lookup key, and
+/// changing it during the OwnKeep rebrand would orphan existing Touch ID enrollment.
 #[cfg(target_os = "macos")]
-const KEYCHAIN_SERVICE: &str = "com.shaojiang.keystash.biometric";
+const LEGACY_KEYCHAIN_SERVICE: &str = "com.shaojiang.keystash.biometric";
 #[cfg(target_os = "macos")]
 const KEYCHAIN_ACCOUNT: &str = "vault-kek";
 
@@ -95,8 +101,10 @@ impl BiometricKeyStore for SystemBiometricKeyStore {
         use objc2_local_authentication::{LAContext, LAPolicy};
         // canEvaluatePolicy is true only when the sensor is present and a fingerprint is enrolled.
         let context = unsafe { LAContext::new() };
-        unsafe { context.canEvaluatePolicy_error(LAPolicy::DeviceOwnerAuthenticationWithBiometrics) }
-            .is_ok()
+        unsafe {
+            context.canEvaluatePolicy_error(LAPolicy::DeviceOwnerAuthenticationWithBiometrics)
+        }
+        .is_ok()
     }
 
     fn has_key(&self) -> bool {
@@ -105,7 +113,7 @@ impl BiometricKeyStore for SystemBiometricKeyStore {
         // existence probe does NOT trigger a Touch ID prompt (it runs on the lock screen).
         ItemSearchOptions::new()
             .class(ItemClass::generic_password())
-            .service(KEYCHAIN_SERVICE)
+            .service(LEGACY_KEYCHAIN_SERVICE)
             .account(KEYCHAIN_ACCOUNT)
             .load_attributes(true)
             .load_data(false)
@@ -131,7 +139,8 @@ impl BiometricKeyStore for SystemBiometricKeyStore {
         // Replace any prior item so enable / re-enroll always issues a fresh key.
         self.delete_key()?;
 
-        let mut options = PasswordOptions::new_generic_password(KEYCHAIN_SERVICE, KEYCHAIN_ACCOUNT);
+        let mut options =
+            PasswordOptions::new_generic_password(LEGACY_KEYCHAIN_SERVICE, KEYCHAIN_ACCOUNT);
         options.set_access_control(access_control);
         set_generic_password_options(key.as_slice(), options).map_err(sf_err)
     }
@@ -140,7 +149,8 @@ impl BiometricKeyStore for SystemBiometricKeyStore {
         use security_framework::passwords::generic_password;
         use security_framework::passwords_options::PasswordOptions;
         // Reading the biometric-gated item triggers the Touch ID prompt (unlock path C, §4.7).
-        let options = PasswordOptions::new_generic_password(KEYCHAIN_SERVICE, KEYCHAIN_ACCOUNT);
+        let options =
+            PasswordOptions::new_generic_password(LEGACY_KEYCHAIN_SERVICE, KEYCHAIN_ACCOUNT);
         let bytes = generic_password(options).map_err(sf_err)?;
         key_from_bytes(&bytes)
     }
@@ -149,7 +159,7 @@ impl BiometricKeyStore for SystemBiometricKeyStore {
         use security_framework::passwords::delete_generic_password;
         // Idempotent: only delete when present, so an absent item is not treated as an error.
         if self.has_key() {
-            delete_generic_password(KEYCHAIN_SERVICE, KEYCHAIN_ACCOUNT).map_err(sf_err)?;
+            delete_generic_password(LEGACY_KEYCHAIN_SERVICE, KEYCHAIN_ACCOUNT).map_err(sf_err)?;
         }
         Ok(())
     }
@@ -172,7 +182,9 @@ impl BiometricKeyStore for SystemBiometricKeyStore {
         false
     }
     fn store_key(&self, _key: &Key) -> Result<()> {
-        Err(Error::Biometric("biometric unlock is macOS-only".to_string()))
+        Err(Error::Biometric(
+            "biometric unlock is macOS-only".to_string(),
+        ))
     }
     fn load_key(&self) -> Result<Key> {
         Err(Error::BiometricNotEnrolled)

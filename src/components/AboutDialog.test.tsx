@@ -25,7 +25,7 @@ const openExternal = vi.mocked(openExternalUrl);
 
 describe("about metadata", () => {
   it("formats the version label", () => {
-    expect(aboutVersionLabel("1.0")).toBe("keystash v1.0");
+    expect(aboutVersionLabel("1.0")).toBe("OwnKeep v1.0");
   });
 });
 
@@ -34,10 +34,10 @@ describe("AboutDialog", () => {
     const user = userEvent.setup();
     render(<AboutDialog />);
 
-    await user.click(screen.getByRole("button", { name: "About keystash" }));
+    await user.click(screen.getByRole("button", { name: "About OwnKeep" }));
 
     expect(
-      screen.getByRole("dialog", { name: "About keystash" }),
+      screen.getByRole("dialog", { name: "About OwnKeep" }),
     ).toBeInTheDocument();
     expect(screen.getByText(aboutVersionLabel())).toBeInTheDocument();
     expect(screen.getByText(APP_RELEASE_DATE)).toBeInTheDocument();
@@ -61,13 +61,13 @@ describe("AboutDialog", () => {
 
     fireEvent.keyDown(window, { key: "/", metaKey: true });
     expect(
-      screen.getByRole("dialog", { name: "About keystash" }),
+      screen.getByRole("dialog", { name: "About OwnKeep" }),
     ).toBeInTheDocument();
 
     fireEvent.keyDown(window, { key: "/", metaKey: true });
     await waitFor(() =>
       expect(
-        screen.queryByRole("dialog", { name: "About keystash" }),
+        screen.queryByRole("dialog", { name: "About OwnKeep" }),
       ).not.toBeInTheDocument(),
     );
   });
@@ -78,12 +78,12 @@ describe("AboutDialog", () => {
     window.addEventListener("keydown", onWindowKey);
     render(<AboutDialog />);
 
-    await user.click(screen.getByRole("button", { name: "About keystash" }));
+    await user.click(screen.getByRole("button", { name: "About OwnKeep" }));
     fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape" });
 
     await waitFor(() =>
       expect(
-        screen.queryByRole("dialog", { name: "About keystash" }),
+        screen.queryByRole("dialog", { name: "About OwnKeep" }),
       ).not.toBeInTheDocument(),
     );
     expect(onWindowKey).not.toHaveBeenCalled();
@@ -94,23 +94,23 @@ describe("AboutDialog", () => {
     const user = userEvent.setup();
     render(<AboutDialog />);
 
-    await user.click(screen.getByRole("button", { name: "About keystash" }));
+    await user.click(screen.getByRole("button", { name: "About OwnKeep" }));
     await user.click(
-      screen.getByRole("button", { name: "Dismiss about keystash" }),
+      screen.getByRole("button", { name: "Dismiss about OwnKeep" }),
     );
     await waitFor(() =>
       expect(
-        screen.queryByRole("dialog", { name: "About keystash" }),
+        screen.queryByRole("dialog", { name: "About OwnKeep" }),
       ).not.toBeInTheDocument(),
     );
 
-    await user.click(screen.getByRole("button", { name: "About keystash" }));
+    await user.click(screen.getByRole("button", { name: "About OwnKeep" }));
     await user.click(
-      screen.getByRole("button", { name: "Close about keystash" }),
+      screen.getByRole("button", { name: "Close about OwnKeep" }),
     );
     await waitFor(() =>
       expect(
-        screen.queryByRole("dialog", { name: "About keystash" }),
+        screen.queryByRole("dialog", { name: "About OwnKeep" }),
       ).not.toBeInTheDocument(),
     );
   });
@@ -134,13 +134,13 @@ describe("AboutDialog", () => {
 
     render(<Controlled />);
     expect(
-      screen.getByRole("dialog", { name: "About keystash" }),
+      screen.getByRole("dialog", { name: "About OwnKeep" }),
     ).toBeInTheDocument();
 
     fireEvent.keyDown(window, { key: "/", metaKey: true });
     await waitFor(() =>
       expect(
-        screen.queryByRole("dialog", { name: "About keystash" }),
+        screen.queryByRole("dialog", { name: "About OwnKeep" }),
       ).not.toBeInTheDocument(),
     );
     expect(onOpenChange).toHaveBeenCalledWith(false);

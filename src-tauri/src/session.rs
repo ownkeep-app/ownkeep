@@ -251,7 +251,11 @@ impl Session {
 
     /// Disable Touch ID unlock: delete the Keychain key and drop the biometric wrap. The master
     /// password and recovery code still unlock (§4.7). Requires unlocked.
-    pub fn disable_biometric<S: BiometricKeyStore>(&mut self, path: &Path, store: &S) -> Result<()> {
+    pub fn disable_biometric<S: BiometricKeyStore>(
+        &mut self,
+        path: &Path,
+        store: &S,
+    ) -> Result<()> {
         let unlocked = self.unlocked.as_mut().ok_or(Error::Locked)?;
         store.delete_key()?;
         envelope::clear_biometric(&mut unlocked.container);
@@ -631,7 +635,7 @@ mod tests {
     fn restore_refuses_wrong_password_before_replacing_or_snapshotting() {
         let dir = unique_temp_dir();
         let active_path = dir.join(VAULT_FILE);
-        let backup_path = dir.join("keystash-v0.1-20260707-1530.dat");
+        let backup_path = dir.join("ownkeep-v0.1-20260707-1530.dat");
 
         let mut active = session();
         active
@@ -655,12 +659,12 @@ mod tests {
                 &active_path,
                 &backup_path,
                 "wrong pw",
-                "keystash-pre-restore-20260707-1530.dat",
+                "ownkeep-pre-restore-20260707-1530.dat",
             )
             .is_err());
 
         assert_eq!(fs::read(&active_path).unwrap(), before);
-        assert!(!dir.join("keystash-pre-restore-20260707-1530.dat").exists());
+        assert!(!dir.join("ownkeep-pre-restore-20260707-1530.dat").exists());
         fs::remove_dir_all(&dir).ok();
     }
 
@@ -668,8 +672,8 @@ mod tests {
     fn restore_with_password_snapshots_replaces_and_unlocks_backup() {
         let dir = unique_temp_dir();
         let active_path = dir.join(VAULT_FILE);
-        let backup_path = dir.join("keystash-v0.1-20260707-1530.dat");
-        let pre_restore = "keystash-pre-restore-20260707-1530.dat";
+        let backup_path = dir.join("ownkeep-v0.1-20260707-1530.dat");
+        let pre_restore = "ownkeep-pre-restore-20260707-1530.dat";
 
         let mut active = session();
         active
@@ -706,7 +710,7 @@ mod tests {
     fn restore_with_recovery_uses_the_backup_recovery_wrap() {
         let dir = unique_temp_dir();
         let active_path = dir.join(VAULT_FILE);
-        let backup_path = dir.join("keystash-v0.1-20260707-1530.dat");
+        let backup_path = dir.join("ownkeep-v0.1-20260707-1530.dat");
 
         let mut active = session();
         active
@@ -726,7 +730,7 @@ mod tests {
                 &active_path,
                 &backup_path,
                 &kit.recovery_code,
-                "keystash-pre-restore-20260707-1531.dat",
+                "ownkeep-pre-restore-20260707-1531.dat",
             )
             .unwrap();
 

@@ -1,14 +1,15 @@
-# keystash — Product / Technical Spec
+# OwnKeep — Product / Technical Spec
 
 > A single-file, master-password-gated, keyboard-first macOS app that unifies your
 > **passwords** and **dev command snippets** — plus optional trackers (todos,
 > subscriptions, finance) — behind one Spotlight-style search bar. Fully offline.
 
-**Name:** keystash
+**Name:** OwnKeep
+**Website:** [ownkeep.app](https://ownkeep.app)
 **Target platform:** macOS 13+ (Apple Silicon + Intel)
 **Author:** Shaojiang
-**Status:** Draft v2.4 (adds optional Touch ID / biometric unlock — §4.7)
-**Last updated:** 2026-07-10
+**Status:** Draft v2.5 (OwnKeep rebrand + legacy vault-location compatibility)
+**Last updated:** 2026-07-15
 
 ---
 
@@ -29,6 +30,7 @@ This spec was benchmarked against the leading offline/keyboard-first tools. Key 
 | **UI kit** *(v2.2)* | Hand-rolled + Tailwind | **shadcn/ui** (à la carte, Radix + Tailwind) + **Lucide** icons; `command` powers the bar | Accessible, clean, source you own/audit — good for a secrets app |
 | **Testing** *(v2.2)* | "unit-tested" (unspecified) | **Vitest + React Testing Library** (frontend) · **`cargo test` + proptest** (Rust) | Concrete Vite-native stack; crypto invariants get property tests |
 | **Upgrades** *(v2.3)* | Unspecified | **Manual `.dmg` replacement + user-aware migration guide** | Replacing the app reuses the old vault, while schema changes stay explicit and recoverable |
+| **Product identity** *(v2.5)* | `keystash` | **OwnKeep** · `ownkeep.app` · bundle id `com.shaojiang.ownkeep` | Emphasizes secure, offline, user-owned, customizable storage without centering the hotkey |
 
 Confirmed unchanged: **Tauri 2 + React + TS + Rust**; Argon2id + XChaCha20-Poly1305; one
 encrypted file, no database; concealed-clipboard copy; auto-lock; native notifications.
@@ -37,7 +39,7 @@ encrypted file, no database; concealed-clipboard copy; auto-lock; native notific
 
 ## 1. Overview & Design Philosophy
 
-keystash is a personal, offline-first "second brain for dangerous-to-lose stuff." Everything
+OwnKeep is a personal, offline-first "second brain for dangerous-to-lose stuff." Everything
 lives in **one encrypted file** — no database, no cloud, no telemetry. The app opens on a global
 hotkey to a single search box; you type, results appear one-per-line, and a numbered hotkey copies
 the right value instantly. A companion **Dashboard window** (left sidebar + full-content pane)
@@ -134,8 +136,12 @@ Two test surfaces, matching the two-language architecture:
 - **Tray/menu-bar agent:** keeps running after the window hides so the scheduler can fire due-date/reminder notifications. Optionally an accessory (no Dock icon) app.
 
 ### 3.2 Storage model — one file, no database
-- A single production file: `~/Library/Application Support/com.shaojiang.keystash/vault.dat`.
-- Development builds (`tauri dev` / debug builds) use `~/Library/Application Support/com.shaojiang.keystash/vault-dev.dat` instead, so local development cannot accidentally read or mutate the production vault.
+- A single production file: `~/Library/Application Support/com.shaojiang.ownkeep/vault.dat`.
+- Development builds (`tauri dev` / debug builds) use `~/Library/Application Support/com.shaojiang.ownkeep/vault-dev.dat` instead, so local development cannot accidentally read or mutate the production vault.
+- **Rebrand compatibility:** if the OwnKeep path is empty on first launch, the app validates and
+  atomically copies the matching vault from the former `com.shaojiang.keystash` app-data directory.
+  The former file is left untouched as a rollback copy; once OwnKeep has its own vault, it always
+  wins and the paths never auto-merge.
 - Self-describing, versioned, **AEAD-encrypted** container (§4.2).
 - **In memory after unlock:** the full decrypted model lives in the **Rust core**. The frontend receives a **redacted projection** (secrets stripped) for its search index and views. Secret fields are handed out only at the moment of an explicit copy action (§4.5).
 - On every mutation: Rust re-encrypts and atomically writes (temp file → `fsync` → rename).
@@ -217,7 +223,7 @@ hides it everywhere but keeps its data slice in the encrypted file (with a "dele
 
 ## 4. Security & Cryptography (critical)
 
-keystash protects passwords and financial data, so crypto is a first-class concern.
+OwnKeep protects passwords and financial data, so crypto is a first-class concern.
 
 ### 4.1 Envelope encryption (password **or** recovery-code unlock)
 
@@ -263,6 +269,10 @@ password hash to store or leak; the AEAD tag *is* the verification.
   "vault":            { "nonce": "<b64>", "ct": "<b64>" }    // XChaCha20-Poly1305 over the model
 }
 ```
+> `KSTH` is the historical container magic and intentionally remains stable after the OwnKeep
+> rebrand. It is encrypted-format compatibility data, not display branding; changing it would make
+> existing vaults and backups unreadable. The recovery HKDF context is retained for the same reason.
+>
 > Argon2 params (256 MiB / 3 / 4) are generous for a desktop; tune down for older Intel Macs if
 > unlock feels slow. No security-questions array — the recovery path stores nothing but a salt.
 >
@@ -292,13 +302,13 @@ backup and is re-enabled per device after restore. See §11.
 
 ### 4.6 Emergency Kit (recovery)
 Shown once at setup and re-downloadable from Settings (regenerates a fresh code + re-wraps):
-- **Recovery code**: 128-bit, rendered as **12 words** (EFF/BIP39-style wordlist, easy to transcribe) — or grouped Base32 `KSTH-XXXXX-XXXXX-XXXXX-XXXXX-XXXXX` if you prefer.
+- **Recovery code**: 128-bit, rendered as **12 words** (EFF/BIP39-style wordlist, easy to transcribe) — or grouped Base32 `OWNK-XXXXX-XXXXX-XXXXX-XXXXX-XXXXX` if a non-mnemonic format is added later.
 - Includes app name + creation date + instructions. **Does not include the master password.**
 - Offered as a printable / saveable card (PDF or plain text via the file dialog).
 
 ### 4.7 Biometric unlock (Touch ID) — optional, device-local
 
-An **opt-in convenience**: on a Mac with Touch ID, unlock keystash with a fingerprint instead of
+An **opt-in convenience**: on a Mac with Touch ID, unlock OwnKeep with a fingerprint instead of
 typing the master password. The **master password and the recovery code are the only authoritative
 credentials** — they can always unlock the vault, and Touch ID is strictly a secondary shortcut
 layered on top. Touch ID is an **addition to**, never a **replacement for**, them: enrolling
@@ -317,7 +327,7 @@ without this vault file (defense in depth).
   invalidates the item → re-enroll with the master password) + `kSecAttrAccessibleWhenUnlockedThisDeviceOnly`
   (never leaves the device, never syncs to iCloud Keychain, only readable while the macOS session is
   unlocked).
-- **Unlock path C:** LocalAuthentication (`LAContext`, reason "Unlock keystash") prompts Touch ID →
+- **Unlock path C:** LocalAuthentication (`LAContext`, reason "Unlock OwnKeep") prompts Touch ID →
   on success the Keychain releases `KEK_biometric` → Rust unwraps `wrapped_biometric` → DEK →
   decrypt the vault. Identical to paths A/B from the DEK onward; **the wrapping key and the biometric
   prompt never enter the WebView** (§4.5 preserved).
@@ -341,7 +351,7 @@ without this vault file (defense in depth).
   recovers after a fingerprint-set change invalidates the item.
 
 **Trade-off (flagged against the "one encrypted file" rule, §1/§14).** Biometric unlock is the one
-place keystash keeps key material **outside** the single vault file: a device-local wrapping key in
+place OwnKeep keeps key material **outside** the single vault file: a device-local wrapping key in
 the OS Keychain (Secure Enclave-protected). The *vault data* is still one encrypted file; this is an
 **opt-in, device-local exception** that is unavoidable for biometric unlock and matches how
 mainstream managers implement it. It stays **fully offline** (LocalAuthentication + Keychain are
@@ -526,7 +536,7 @@ so editing a rate re-totals every snapshot. Future calendar/notes modules add th
 
 ## 7. Interaction Surfaces — Command Bar & Dashboard
 
-keystash has **two surfaces** over the same in-memory model: the **command bar** (§7.1–7.4) for
+OwnKeep has **two surfaces** over the same in-memory model: the **command bar** (§7.1–7.4) for
 quick keyboard-first access, and the **Dashboard** (§7.5) for browsing and managing all content.
 
 ### 7.1 Command bar — default surface
@@ -567,7 +577,7 @@ the command bar (§7.6).
 Layout: **left sidebar + right content pane.**
 
 - **When locked:** opening the Dashboard shows the same master-password unlock form as the launcher — users can unlock in place without switching to the command bar.
-- **Left sidebar (modules):** a **Search ...** row at the top jumps back to the command bar (`⌘⇧Space`); then one row per *enabled* module — icon + title + item count — rendered straight from the registry, plus pinned **Settings**, **Help** (`⌘H`), **About** (`⌘/`), and **Lock** rows. The bottom footer shows the current app version (`keystash v0.1`) so the user can confirm which build is running after a manual upgrade. Navigate with `↑/↓` or `⌥⇧1..9`; the selection persists across opens.
+- **Left sidebar (modules):** a **Search ...** row at the top jumps back to the command bar (`⌘⇧Space`); then one row per *enabled* module — icon + title + item count — rendered straight from the registry, plus pinned **Settings**, **Help** (`⌘H`), **About** (`⌘/`), and **Lock** rows. The bottom footer shows the current app version (`OwnKeep v0.1`) so the user can confirm which build is running after a manual upgrade. Navigate with `↑/↓` or `⌥⇧1..9`; the selection persists across opens.
 - **Right pane (all content):** renders the selected module's **`ListView`** — the full list/table of its items (all passwords; all commands grouped by tag with title, description, and highlighted snippet per card; the todo list; all subscriptions; the finance snapshot table + trend chart). Includes a per-module filter box (with a **category** select on passwords, commands, todos, and subscriptions — All categories or one category — plus a **Clear Filters** control whenever a search query or non-default filter is active — **Escape** clears active filters even while the search box or category select is focused (open dialogs and menus still own Escape first); todos also reset the Undone/Done/All status chip to Undone), **sortable table headers** (passwords, todos, subscriptions, finance; the active sort column keeps the same accent highlight as hover), a narrow non-sortable leftmost **#** index (display-only 1-based position in the current filtered/sorted view — not stored in the vault; command cards show the same leading index), and **New / Edit / Delete**. Row actions use a compact **⋮ overflow menu** (no "Actions" header label) with View / Edit / Delete; passwords keep Copy on the username/password cells, and command cards keep a ghost **Copy** icon button left of the ⋮ menu (not in the menu). **Delete** always asks for confirmation in a shared dismissible dialog (Cancel / Esc / backdrop, or confirm Delete) before removing the item. The primary name/title (password name, command title, todo title, subscription service, finance snapshot date) is clickable and opens the same detail modal as **View**. Row **View** opens the module's `DetailView` in a dismissible two-column modal (Esc + click-away); list **category** (passwords, todos) and **priority** (todos) cells, and subscription **cycle** / **renew** cells, open a one-click **dropdown menu** to pick a new value and save immediately. **New / Edit** open the module's `EditView` in a modal-style elevated card over a dimmed pane (Creating/Editing badge, Esc + backdrop dismiss). Table columns use fixed proportional widths so headers and common values (e.g. email usernames) stay readable without manual resizing.
 - **Secrets stay protected:** the passwords `ListView` shows metadata only (name, username, category) with masked passwords; clicking the mask reveals via Rust `reveal_secret` (native dialog — plaintext never enters the WebView); copy buttons in the username/password columns route through `copy_secret` / clipboard (§4.5). A headerless **login-URL** column (left of the ⋮ menu) shows an external-link icon when `loginUrl` is http(s); empty or non-http URLs show nothing.
 - **Sidebar footer:** Settings, **Help** (`⌘H` opens the keyboard-shortcut sheet), **About** (`⌘/` opens product info: features, developer email, version, release date, website), and Lock sit below the module list; the floating help trigger is not shown on the Dashboard (the command bar keeps its own).
@@ -590,7 +600,7 @@ Layout: **left sidebar + right content pane.**
 - It gathers reminders by calling every enabled module's `collectReminders(items, now, settings)` hook, so **new modules get notifications for free** — no scheduler changes.
 - Currently: **todos** (due − lead), **subscriptions** (due − lead-days). Fires native notifications; **de-dupes** so each item notifies once per window (track "last notified" per item).
 - All lead times configurable globally (`settings`) and per item.
-- **Permissions:** macOS notification permission; the app keeps running in the background (tray/menu-bar; optionally accessory/no-Dock). Delivery uses `UNUserNotificationCenter` so banners belong to **keystash**; clicking a reminder opens the Dashboard to that module/item. Bare `pnpm dev` binaries (no `.app` bundle) cannot own native notifications — use a built/installed `keystash.app` for click-through reminders.
+- **Permissions:** macOS notification permission; the app keeps running in the background (tray/menu-bar; optionally accessory/no-Dock). Delivery uses `UNUserNotificationCenter` so banners belong to **OwnKeep**; clicking a reminder opens the Dashboard to that module/item. Bare `pnpm dev` binaries (no `.app` bundle) cannot own native notifications — use a built/installed `OwnKeep.app` for click-through reminders.
 
 ---
 
@@ -623,23 +633,29 @@ own `SettingsPanel`.
 - **Aesthetic:** calm dual themes (periwinkle mist light page + white surfaces / midnight navy dark) with one accent (`#5B6CFF` default), generous spacing, high-contrast text.
 - **Component system:** UI built from **shadcn/ui** primitives (Radix + Tailwind, copied into `components/ui/`, à la carte) with **Lucide** icons. Light/dark + accent map to shadcn's CSS-variable tokens, so theming is one token swap (§2.1).
 - **Version visibility:** the Dashboard left-sidebar footer shows the current app version from `APP_VERSION`, which is injected from `package.json.version`, for quick upgrade/debug confirmation.
-- **Onboarding (first run):** cold start **shows and focuses** the main window with the master-password setup form (blur-to-hide is off until the compact command bar). Create master password → **show Emergency Kit (recovery code)** → set global hotkey → done. The form shows the vault file path (`~/Library/Application Support/com.shaojiang.keystash/vault.dat` in production; `vault-dev.dat` in debug). No security questions. *(Touch ID is optional and enabled later from Settings → System → Security, §4.7 — not part of first-run setup; it may be offered once after the first successful unlock.)*
+- **Onboarding (first run):** cold start **shows and focuses** the main window with the master-password setup form (blur-to-hide is off until the compact command bar). Create master password → **show Emergency Kit (recovery code)** → set global hotkey → done. The form shows the vault file path (`~/Library/Application Support/com.shaojiang.ownkeep/vault.dat` in production; `vault-dev.dat` in debug). No security questions. *(Touch ID is optional and enabled later from Settings → System → Security, §4.7 — not part of first-run setup; it may be offered once after the first successful unlock.)*
 - **Vault path in Settings:** Settings → System shows the vault file path as read-only text (same location as §11.1).
 
 ---
 
 ## 11. Backup, Restore & Upgrades
 
-- **Backup** (`Cmd+B` / menu): choose a destination via file dialog; write a copy of the encrypted container. Already AEAD-encrypted → safe anywhere. Suggested name: `keystash-v<appVersion>-<YYYY-MM-DD-HHmm>.dat` (example: `keystash-v0.1-2026-07-07-1530.dat`). The copy **omits the device-local Touch ID wrap** (`wrapped_biometric`, §4.7); when Touch ID is enrolled the backup UI shows a **notice** that biometric unlock isn't included and must be re-enabled after restoring on the target Mac.
+- **Backup** (`Cmd+B` / menu): choose a destination via file dialog; write a copy of the encrypted container. Already AEAD-encrypted → safe anywhere. Suggested name: `ownkeep-v<appVersion>-<YYYY-MM-DD-HHmm>.dat` (example: `ownkeep-v0.1-2026-07-07-1530.dat`). The copy **omits the device-local Touch ID wrap** (`wrapped_biometric`, §4.7); when Touch ID is enrolled the backup UI shows a **notice** that biometric unlock isn't included and must be re-enabled after restoring on the target Mac. Backups created under the former product name remain valid because restore accepts any selected `.dat` container regardless of filename.
 - **Restore** (menu): choose a backup → enter master password (or recovery code) → the app **attempts full decryption**; only on success does it proceed. Prominent warning: _"Restoring will permanently erase all current data. This cannot be undone."_ Optionally auto-create a `pre-restore-<timestamp>.dat` of the current vault first, then atomically replace the live file and reload. Restore also **clears the device-local Touch ID Keychain item**; because backups carry no biometric wrap (§4.7), the restored vault has Touch ID **off** — re-enable it in Settings → System → Security.
 - **Atomicity:** write to a temp file, `fsync`, then rename over the live vault so a crash mid-write can't corrupt data.
 - **Version in backups:** backups are normal vault containers. The clear container header stores `container.version`; the encrypted vault body stores `meta.appVersion` and `meta.schemaVersion`, so the backup itself knows which app/data format wrote it once unlocked.
 
 ### 11.1 Manual app upgrades
-keystash upgrades by **manual replacement**: download a new `.dmg`, drag the new app into
-Applications, and replace the old app. This never touches your data: the production vault lives at
-`~/Library/Application Support/com.shaojiang.keystash/vault.dat`, **outside** the `.app` bundle. Opening the new
+OwnKeep upgrades by **manual replacement**: download a new `.dmg`, drag the new app into
+Applications, and replace the old OwnKeep app. This never touches your data: the production vault lives at
+`~/Library/Application Support/com.shaojiang.ownkeep/vault.dat`, **outside** the `.app` bundle. Opening the new
 app reuses the old vault by design.
+
+**One-time rename from the former app:** because the `.app` name and bundle identifier changed,
+install `OwnKeep.app` alongside the former build for the first launch. OwnKeep adopts the validated
+legacy vault into its new app-data directory (§3.2) without deleting the former copy. macOS may ask
+for Accessibility and notification permissions again because it sees a new bundle identity; Touch
+ID may require re-enrollment if code signing invalidates the old Keychain access rule.
 
 Auto-update (Tauri updater) stays off by default because it needs network (§12). The only upgrade
 risk is the app code expecting a newer data shape than the existing vault has, handled by §11.2.
@@ -647,7 +663,7 @@ risk is the app code expecting a newer data shape than the existing vault has, h
 ### 11.2 Data-format migrations (versioned, user-aware)
 
 **Version signals**
-- `package.json.version` — the single source of truth for the **current version under development**. It uses keystash's product format exactly: `main.minor` (for example `0.1`, `1.2`). The frontend build injects this as `APP_VERSION`; vault metadata, Dashboard display, backup filenames, migration comparisons, and release tags all use that value.
+- `package.json.version` — the single source of truth for the **current version under development**. It uses OwnKeep's product format exactly: `main.minor` (for example `0.1`, `1.2`). The frontend build injects this as `APP_VERSION`; vault metadata, Dashboard display, backup filenames, migration comparisons, and release tags all use that value.
 - `container.version` (unencrypted header, §4.2) — the crypto envelope format; bumped rarely.
 - `meta.appVersion` (encrypted model, §5) — the app release that last wrote the vault.
 - `meta.schemaVersion` (encrypted model, §5) — the data-model shape; bumped whenever keys, values, or module slices need a migration.
@@ -673,15 +689,15 @@ The guide shown at upgrade time is the union of the change lists from the vault'
 `meta.schemaVersion` up to `APP_SCHEMA_VERSION`, grouped by type (removals highlighted in red).
 
 **Upgrade flow — opening a newer app on an older vault**
-1. **Launch → pre-unlock check** of `container.version`: if it's **newer** than this build knows, refuse ("This vault was written by a newer keystash. Please upgrade keystash.") with no writes; otherwise continue (older container formats keep working because the build retains their readers).
+1. **Launch → pre-unlock check** of `container.version`: if it's **newer** than this build knows, refuse ("This vault was written by a newer OwnKeep. Please upgrade OwnKeep.") with no writes; otherwise continue (older container formats keep working because the build retains their readers).
 2. **Unlock** (master password or recovery code) → decryption yields the plaintext model.
-3. **Compare app releases:** if `meta.appVersion` is **newer** than `APP_VERSION`, stop the user from using this old build: _"You are using an older version of keystash. Please upgrade keystash to open this vault."_ No projection is sent to the WebView.
+3. **Compare app releases:** if `meta.appVersion` is **newer** than `APP_VERSION`, stop the user from using this old build: _"You are using an older version of OwnKeep. Please upgrade OwnKeep to open this vault."_ No projection is sent to the WebView.
 4. **Compare data schema** (`meta.schemaVersion` vs `APP_SCHEMA_VERSION`):
    - **equal** → open normally; if only `meta.appVersion` is older, stamp the new app version on the next save;
    - **vault newer** → refuse with the old-app warning above;
    - **vault older** → migration needed → show the **Migration guide** (step 5).
 5. **Migration guide screen** — shows exactly what will change (silent additions summarized, renames as old → new, **removals in red as data loss**) and states that a **pre-migration backup is made automatically**. The user chooses:
-   - **Accept & upgrade** → auto-write a pre-migration backup named `keystash-pre-migration-v<oldAppVersion>-to-v<APP_VERSION>-<ts>.dat`, apply the ordered migrations after decrypt, re-seal + atomically write, stamp `APP_VERSION` and `APP_SCHEMA_VERSION`, then continue. Removed data is gone from the live vault but preserved in that backup.
+   - **Accept & upgrade** → auto-write a pre-migration backup named `ownkeep-pre-migration-v<oldAppVersion>-to-v<APP_VERSION>-<ts>.dat`, apply the ordered migrations after decrypt, re-seal + atomically write, stamp `APP_VERSION` and `APP_SCHEMA_VERSION`, then continue. Removed data is gone from the live vault but preserved in that backup.
    - **Reject** → nothing has been written yet; offer three safe choices:
      1. **Back up & quit** — copy the current (un-migrated) vault to a chosen location, then quit.
      2. **Erase & start fresh** — ⚠️ **red danger confirm** — wipe the vault and use the new build with an empty vault (offer to back up first; irreversible).
@@ -695,6 +711,13 @@ The guide shown at upgrade time is the union of the change lists from the vault'
 - **Additive, optional *container* fields** that older builds can safely ignore (e.g. `wrapped_biometric`, §4.7) do **not** bump `container.version` and need **no migration step** — they carry no data to transform and cause no loss. They must still be documented here and confirmed by `$verify` as a deliberate, non-breaking addition. Anything that changes how an *existing* field is read (or that an older build cannot ignore) **does** bump `container.version`, and older builds then refuse it (§11.2 step 1).
 - Each step owns **both** its transform *and* its change list — the guide is generated from these, so the docs and the behavior can't drift.
 - Migrations are pure, ordered, forward-only, and unit-tested against old-schema fixtures; a failed step leaves the original file untouched.
+
+**OwnKeep rebrand migration decision (working release 1.1):** no `APP_SCHEMA_VERSION` or
+`container.version` bump is required. The encrypted model and container fields are unchanged; the
+bundle-id move is handled before unlock by the validated app-data copy in §3.2. Backup filename
+prefixes change to `ownkeep-`, but restore is filename-agnostic, so existing `.dat` backups need no
+transform or migration-guide step. `KSTH` and the original recovery HKDF context remain stable
+format identifiers so password and recovery unlock continue to work.
 
 **Conceptual shape**
 ```ts

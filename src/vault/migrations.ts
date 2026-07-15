@@ -30,7 +30,7 @@ import {
 } from "./taxonomy";
 
 export const OLD_APP_MESSAGE =
-  "You are using an older version of keystash. Please upgrade keystash to open this vault.";
+  "You are using an older version of OwnKeep. Please upgrade OwnKeep to open this vault.";
 
 export type VersionComparison = -1 | 0 | 1;
 export type ChangeKind = "added" | "renamed" | "removed" | "transformed";
@@ -775,20 +775,20 @@ export function preMigrationBackupName(
   newAppVersion = APP_VERSION,
   date = new Date(),
 ): string {
-  return `keystash-pre-migration-v${oldAppVersion}-to-v${newAppVersion}-${backupTimestamp(date)}.dat`;
+  return `ownkeep-pre-migration-v${oldAppVersion}-to-v${newAppVersion}-${backupTimestamp(date)}.dat`;
 }
 
 export function preRestoreBackupName(date = new Date()): string {
-  return `keystash-pre-restore-${backupTimestamp(date)}.dat`;
+  return `ownkeep-pre-restore-${backupTimestamp(date)}.dat`;
 }
 
 /** Suggested name when backing up a locked vault before erasing it (lost credentials). */
 export function abandonedVaultBackupName(date = new Date()): string {
-  return `keystash-abandoned-${backupTimestamp(date)}.dat`;
+  return `ownkeep-abandoned-${backupTimestamp(date)}.dat`;
 }
 
 export function vaultBackupName(appVersion: string, date = new Date()): string {
-  return `keystash-v${appVersion}-${backupTimestamp(date)}.dat`;
+  return `ownkeep-v${appVersion}-${backupTimestamp(date)}.dat`;
 }
 
 function backupTimestamp(date: Date): string {

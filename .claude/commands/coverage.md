@@ -1,5 +1,5 @@
 ---
-description: Legacy wrapper for the keystash /coverage project skill.
+description: Legacy wrapper for the OwnKeep /coverage project skill.
 argument-hint: "[optional: frontend | rust | path focus]"
 ---
 

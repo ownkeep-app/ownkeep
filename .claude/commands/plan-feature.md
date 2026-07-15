@@ -1,9 +1,9 @@
 ---
-description: Turn a keystash spec section or feature request into ordered, phase-aligned tasks.
+description: Turn an OwnKeep spec section or feature request into ordered, phase-aligned tasks.
 argument-hint: "[spec section, phase, or feature request]"
 ---
 
-Plan the requested keystash work without implementing it.
+Plan the requested OwnKeep work without implementing it.
 
 Request:
 
@@ -23,7 +23,7 @@ Read these files before deciding anything:
 ## Workflow
 
 1. Identify the smallest feature, phase, or spec section covered by the request. If the request is empty, use the current incomplete phase in `plan.md`.
-2. Check the request against the keystash non-negotiables:
+2. Check the request against the OwnKeep non-negotiables:
    - Offline-only runtime.
    - Secrets stay in the Rust core, never in the WebView.
    - One encrypted file, no database.

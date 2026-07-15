@@ -10,7 +10,7 @@ use serde_json::Value;
 
 use crate::error::{Error, Result};
 
-pub const REDACTED_SECRET: &str = "__KEYSTASH_REDACTED_SECRET__";
+pub const REDACTED_SECRET: &str = "__OWNKEEP_REDACTED_SECRET__";
 const PASSWORDS_MODULE_ID: &str = "passwords";
 const PASSWORD_FIELD: &str = "password";
 const DEFAULT_CLIPBOARD_CLEAR_SECONDS: u64 = 30;
@@ -187,7 +187,7 @@ mod tests {
           "settings": {"clipboardClearSeconds": 9},
           "modules": {
             "passwords": [
-              {"id":"github","name":"GitHub","password":"__KEYSTASH_REDACTED_SECRET__"},
+              {"id":"github","name":"GitHub","password":"__OWNKEEP_REDACTED_SECRET__"},
               {"id":"new","name":"New","password":"fresh"}
             ]
           }

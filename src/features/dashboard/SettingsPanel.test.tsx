@@ -24,7 +24,7 @@ vi.mock("@/vault/api", () => ({
     ),
     lock: vi.fn(async () => {}),
     regenerateRecovery: vi.fn(async () => ({
-      app: "keystash",
+      app: "OwnKeep",
       recovery_code: "fresh words",
       instructions: "Save it.",
     })),
@@ -174,7 +174,7 @@ describe("SettingsPanel auto-lock", () => {
     await user.click(screen.getByRole("tab", { name: "System" }));
     await user.click(screen.getByRole("button", { name: /back up vault/i }));
     expect(api.backupVaultToChosenLocation).toHaveBeenCalledWith(
-      expect.stringMatching(/^keystash-v\d+\.\d+-/),
+      expect.stringMatching(/^ownkeep-v\d+\.\d+-/),
     );
     expect(successToast).toHaveBeenCalledWith(
       expect.stringMatching(/^Backup saved to /),
@@ -185,7 +185,7 @@ describe("SettingsPanel auto-lock", () => {
 
     expect(api.restoreVaultFromChosenLocationWithPassword).toHaveBeenCalledWith(
       "pw",
-      expect.stringMatching(/^keystash-pre-restore-/),
+      expect.stringMatching(/^ownkeep-pre-restore-/),
     );
     expect(successToast).toHaveBeenCalledWith(
       expect.stringMatching(/^Vault restored from /),
@@ -211,7 +211,7 @@ describe("SettingsPanel auto-lock", () => {
 
     expect(api.restoreVaultFromChosenLocationWithRecovery).toHaveBeenCalledWith(
       "words",
-      expect.stringMatching(/^keystash-pre-restore-/),
+      expect.stringMatching(/^ownkeep-pre-restore-/),
     );
   });
 

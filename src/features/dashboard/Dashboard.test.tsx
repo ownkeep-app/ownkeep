@@ -16,7 +16,7 @@ vi.mock("@/vault/api", () => ({
     vaultPath: vi.fn(async () => "/tmp/vault.dat"),
     vaultExists: vi.fn(async () => false),
     createVault: vi.fn(async () => ({
-      app: "keystash",
+      app: "OwnKeep",
       recovery_code: "a b c",
       instructions: "store it",
     })),
@@ -82,7 +82,7 @@ describe("Dashboard", () => {
     useVaultStore.setState({ status: "onboarding", model: null });
     const { rerender } = render(<Dashboard />);
     expect(
-      screen.getByRole("heading", { name: /welcome to keystash/i }),
+      screen.getByRole("heading", { name: /welcome to OwnKeep/i }),
     ).toBeVisible();
 
     useVaultStore.setState({ status: "reset", model: null });
@@ -113,10 +113,10 @@ describe("Dashboard", () => {
       status: "incompatible",
       model: null,
       migration: null,
-      incompatibleMessage: "Please upgrade keystash.",
+      incompatibleMessage: "Please upgrade OwnKeep.",
     });
     rerender(<Dashboard />);
-    expect(screen.getByText(/please upgrade keystash/i)).toBeVisible();
+    expect(screen.getByText(/please upgrade OwnKeep/i)).toBeVisible();
   });
 
   it("renders the first enabled module by default and switches panes by click", async () => {
@@ -289,7 +289,7 @@ describe("Dashboard", () => {
 
     await waitFor(() =>
       expect(
-        screen.getByRole("dialog", { name: "About keystash" }),
+        screen.getByRole("dialog", { name: "About OwnKeep" }),
       ).toBeInTheDocument(),
     );
     expect(screen.getByText(/caishaojiang@gmail.com/i)).toBeInTheDocument();

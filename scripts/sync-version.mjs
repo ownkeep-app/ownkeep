@@ -14,7 +14,7 @@ const packageJson = JSON.parse(readFileSync(packagePath, "utf8"));
 const appVersion = packageJson.version;
 
 if (typeof appVersion !== "string" || !/^\d+\.\d+$/.test(appVersion)) {
-  throw new Error("package.json version must use Keystash's main.minor format, e.g. 0.1 or 1.2");
+  throw new Error("package.json version must use OwnKeep's main.minor format, e.g. 0.1 or 1.2");
 }
 
 const toolVersion = `${appVersion}.0`;
@@ -54,7 +54,7 @@ function syncCargoLock() {
 
   const cargoLock = readFileSync(cargoLockPath, "utf8");
   const nextCargoLock = cargoLock.replace(
-    /(\[\[package\]\]\nname = "keystash"\nversion = ")([^"]+)(")/,
+    /(\[\[package\]\]\nname = "ownkeep"\nversion = ")([^"]+)(")/,
     `$1${toolVersion}$3`,
   );
 

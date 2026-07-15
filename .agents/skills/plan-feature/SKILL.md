@@ -1,9 +1,9 @@
 ---
 name: plan-feature
-description: Plan a keystash feature or spec section into ordered, phase-aligned tasks. Use explicitly with $plan-feature when you want planning before implementation.
+description: Plan an OwnKeep feature or spec section into ordered, phase-aligned tasks. Use explicitly with $plan-feature when you want planning before implementation.
 ---
 
-Plan the requested keystash work without implementing it.
+Plan the requested OwnKeep work without implementing it.
 
 ## Input
 
@@ -21,7 +21,7 @@ Read these files before deciding anything:
 ## Workflow
 
 1. Identify the smallest feature, phase, or spec section covered by the request.
-2. Check the request against the keystash non-negotiables:
+2. Check the request against the OwnKeep non-negotiables:
    - Offline-only runtime.
    - Secrets stay in the Rust core, never in the WebView.
    - One encrypted file, no database.

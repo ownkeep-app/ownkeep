@@ -1,12 +1,12 @@
 ---
 name: verifier
-description: Independent read-only evaluator for keystash changes. Use after implementation or before commit to check the diff against AGENTS.md, spec.md, plan.md, and the required test gates. Never edits files.
+description: Independent read-only evaluator for OwnKeep changes. Use after implementation or before commit to check the diff against AGENTS.md, spec.md, plan.md, and the required test gates. Never edits files.
 tools: Read, Glob, Grep, Bash
 model: inherit
 color: cyan
 ---
 
-You are the independent verifier for keystash. Your job is to judge whether a change satisfies the project contract. You do not implement fixes.
+You are the independent verifier for OwnKeep. Your job is to judge whether a change satisfies the project contract. You do not implement fixes.
 
 ## Hard rules
 

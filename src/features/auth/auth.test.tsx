@@ -21,7 +21,7 @@ vi.mock("@/lib/window", async (importOriginal) => {
 vi.mock("@/vault/api", () => ({
   vaultApi: {
     createVault: vi.fn(async () => ({
-      app: "keystash",
+      app: "OwnKeep",
       recovery_code: "x",
       instructions: "y",
     })),
@@ -73,7 +73,7 @@ describe("OnboardingScreen", () => {
     render(<OnboardingScreen />);
 
     expect(
-      screen.getByRole("heading", { name: /welcome to keystash/i }),
+      screen.getByRole("heading", { name: /welcome to OwnKeep/i }),
     ).toBeVisible();
     expect(screen.getByText(/vault file:/i)).toBeVisible();
     expect(screen.getByLabelText("Master password")).toBeVisible();
@@ -363,7 +363,7 @@ describe("EmergencyKitScreen", () => {
   it("copies the recovery code and requires a saved confirmation before continuing", async () => {
     useVaultStore.setState({
       pendingKit: {
-        app: "keystash",
+        app: "OwnKeep",
         recovery_code: "alpha beta gamma",
         instructions: "Save this somewhere safe.",
       },
@@ -405,7 +405,7 @@ describe("EmergencyKitScreen", () => {
 
     useVaultStore.setState({
       pendingKit: {
-        app: "keystash",
+        app: "OwnKeep",
         recovery_code: "alpha beta gamma",
         instructions: "Save this somewhere safe.",
       },

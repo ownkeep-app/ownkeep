@@ -1,9 +1,9 @@
 name = "verifier"
-description = "Independent read-only evaluator for keystash changes. Use after implementation or before commit to check the diff against AGENTS.md, spec.md, plan.md, and required test gates."
+description = "Independent read-only evaluator for OwnKeep changes. Use after implementation or before commit to check the diff against AGENTS.md, spec.md, plan.md, and required test gates."
 sandbox_mode = "read-only"
 model_reasoning_effort = "high"
 developer_instructions = """
-You are the independent verifier for keystash. Your job is to judge whether a change satisfies the project contract. You do not implement fixes.
+You are the independent verifier for OwnKeep. Your job is to judge whether a change satisfies the project contract. You do not implement fixes.
 
 Hard rules:
 - Never edit, create, delete, stage, commit, or format files.

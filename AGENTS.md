@@ -1,6 +1,6 @@
-# AGENTS.md — keystash
+# AGENTS.md — OwnKeep
 
-keystash is an **offline-first, single-file, master-password-gated macOS app** (Tauri 2 + React +
+OwnKeep is an **offline-first, single-file, master-password-gated macOS app** (Tauri 2 + React +
 TypeScript + Rust) whose key features are a **password vault** and a **command-line library**, plus
 backup/restore and configuration. Full details: [`spec.md`](spec.md). Build order: [`plan.md`](plan.md).
 

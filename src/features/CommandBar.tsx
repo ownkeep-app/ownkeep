@@ -262,15 +262,15 @@ export function CommandBar({
         <Command
           shouldFilter={false}
           className="overflow-hidden rounded-lg border border-border bg-popover shadow-sm"
-          label="Search keystash"
+          label="Search OwnKeep"
         >
           <div className="relative">
             <CommandInput
-              aria-label="Search keystash"
+              aria-label="Search OwnKeep"
               autoFocus
               className="h-16 text-xl"
               onValueChange={setQuery}
-              placeholder="Search keystash"
+              placeholder="Search OwnKeep"
               value={query}
               wrapperClassName="border-border/60 pr-3"
               trailing={

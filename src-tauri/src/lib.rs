@@ -57,7 +57,7 @@ const DEFAULT_GLOBAL_HOTKEY: &str = "Cmd+Shift+Space";
 #[cfg(desktop)]
 const DEFAULT_DASHBOARD_HOTKEY: &str = "Cmd+Shift+D";
 #[cfg(desktop)]
-const TRAY_TITLE: &str = "KS";
+const TRAY_TITLE: &str = "OK";
 
 /// Hide a labeled window if it exists.
 #[cfg(desktop)]
@@ -150,8 +150,8 @@ fn confirm_close_window(window: &tauri::Window) {
     let app = window.app_handle().clone();
 
     app.dialog()
-        .message("This will quit keystash completely (command bar and Dashboard). Reminder notifications will stop until you open it again.")
-        .title("Quit keystash?")
+        .message("This will quit OwnKeep completely (command bar and Dashboard). Reminder notifications will stop until you open it again.")
+        .title("Quit OwnKeep?")
         .kind(MessageDialogKind::Warning)
         .buttons(MessageDialogButtons::OkCancelCustom(
             "Quit".into(),
@@ -219,7 +219,7 @@ fn setup_desktop(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>>
         .expect("tray-icon.png embeds");
 
     let tray = TrayIconBuilder::with_id("main-tray")
-        .tooltip("keystash")
+        .tooltip("OwnKeep")
         // Local unsigned macOS builds can occasionally fail to render a template image in a
         // crowded menu bar. A short title keeps the status item visible and clickable.
         .title(TRAY_TITLE)
@@ -239,7 +239,7 @@ fn setup_desktop(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>>
     app.manage(tray);
     app.manage(TrayMenuItems { search, dashboard });
 
-    // Menu-bar app with no Dock icon — keystash is summoned by its hotkey, not clicked in the Dock.
+    // Menu-bar app with no Dock icon — OwnKeep is summoned by its hotkey, not clicked in the Dock.
     #[cfg(target_os = "macos")]
     app.set_activation_policy(tauri::ActivationPolicy::Accessory);
 
@@ -500,7 +500,7 @@ mod tests {
 
     #[test]
     fn rust_test_harness_is_wired() {
-        assert_eq!(env!("CARGO_PKG_NAME"), "keystash");
+        assert_eq!(env!("CARGO_PKG_NAME"), "ownkeep");
     }
 
     #[test]

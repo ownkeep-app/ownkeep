@@ -52,7 +52,7 @@ export function MigrationGuideScreen() {
           <div>
             <h1 className="text-xl font-semibold">Upgrade vault data</h1>
             <p className="mt-1 text-sm text-muted-foreground">
-              {`This vault was last written by keystash v${migration.fromAppVersion}. The current app is v${migration.toAppVersion}. Review the migration guide before anything is written.`}
+              {`This vault was last written by OwnKeep v${migration.fromAppVersion}. The current app is v${migration.toAppVersion}. Review the migration guide before anything is written.`}
             </p>
           </div>
         </header>
@@ -159,10 +159,10 @@ export function IncompatibleVaultScreen() {
     <main className="flex h-screen items-center justify-center bg-background p-6 text-foreground">
       <section className="flex max-w-md flex-col items-center gap-4 text-center">
         <AlertTriangle className="h-8 w-8 text-destructive" aria-hidden />
-        <h1 className="text-xl font-semibold">Upgrade keystash</h1>
+        <h1 className="text-xl font-semibold">Upgrade OwnKeep</h1>
         <p className="text-sm text-muted-foreground">
           {message ||
-            "This vault was written by a newer version of keystash. Please upgrade keystash to open it."}
+            "This vault was written by a newer version of OwnKeep. Please upgrade OwnKeep to open it."}
         </p>
         <Button variant="outline" onClick={() => void quitApp()}>
           Quit

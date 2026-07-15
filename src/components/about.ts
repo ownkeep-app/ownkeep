@@ -1,11 +1,11 @@
 import { APP_VERSION } from "@/vault/model";
 
 /** Product About metadata (Dashboard sidebar + ⌘/ dialog). */
-export const APP_WEBSITE = "https://keystash.info";
+export const APP_WEBSITE = "https://ownkeep.app";
 export const APP_DEVELOPER_EMAIL = "caishaojiang@gmail.com";
 
 /** Human-readable release date for the current `package.json` version. Update on each ship. */
-export const APP_RELEASE_DATE = "July 10, 2026";
+export const APP_RELEASE_DATE = "July 15, 2026";
 
 export const APP_FEATURES = [
   "Offline-first password vault with a master password and Emergency Kit recovery code",
@@ -17,5 +17,5 @@ export const APP_FEATURES = [
 ] as const;
 
 export function aboutVersionLabel(version = APP_VERSION): string {
-  return `keystash v${version}`;
+  return `OwnKeep v${version}`;
 }

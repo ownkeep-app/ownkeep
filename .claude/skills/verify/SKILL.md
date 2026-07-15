@@ -1,12 +1,12 @@
 ---
 name: verify
-description: Run keystash's independent read-only verifier pass against the current diff. Use after /implement or before commit.
+description: Run OwnKeep's independent read-only verifier pass against the current diff. Use after /implement or before commit.
 argument-hint: "[optional target or acceptance criteria]"
 disable-model-invocation: true
 allowed-tools: Agent(verifier), Read, Glob, Grep, Bash
 ---
 
-Verify the current keystash work without editing files.
+Verify the current OwnKeep work without editing files.
 
 Target or acceptance criteria:
 

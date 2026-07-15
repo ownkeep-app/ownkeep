@@ -1,9 +1,9 @@
 ---
 name: verify
-description: Run keystash's independent read-only verifier pass against the current diff. Use explicitly with $verify after $implement or before commit.
+description: Run OwnKeep's independent read-only verifier pass against the current diff. Use explicitly with $verify after $implement or before commit.
 ---
 
-Verify the current keystash work without editing files.
+Verify the current OwnKeep work without editing files.
 
 ## Input
 

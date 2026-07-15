@@ -24,7 +24,7 @@ import { openExternalUrl } from "@/lib/url";
 import { cn } from "@/lib/utils";
 
 /**
- * About keystash dialog (spec §7.5 / §10). Toggle with ⌘/ — same pattern as KeyboardHelp.
+ * About OwnKeep dialog (spec §7.5 / §10). Toggle with ⌘/ — same pattern as KeyboardHelp.
  */
 export function AboutDialog({
   showTrigger = true,
@@ -69,7 +69,7 @@ export function AboutDialog({
     <>
       {showTrigger && (
         <Button
-          aria-label="About keystash"
+          aria-label="About OwnKeep"
           className="fixed bottom-3 right-14 z-40"
           onClick={() => setOpen(true)}
           size="icon"
@@ -96,14 +96,14 @@ export function AboutDialog({
             role="presentation"
           >
             <button
-              aria-label="Dismiss about keystash"
+              aria-label="Dismiss about OwnKeep"
               className="absolute inset-0 h-full w-full cursor-default"
               onClick={() => setOpen(false)}
               tabIndex={-1}
               type="button"
             />
             <motion.section
-              aria-label="About keystash"
+              aria-label="About OwnKeep"
               aria-modal="true"
               className={cn(
                 modalPanelClassName,
@@ -125,9 +125,9 @@ export function AboutDialog({
             >
               <header className="flex items-center gap-2 px-5 pb-4 pt-5">
                 <Info className="h-4 w-4 text-primary" aria-hidden />
-                <h2 className="flex-1 text-sm font-semibold">About keystash</h2>
+                <h2 className="flex-1 text-sm font-semibold">About OwnKeep</h2>
                 <Button
-                  aria-label="Close about keystash"
+                  aria-label="Close about OwnKeep"
                   onClick={() => setOpen(false)}
                   ref={closeRef}
                   size="icon"

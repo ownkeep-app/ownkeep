@@ -22,7 +22,7 @@ const existing: PasswordEntry = {
   id: "github",
   name: "GitHub",
   username: "sha",
-  password: "__KEYSTASH_REDACTED_SECRET__",
+  password: "__OWNKEEP_REDACTED_SECRET__",
   loginUrl: "https://github.com/login",
   recoveryUrl: "https://github.com/password_reset",
   notes: "dev account",
@@ -84,7 +84,7 @@ describe("password module logic", () => {
     );
 
     expect(updated.name).toBe("GitHub Enterprise");
-    expect(updated.password).toBe("__KEYSTASH_REDACTED_SECRET__");
+    expect(updated.password).toBe("__OWNKEEP_REDACTED_SECRET__");
     expect(updated.updatedAt).toBe("2026-07-08T00:00:00.000Z");
   });
 

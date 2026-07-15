@@ -1,14 +1,14 @@
 //! Desktop reminder notifications (spec §8).
 //!
 //! Prefer macOS `UNUserNotificationCenter` (via notify-rust `preview-macos-un`) so banners
-//! belong to keystash and clicks can open the Dashboard. Do **not** fall back to
+//! belong to OwnKeep and clicks can open the Dashboard. Do **not** fall back to
 //! AppleScript `display notification` — those banners are owned by Script Editor, and
-//! clicking them opens a Script Editor file dialog instead of keystash.
+//! clicking them opens a Script Editor file dialog instead of OwnKeep.
 
 #[cfg(target_os = "macos")]
 use notify_rust::Notification;
 
-const NO_BUNDLE_HINT: &str = "Native notifications need a bundled keystash.app (not a bare `pnpm dev` binary). Build/install the app so banners belong to keystash and open Todos on click.";
+const NO_BUNDLE_HINT: &str = "Native notifications need a bundled OwnKeep.app (not a bare `pnpm dev` binary). Build/install the app so banners belong to OwnKeep and open Todos on click.";
 
 /// Ask macOS for alert permission when the process is a real `.app` bundle.
 pub fn request_permission() -> Result<&'static str, String> {
@@ -26,7 +26,7 @@ pub fn request_permission() -> Result<&'static str, String> {
     }
 }
 
-/// Deliver a desktop notification owned by keystash.
+/// Deliver a desktop notification owned by OwnKeep.
 pub fn send(title: &str, body: Option<&str>) -> Result<(), String> {
     #[cfg(target_os = "macos")]
     {

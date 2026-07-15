@@ -6,6 +6,6 @@
   <key>LSUIElement</key>
   <true/>
   <key>NSUserNotificationsUsageDescription</key>
-  <string>keystash sends reminders for due todos and subscriptions.</string>
+  <string>OwnKeep sends reminders for due todos and subscriptions.</string>
 </dict>
 </plist>

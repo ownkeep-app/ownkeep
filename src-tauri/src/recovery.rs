@@ -12,7 +12,7 @@ use crate::crypto;
 use crate::error::{Error, Result};
 
 /// Application name shown on the Emergency Kit.
-pub const APP_NAME: &str = "keystash";
+pub const APP_NAME: &str = "OwnKeep";
 /// Entropy length for a 12-word mnemonic (128-bit).
 pub const RECOVERY_ENTROPY_LEN: usize = 16;
 
@@ -68,7 +68,7 @@ impl EmergencyKit {
             instructions:
                 "Store this 12-word recovery code somewhere safe and offline (printed, or in \
                  another password manager) — never beside your vault file. It can unlock your \
-                 entire vault WITHOUT your master password. keystash never stores it: if you lose \
+                 entire vault WITHOUT your master password. OwnKeep never stores it: if you lose \
                  both your master password and this code, your data cannot be recovered."
                     .to_string(),
         }

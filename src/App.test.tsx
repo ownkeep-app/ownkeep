@@ -71,7 +71,7 @@ describe("App routing", () => {
   it("shows the command bar on the main window when unlocked", async () => {
     render(<App />);
     expect(
-      await screen.findByRole("combobox", { name: /search keystash/i }),
+      await screen.findByRole("combobox", { name: /search OwnKeep/i }),
     ).toBeInTheDocument();
     expect(mockSetMainWindowMode).toHaveBeenCalledWith("compact");
   });
@@ -123,7 +123,7 @@ describe("App routing", () => {
     });
 
     const view = render(<App />);
-    await screen.findByRole("combobox", { name: /search keystash/i });
+    await screen.findByRole("combobox", { name: /search OwnKeep/i });
 
     expect(document.documentElement.classList.contains("dark")).toBe(true);
     expect(addEventListener).toHaveBeenCalledWith(
@@ -149,7 +149,7 @@ describe("App routing", () => {
     render(<App />);
     expect(await screen.findByText("Modules")).toBeInTheDocument();
     expect(
-      await screen.findByText(`keystash v${APP_VERSION}`),
+      await screen.findByText(`OwnKeep v${APP_VERSION}`),
     ).toBeInTheDocument();
   });
 
@@ -187,16 +187,16 @@ describe("App routing", () => {
     act(() => {
       useVaultStore.setState({
         status: "incompatible",
-        incompatibleMessage: "Please upgrade keystash.",
+        incompatibleMessage: "Please upgrade OwnKeep.",
       });
     });
-    expect(screen.getByText(/please upgrade keystash/i)).toBeInTheDocument();
+    expect(screen.getByText(/please upgrade OwnKeep/i)).toBeInTheDocument();
 
     act(() => {
       useVaultStore.setState({
         status: "unlocked",
         pendingKit: {
-          app: "keystash",
+          app: "OwnKeep",
           recovery_code: "alpha beta",
           instructions: "Save it.",
         },

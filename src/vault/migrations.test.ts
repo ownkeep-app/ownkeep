@@ -670,16 +670,14 @@ describe("backup names", () => {
   it("includes versions and stable timestamps", () => {
     const date = new Date(2026, 6, 7, 15, 30);
     expect(preMigrationBackupName("0.1", "0.2", date)).toBe(
-      "keystash-pre-migration-v0.1-to-v0.2-20260707-1530.dat",
+      "ownkeep-pre-migration-v0.1-to-v0.2-20260707-1530.dat",
     );
     expect(preRestoreBackupName(date)).toBe(
-      "keystash-pre-restore-20260707-1530.dat",
+      "ownkeep-pre-restore-20260707-1530.dat",
     );
     expect(abandonedVaultBackupName(date)).toBe(
-      "keystash-abandoned-20260707-1530.dat",
+      "ownkeep-abandoned-20260707-1530.dat",
     );
-    expect(vaultBackupName("0.1", date)).toBe(
-      "keystash-v0.1-20260707-1530.dat",
-    );
+    expect(vaultBackupName("0.1", date)).toBe("ownkeep-v0.1-20260707-1530.dat");
   });
 });

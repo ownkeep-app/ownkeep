@@ -1,11 +1,11 @@
 ---
-description: Core development principles (KISS, DRY, YAGNI, Declarative-over-Imperative, SRP) + a clean-code baseline for all keystash code, human or AI-generated. Always read spec.md and plan.md before implementing.
+description: Core development principles (KISS, DRY, YAGNI, Declarative-over-Imperative, SRP) + a clean-code baseline for all OwnKeep code, human or AI-generated. Always read spec.md and plan.md before implementing.
 alwaysApply: true
 ---
 
 # Core Development Principles
 
-These principles are the foundation of every architectural and code-level decision in keystash.
+These principles are the foundation of every architectural and code-level decision in OwnKeep.
 All code — human-written or AI-generated — must follow them. They are intentionally
 **language-agnostic**; the concrete tech stack, versions, and per-feature details live in `spec.md`.
 

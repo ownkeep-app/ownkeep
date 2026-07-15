@@ -40,7 +40,7 @@ export function OnboardingScreen() {
 
   return (
     <Screen>
-      <h1 className="text-xl font-semibold">Welcome to keystash</h1>
+      <h1 className="text-xl font-semibold">Welcome to OwnKeep</h1>
       <p className="text-sm text-muted-foreground">
         Create a master password. It encrypts everything and is never stored —
         the only other way in is the recovery code you'll see next, so pick

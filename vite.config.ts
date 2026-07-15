@@ -13,7 +13,7 @@ const claudeWorktreeGlob = "**/.claude/worktrees/**";
 
 if (!/^\d+\.\d+$/.test(appVersion)) {
   throw new Error(
-    "package.json version must use Keystash's main.minor format, e.g. 0.1 or 1.2",
+    "package.json version must use OwnKeep's main.minor format, e.g. 0.1 or 1.2",
   );
 }
 
@@ -21,7 +21,7 @@ if (!/^\d+\.\d+$/.test(appVersion)) {
 export default defineConfig(async () => ({
   plugins: [react()],
   define: {
-    __KEYSTASH_APP_VERSION__: JSON.stringify(appVersion),
+    __OWNKEEP_APP_VERSION__: JSON.stringify(appVersion),
   },
   resolve: {
     alias: {

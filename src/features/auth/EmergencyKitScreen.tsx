@@ -45,7 +45,7 @@ export function EmergencyKitScreen() {
         Continue
       </Button>
       <p className="text-xs text-muted-foreground">
-        Summon keystash anytime with ⌘⇧Space; open the Dashboard with ⌘⇧D.
+        Summon OwnKeep anytime with ⌘⇧Space; open the Dashboard with ⌘⇧D.
       </p>
     </Screen>
   );

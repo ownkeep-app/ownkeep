@@ -513,7 +513,7 @@ describe("PasswordsListView", () => {
     const user = userEvent.setup();
     render(
       <PasswordsListView
-        items={[{ ...item, password: "__KEYSTASH_REDACTED_SECRET__" }]}
+        items={[{ ...item, password: "__OWNKEEP_REDACTED_SECRET__" }]}
       />,
     );
 
@@ -526,7 +526,7 @@ describe("PasswordsListView", () => {
       expect.objectContaining({
         id: "github",
         name: "GitHub Pro",
-        password: "__KEYSTASH_REDACTED_SECRET__",
+        password: "__OWNKEEP_REDACTED_SECRET__",
       }),
     );
   });

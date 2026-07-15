@@ -1,9 +1,9 @@
 ---
-description: Implement a scoped keystash task using the spec, plan, and core development principles.
+description: Implement a scoped OwnKeep task using the spec, plan, and core development principles.
 argument-hint: "[phase task or feature]"
 ---
 
-Implement one scoped keystash task.
+Implement one scoped OwnKeep task.
 
 Target:
 

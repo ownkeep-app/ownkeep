@@ -167,13 +167,13 @@ mod tests {
     #[test]
     fn copy_concealed_hits_the_macos_pasteboard_path() {
         // Best-effort: this should be available in the unit test harness on macOS.
-        copy_concealed("keystash-test", Duration::ZERO).expect("pasteboard write succeeds");
+        copy_concealed("ownkeep-test", Duration::ZERO).expect("pasteboard write succeeds");
     }
 
     #[cfg(target_os = "macos")]
     #[test]
     fn copy_concealed_can_schedule_a_clear_timer() {
-        copy_concealed("keystash-test", Duration::from_millis(1))
+        copy_concealed("ownkeep-test", Duration::from_millis(1))
             .expect("pasteboard write succeeds");
     }
 }

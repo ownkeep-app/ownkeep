@@ -88,7 +88,7 @@ describe("MigrationGuideScreen", () => {
     await user.click(screen.getByRole("button", { name: /accept & upgrade/i }));
 
     expect(api.backupVault).toHaveBeenCalledWith(
-      expect.stringMatching(/^keystash-pre-migration-v0\.1-to-v0\.2-/),
+      expect.stringMatching(/^ownkeep-pre-migration-v0\.1-to-v0\.2-/),
     );
     expect(api.saveVault).toHaveBeenCalled();
   });
@@ -132,7 +132,7 @@ describe("IncompatibleVaultScreen", () => {
       model: null,
       migration: null,
       postMigrationStatus: "unlocked",
-      incompatibleMessage: "You are using an older version of keystash.",
+      incompatibleMessage: "You are using an older version of OwnKeep.",
       pendingKit: null,
       busy: false,
       error: null,
