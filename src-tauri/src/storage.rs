@@ -38,21 +38,6 @@ pub fn read_container(path: &Path) -> Result<Container> {
     Container::from_bytes(&bytes)
 }
 
-/// Adopt a vault from the pre-OwnKeep app-data directory without deleting the original.
-///
-/// The bundle identifier changed during the rebrand, so macOS resolves a new app-data directory.
-/// Copying the validated container into that directory keeps existing vaults available while the
-/// untouched legacy copy remains a rollback path. Existing OwnKeep vaults always win.
-pub fn adopt_legacy_vault(legacy_path: &Path, current_path: &Path) -> Result<bool> {
-    if vault_exists(current_path) || !vault_exists(legacy_path) {
-        return Ok(false);
-    }
-
-    let container = read_container(legacy_path)?;
-    write_container(current_path, &container)?;
-    Ok(true)
-}
-
 /// Pre-unlock compatibility probe (spec §11.2 step 1): the incompatibility message if the on-disk
 /// container is newer than this build can read, else `None`. A missing vault or any other read error
 /// returns `None` — those are surfaced at unlock time, not here.
@@ -215,39 +200,6 @@ mod tests {
         write_container(&path, &updated).unwrap();
 
         assert_eq!(read_container(&path).unwrap(), updated);
-        fs::remove_dir_all(&dir).ok();
-    }
-
-    #[test]
-    fn adopts_legacy_vault_once_and_preserves_the_original() {
-        let dir = unique_temp_dir();
-        let legacy_path = dir.join("legacy").join(VAULT_FILE);
-        let current_path = dir.join("current").join(VAULT_FILE);
-        let legacy = sample();
-        write_container(&legacy_path, &legacy).unwrap();
-
-        assert!(adopt_legacy_vault(&legacy_path, &current_path).unwrap());
-        assert_eq!(read_container(&current_path).unwrap(), legacy);
-        assert_eq!(read_container(&legacy_path).unwrap(), legacy);
-
-        let mut current = sample();
-        current.salt_master = crate::container::encode_bytes(&[9u8; 16]);
-        write_container(&current_path, &current).unwrap();
-        assert!(!adopt_legacy_vault(&legacy_path, &current_path).unwrap());
-        assert_eq!(read_container(&current_path).unwrap(), current);
-
-        fs::remove_dir_all(&dir).ok();
-    }
-
-    #[test]
-    fn adoption_is_a_noop_without_a_legacy_vault() {
-        let dir = unique_temp_dir();
-        let legacy_path = dir.join("legacy").join(VAULT_FILE);
-        let current_path = dir.join("current").join(VAULT_FILE);
-
-        assert!(!adopt_legacy_vault(&legacy_path, &current_path).unwrap());
-        assert!(!current_path.exists());
-
         fs::remove_dir_all(&dir).ok();
     }
 

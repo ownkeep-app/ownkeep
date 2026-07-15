@@ -78,8 +78,16 @@ pub fn unlock_with_password(container: &Container, password: &str) -> Result<Key
 pub fn unlock_with_recovery(container: &Container, phrase: &str) -> Result<Key> {
     let entropy = recovery::entropy_from_phrase(phrase)?;
     let salt = container::decode_bytes(&container.salt_recovery)?;
+    let wrapped = container.wrapped_recovery.to_sealed()?;
     let kek = crypto::derive_kek_hkdf(&entropy, &salt)?;
-    unwrap_dek(&kek, &container.wrapped_recovery.to_sealed()?)
+    match unwrap_dek(&kek, &wrapped) {
+        Ok(dek) => Ok(dek),
+        Err(Error::Aead) => {
+            let v0_kek = crypto::derive_kek_hkdf_v0(&entropy, &salt)?;
+            unwrap_dek(&v0_kek, &wrapped)
+        }
+        Err(error) => Err(error),
+    }
 }
 
 /// Decrypt the vault body with the DEK.
@@ -94,7 +102,7 @@ pub fn decrypt_vault(container: &Container, dek: &Key) -> Result<Zeroizing<Vec<u
 pub fn reseal_vault(container: &mut Container, dek: &Key, vault_plaintext: &[u8]) -> Result<()> {
     let sealed = crypto::seal(dek, vault_plaintext)?;
     container.vault = SealedBlob::from_sealed(&sealed);
-    container.version = container::VERSION;
+    container.stamp_current_format();
     Ok(())
 }
 
@@ -112,6 +120,7 @@ pub fn set_master_password(
     container.kdf = KdfParams::argon2id(argon);
     container.salt_master = container::encode_bytes(&salt_master);
     container.wrapped_master = SealedBlob::from_sealed(&wrapped);
+    container.stamp_current_format();
     Ok(())
 }
 
@@ -124,6 +133,7 @@ pub fn regenerate_recovery(container: &mut Container, dek: &Key) -> Result<Emerg
     let wrapped = crypto::seal(&kek, dek.as_slice())?;
     container.salt_recovery = container::encode_bytes(&salt_recovery);
     container.wrapped_recovery = SealedBlob::from_sealed(&wrapped);
+    container.stamp_current_format();
     Ok(EmergencyKit::new(&code.phrase))
 }
 
@@ -133,6 +143,7 @@ pub fn regenerate_recovery(container: &mut Container, dek: &Key) -> Result<Emerg
 pub fn wrap_biometric(container: &mut Container, dek: &Key, kek_biometric: &Key) -> Result<()> {
     let wrapped = crypto::seal(kek_biometric, dek.as_slice())?;
     container.wrapped_biometric = Some(SealedBlob::from_sealed(&wrapped));
+    container.stamp_current_format();
     Ok(())
 }
 
@@ -151,6 +162,7 @@ pub fn unlock_with_biometric(container: &Container, kek_biometric: &Key) -> Resu
 /// the vault still unlocks via password or recovery code.
 pub fn clear_biometric(container: &mut Container) {
     container.wrapped_biometric = None;
+    container.stamp_current_format();
 }
 
 /// Unwrap a 32-byte DEK from a sealed blob, copying it straight into a zeroizing buffer.
@@ -288,6 +300,20 @@ mod tests {
         set_master_password(&mut created.container, &dek, "brand new master", TEST_ARGON).unwrap();
         let dek2 = unlock_with_password(&created.container, "brand new master").unwrap();
         assert_eq!(dek[..], dek2[..]);
+    }
+
+    #[test]
+    fn recovery_unlock_supports_the_v0_kdf_context() {
+        let mut created = create();
+        let entropy = recovery::entropy_from_phrase(&created.emergency_kit.recovery_code).unwrap();
+        let salt = container::decode_bytes(&created.container.salt_recovery).unwrap();
+        let v0_kek = crypto::derive_kek_hkdf_v0(&entropy, &salt).unwrap();
+        let wrapped = crypto::seal(&v0_kek, created.dek.as_slice()).unwrap();
+        created.container.wrapped_recovery = SealedBlob::from_sealed(&wrapped);
+
+        let recovered =
+            unlock_with_recovery(&created.container, &created.emergency_kit.recovery_code).unwrap();
+        assert_eq!(recovered[..], created.dek[..]);
     }
 
     #[test]

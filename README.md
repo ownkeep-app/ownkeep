@@ -10,11 +10,10 @@ Website: [ownkeep.app](https://ownkeep.app)
 - **Build order & status:** [`plan.md`](plan.md)
 - **Rules for humans & AI agents:** [`AGENTS.md`](AGENTS.md), [`.cursor/rules/`](.cursor/rules/)
 
-> Status: **Phase 11 (polish & ship)** — the encrypted vault core, all feature modules (passwords,
+> Status: **Phase 13 (Touch ID + ship)** — the encrypted vault core, all feature modules (passwords,
 > commands, todos, subscriptions, finance), command bar, Dashboard, backup/restore, scheduler, and
-> migration framework are in place. Current work is the polish pass — theming, empty states, toast
-> feedback, keyboard-shortcut help, accessibility — ahead of signing and the v1.0 release (see
-> `plan.md`).
+> migration framework are in place. Current work is the signed/notarized OwnKeep release and final
+> Touch ID validation (see `plan.md`).
 
 ## Stack
 
@@ -62,9 +61,7 @@ if you forget it, the only other way in is the **recovery code** shown once duri
   old code stops working).
 
 The vault lives at `~/Library/Application Support/com.shaojiang.ownkeep/vault.dat`
-(`vault-dev.dat` in dev builds), outside the app bundle — see `spec.md` §3.2 and §4. On the first
-OwnKeep launch after the rename, if this path is empty, the app validates and copies the former
-app-data vault into the new directory without deleting the old copy.
+(`vault-dev.dat` in dev builds), outside the app bundle — see `spec.md` §3.2 and §4.
 
 ### Keyboard shortcuts
 
@@ -93,11 +90,9 @@ Light / dark / system and the accent color are set in **Settings → Appearance*
 OwnKeep upgrades by **manual replacement** — download a new `.dmg` and drag the new app over the old
 OwnKeep app. Your data is untouched because the vault lives outside the app bundle.
 
-For the one-time rename, install `OwnKeep.app` alongside the former app and launch OwnKeep once.
-After confirming that the vault opens correctly from the new path, the former app can be removed.
-macOS may ask for Accessibility and notification permissions again because OwnKeep has a new bundle
-identifier; Touch ID may need to be re-enrolled if the signing identity invalidates its Keychain
-access rule. Existing `.dat` backups remain restorable regardless of their filename prefix.
+Existing `.dat` backups remain restorable regardless of their filename prefix. After upgrading to
+v1.2, regenerate the Emergency Kit once from Settings to move its recovery wrap to the current
+OwnKeep derivation context; the v1.2 reader still accepts the existing code until you do.
 
 When a new build introduces a data-shape change, opening your existing vault shows a **migration
 guide** before anything is written: it summarizes added fields, shows renamed paths (`old → new`), and
@@ -147,9 +142,6 @@ may warn on first open.
 - **Global hotkey does nothing** — grant Accessibility: System Settings → Privacy & Security →
   Accessibility → enable OwnKeep (or your terminal, in dev). The app is designed to also work from
   the tray if the permission is denied.
-- **OwnKeep opens an empty vault after upgrading from the former app** — confirm the old vault is in
-  `~/Library/Application Support/com.shaojiang.keystash/` and that the new OwnKeep path does not
-  already contain a vault. OwnKeep only performs the safe copy when its destination is empty.
 - **Window vanished** — that's the launcher behavior (hide on blur/Esc). Press `Cmd+Shift+Space` or
   use the tray's **Search ...**.
 - **`Port 1420 is already in use`** — another Vite/OwnKeep dev server is running; stop it or free the

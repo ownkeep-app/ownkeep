@@ -628,6 +628,10 @@ mod tests {
             crate::storage::read_container(&path).unwrap().version,
             crate::container::VERSION
         );
+        assert_eq!(
+            crate::storage::read_container(&path).unwrap().magic,
+            crate::container::MAGIC
+        );
         fs::remove_dir_all(&dir).ok();
     }
 

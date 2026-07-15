@@ -180,11 +180,13 @@ with a **browsable Dashboard** (sidebar + content pane) and a safe upgrade path 
 - [x] Motion UI polish: calm press/presence animations on shared primitives (`button`, `switch`, `select`, `checkbox`, `ButtonGroup` active pill), EmptyState / KeyboardHelp overlays, CommandBar result stagger, and Dashboard sidebar taps (shared sliding active pill) — all reduced-motion aware via `useReducedMotion` ([Motion](https://motion.dev/)). *(Input stays a plain native field — focus scale made the placeholder jump.)*
 - [x] **Create/edit form chrome:** shared `ItemFormShell` — dimmed pane + elevated dialog card with Creating/Editing badge; Esc + backdrop dismiss (all module New/Edit flows).
 - [x] **Window exclusivity + quit-on-close:** command bar and Dashboard never show together; traffic-light close confirms then quits the whole app (Esc/blur still only hides the launcher).
-- [x] **OwnKeep product rebrand:** rename user-facing copy, package/crate metadata, bundle identity,
-  backup prefixes, docs, agent tooling, and website to OwnKeep / `ownkeep.app`; when the new
-  `com.shaojiang.ownkeep` app-data path is empty, validate and atomically copy the former vault
-  without deleting it. Keep historical crypto format identifiers stable. **No schema/container
-  bump:** the encrypted model is unchanged and restore accepts old `.dat` backup names.
+- [x] **OwnKeep product identity:** rename user-facing copy, package/crate metadata, bundle identity,
+  backup prefixes, docs, agent tooling, and website to OwnKeep / `ownkeep.app`. After the `v1.1`
+  vault was confirmed at `com.shaojiang.ownkeep`, remove the retired app-data lookup and use the
+  OwnKeep Keychain service before Touch ID enrollment. Working release `1.2` writes container v3
+  with `OWNK` and the OwnKeep recovery KDF context while retaining byte-level v1–v2 container and
+  recovery-code readers. **No model schema bump:** encrypted JSON is unchanged, so no TypeScript
+  migration step is required; Rust regression tests own the format transition.
 - [ ] **Developer ID sign + notarize**; DMG/`.app` packaging; README + Emergency-Kit docs + migration-guide docs. *(Docs done: README now has a "Using OwnKeep" section covering the Emergency Kit / recovery code, keyboard shortcuts, theme, and the upgrade/migration-guide flow. Signing, notarization, and DMG packaging still pending.)*
 - [ ] **Release bookkeeping:** tag shipped commits as `v<main>.<minor>`; immediately after a shipped tag, bump the working app version in `package.json` to the next release version (`main.minor`), run `node scripts/sync-version.mjs` to derive SemVer-only package metadata, and keep those derived fields from becoming a second app-version source.
 - **Exit:** Gatekeeper opens it clean on a second Mac; permissions prompt correctly; the shipped `.dmg` includes the migration guide for every schema step since the previous `v*` tag. **← v1.0.**
@@ -257,8 +259,9 @@ Touch ID is enrolled; restore/erase also clear the device-local Keychain item.*
 *Data-shape note (spec §11.2 / AGENTS guardrail): the encrypted model is **unchanged** — enrolled
 state is derived in Rust, so there is **no `meta.schemaVersion` bump and no model migration**. The
 container gains only the **optional, additive** `wrapped_biometric`; it does **not** bump
-`container.version` (older builds ignore it and still unlock via password/recovery). Document it as
-a reviewed, non-breaking container addition and keep `$verify` honest.*
+`container.version` when introduced in v1.1 (v2 readers ignore it and still unlock via
+password/recovery). Independently, v1.2 mutations stamp container v3 for the OwnKeep marker, so
+v1.1 builds refuse the resulting file. Document both facts and keep `$verify` honest.*
 
 - [x] **Envelope third wrap (Rust):** add optional `wrapped_biometric: Option<SealedBlob>` to
   `Container` (`src-tauri/src/container.rs`; `#[serde(default, skip_serializing_if = "Option::is_none")]`,
@@ -302,7 +305,7 @@ a reviewed, non-breaking container addition and keep `$verify` honest.*
   password/recovery; `clear_biometric` disables path C while both other paths still unlock; the
   backup path **omits** `wrapped_biometric` and the result still restores via password/recovery; a
   container **without** the field parses (`None`) and one **with** it round-trips and is ignored by an
-  old-shape reader (backward-compat). Frontend (Vitest) — LockScreen shows/hides the Touch ID button
+  old-shape v2 serde reader (field-level backward compatibility). Frontend (Vitest) — LockScreen shows/hides the Touch ID button
   per mocked `biometric_status` and falls back to the password on failure; SettingsPanel
   enable/disable/re-enroll call the right API and the backup notice shows only when enrolled. Keep
   coverage **>95%** on both surfaces (Phase 2.2 bar); mock the Keychain/LAContext boundary and
@@ -313,8 +316,9 @@ a reviewed, non-breaking container addition and keep `$verify` honest.*
   enable/disable/re-enroll work from Settings → System → Security; **backups exclude
   `wrapped_biometric`** and show the notice, and a restored vault has Touch ID off and can be
   re-enabled fresh; an absent sensor, denied prompt, or fingerprint-set change falls back cleanly to
-  the password with **no data-shape change**; older builds still open a biometric-enrolled vault via
-  password/recovery; `pnpm check` + coverage stay green.
+  the password with **no encrypted-model change**; v1.1 could read the additive biometric field in
+  v2 containers, while v1.2 mutations intentionally move the file to forward-incompatible v3;
+  `pnpm check` + coverage stay green.
 - **Deps:** Phase 12 (post-v1.0 baseline). Builds on the Phase 1 envelope, the Phase 3 `objc2`
   clipboard shim (same native tooling), the Phase 6 lock/settings + backup/restore surfaces, and the
   Phase 11 signing story.

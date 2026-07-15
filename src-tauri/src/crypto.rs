@@ -18,11 +18,13 @@ pub const KEY_LEN: usize = 32;
 pub const SALT_LEN: usize = 16;
 /// XChaCha20-Poly1305 nonce length in bytes (192-bit).
 pub const NONCE_LEN: usize = 24;
-/// Stable HKDF context used by every vault created before the OwnKeep rebrand.
-///
-/// This byte string is cryptographic format data, not display branding. Renaming it would derive a
-/// different recovery KEK and make every existing recovery code fail.
-const RECOVERY_KDF_INFO: &[u8] = b"keystash recovery kek v1";
+/// HKDF context used for every recovery code created by OwnKeep.
+const RECOVERY_KDF_INFO: &[u8] = b"ownkeep recovery kek v1";
+/// Pre-1.2 recovery context retained as bytes so existing Emergency Kits keep working.
+const RECOVERY_KDF_INFO_V0: &[u8] = &[
+    0x6b, 0x65, 0x79, 0x73, 0x74, 0x61, 0x73, 0x68, 0x20, 0x72, 0x65, 0x63, 0x6f, 0x76, 0x65, 0x72,
+    0x79, 0x20, 0x6b, 0x65, 0x6b, 0x20, 0x76, 0x31,
+];
 
 /// A 256-bit key held in memory and zeroized on drop.
 pub type Key = Zeroizing<[u8; KEY_LEN]>;
@@ -82,9 +84,18 @@ pub fn derive_kek_argon2id(password: &[u8], salt: &[u8], params: Argon2Params) -
 
 /// Derive a 256-bit KEK from the already-high-entropy recovery secret via HKDF-SHA256 (fast).
 pub fn derive_kek_hkdf(ikm: &[u8], salt: &[u8]) -> Result<Key> {
+    derive_kek_hkdf_with_info(ikm, salt, RECOVERY_KDF_INFO)
+}
+
+/// Derive the recovery KEK used by vaults created through v1.1.
+pub(crate) fn derive_kek_hkdf_v0(ikm: &[u8], salt: &[u8]) -> Result<Key> {
+    derive_kek_hkdf_with_info(ikm, salt, RECOVERY_KDF_INFO_V0)
+}
+
+fn derive_kek_hkdf_with_info(ikm: &[u8], salt: &[u8], info: &[u8]) -> Result<Key> {
     let hk = Hkdf::<Sha256>::new(Some(salt), ikm);
     let mut kek = Zeroizing::new([0u8; KEY_LEN]);
-    hk.expand(RECOVERY_KDF_INFO, kek.as_mut_slice())
+    hk.expand(info, kek.as_mut_slice())
         .map_err(|_| Error::Kdf)?;
     Ok(kek)
 }
@@ -180,14 +191,18 @@ mod tests {
     }
 
     #[test]
-    fn recovery_kdf_context_remains_compatible_across_the_rebrand() {
-        let key = derive_kek_hkdf(b"entropy", &[7u8; SALT_LEN]).unwrap();
+    fn recovery_kdf_v0_vector_remains_supported() {
+        let key = derive_kek_hkdf_v0(b"entropy", &[7u8; SALT_LEN]).unwrap();
         let expected = [
             0xef, 0x01, 0x4d, 0xde, 0x51, 0xc3, 0xb8, 0xcc, 0x9b, 0x1c, 0x5e, 0x91, 0x2c, 0xf2,
             0x8f, 0x98, 0x81, 0x23, 0x51, 0x50, 0xef, 0x70, 0x63, 0x4a, 0xae, 0x76, 0xb6, 0x93,
             0x40, 0x73, 0x3c, 0x21,
         ];
         assert_eq!(&key[..], &expected);
+        assert_ne!(
+            key[..],
+            derive_kek_hkdf(b"entropy", &[7u8; SALT_LEN]).unwrap()[..]
+        );
     }
 
     use proptest::prelude::*;

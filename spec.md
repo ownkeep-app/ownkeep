@@ -8,7 +8,7 @@
 **Website:** [ownkeep.app](https://ownkeep.app)
 **Target platform:** macOS 13+ (Apple Silicon + Intel)
 **Author:** Shaojiang
-**Status:** Draft v2.5 (OwnKeep rebrand + legacy vault-location compatibility)
+**Status:** Draft v2.6 (OwnKeep identity finalization + container v3)
 **Last updated:** 2026-07-15
 
 ---
@@ -30,7 +30,7 @@ This spec was benchmarked against the leading offline/keyboard-first tools. Key 
 | **UI kit** *(v2.2)* | Hand-rolled + Tailwind | **shadcn/ui** (à la carte, Radix + Tailwind) + **Lucide** icons; `command` powers the bar | Accessible, clean, source you own/audit — good for a secrets app |
 | **Testing** *(v2.2)* | "unit-tested" (unspecified) | **Vitest + React Testing Library** (frontend) · **`cargo test` + proptest** (Rust) | Concrete Vite-native stack; crypto invariants get property tests |
 | **Upgrades** *(v2.3)* | Unspecified | **Manual `.dmg` replacement + user-aware migration guide** | Replacing the app reuses the old vault, while schema changes stay explicit and recoverable |
-| **Product identity** *(v2.5)* | `keystash` | **OwnKeep** · `ownkeep.app` · bundle id `com.shaojiang.ownkeep` | Emphasizes secure, offline, user-owned, customizable storage without centering the hotkey |
+| **Product identity** *(v2.5)* | Pre-launch working identity | **OwnKeep** · `ownkeep.app` · bundle id `com.shaojiang.ownkeep` | Emphasizes secure, offline, user-owned, customizable storage without centering the hotkey |
 
 Confirmed unchanged: **Tauri 2 + React + TS + Rust**; Argon2id + XChaCha20-Poly1305; one
 encrypted file, no database; concealed-clipboard copy; auto-lock; native notifications.
@@ -138,10 +138,6 @@ Two test surfaces, matching the two-language architecture:
 ### 3.2 Storage model — one file, no database
 - A single production file: `~/Library/Application Support/com.shaojiang.ownkeep/vault.dat`.
 - Development builds (`tauri dev` / debug builds) use `~/Library/Application Support/com.shaojiang.ownkeep/vault-dev.dat` instead, so local development cannot accidentally read or mutate the production vault.
-- **Rebrand compatibility:** if the OwnKeep path is empty on first launch, the app validates and
-  atomically copies the matching vault from the former `com.shaojiang.keystash` app-data directory.
-  The former file is left untouched as a rollback copy; once OwnKeep has its own vault, it always
-  wins and the paths never auto-merge.
 - Self-describing, versioned, **AEAD-encrypted** container (§4.2).
 - **In memory after unlock:** the full decrypted model lives in the **Rust core**. The frontend receives a **redacted projection** (secrets stripped) for its search index and views. Secret fields are handed out only at the moment of an explicit copy action (§4.5).
 - On every mutation: Rust re-encrypts and atomically writes (temp file → `fsync` → rename).
@@ -257,8 +253,8 @@ password hash to store or leak; the AEAD tag *is* the verification.
 ### 4.2 On-disk container format (conceptual)
 ```jsonc
 {
-  "magic": "KSTH",
-  "version": 2,
+  "magic": "OWNK",
+  "version": 3,
   "kdf":          { "alg": "argon2id", "mem_kib": 262144, "iterations": 3, "parallelism": 4 },
   "recovery_kdf": { "alg": "hkdf-sha256" },
   "salt_master":   "<base64>",
@@ -269,17 +265,21 @@ password hash to store or leak; the AEAD tag *is* the verification.
   "vault":            { "nonce": "<b64>", "ct": "<b64>" }    // XChaCha20-Poly1305 over the model
 }
 ```
-> `KSTH` is the historical container magic and intentionally remains stable after the OwnKeep
-> rebrand. It is encrypted-format compatibility data, not display branding; changing it would make
-> existing vaults and backups unreadable. The recovery HKDF context is retained for the same reason.
+> Container v3 writes the OwnKeep-native `OWNK` marker. The reader also accepts the v1.1 marker by
+> its byte signature and stamps v3 on the next accepted mutation, so existing vaults and backups
+> remain readable without retaining the retired identity in source text. New and regenerated
+> Emergency Kits use the OwnKeep HKDF context; recovery unlock falls back to the v0 context bytes so
+> an existing code remains authoritative until the user regenerates it.
 >
 > Argon2 params (256 MiB / 3 / 4) are generous for a desktop; tune down for older Intel Macs if
 > unlock feels slow. No security-questions array — the recovery path stores nothing but a salt.
 >
 > `wrapped_biometric` is **optional and additive** (§4.7): present only when Touch ID is enrolled,
-> it does **not** bump `container.version`, so older builds ignore it and still unlock via password
-> or recovery. It holds another wrap of the *same* DEK — never the DEK itself — so the Keychain item
-> is useless without this vault file.
+> and its v1.1 introduction did **not** require a `container.version` bump: v2 readers could ignore
+> the field and still unlock via password or recovery. Independently, any v1.2 mutation (including
+> biometric enable/disable) stamps container v3 for the new OwnKeep marker, so v1.1 builds then
+> refuse that file. It holds another wrap of the *same* DEK — never the DEK itself — so the Keychain
+> item is useless without this vault file.
 
 ### 4.3 Runtime protections
 - **Auto-lock:** wipe keys + in-memory plaintext after N minutes idle (default 1 hour; configurable in Settings — 5 / 15 / 30 minutes, 1 / 3 hours, or **never**) and optionally on window blur. Re-entry requires the master password (or Touch ID, if enrolled — §4.7). "Never" (`autoLockMinutes: 0`) keeps the vault unlocked until the user locks it manually or quits — a deliberate convenience/security trade-off surfaced in the UI.
@@ -640,7 +640,7 @@ own `SettingsPanel`.
 
 ## 11. Backup, Restore & Upgrades
 
-- **Backup** (`Cmd+B` / menu): choose a destination via file dialog; write a copy of the encrypted container. Already AEAD-encrypted → safe anywhere. Suggested name: `ownkeep-v<appVersion>-<YYYY-MM-DD-HHmm>.dat` (example: `ownkeep-v0.1-2026-07-07-1530.dat`). The copy **omits the device-local Touch ID wrap** (`wrapped_biometric`, §4.7); when Touch ID is enrolled the backup UI shows a **notice** that biometric unlock isn't included and must be re-enabled after restoring on the target Mac. Backups created under the former product name remain valid because restore accepts any selected `.dat` container regardless of filename.
+- **Backup** (`Cmd+B` / menu): choose a destination via file dialog; write a copy of the encrypted container. Already AEAD-encrypted → safe anywhere. Suggested name: `ownkeep-v<appVersion>-<YYYY-MM-DD-HHmm>.dat` (example: `ownkeep-v0.1-2026-07-07-1530.dat`). The copy **omits the device-local Touch ID wrap** (`wrapped_biometric`, §4.7); when Touch ID is enrolled the backup UI shows a **notice** that biometric unlock isn't included and must be re-enabled after restoring on the target Mac. Existing `.dat` backups remain valid because restore is filename-agnostic and the reader retains supported container versions.
 - **Restore** (menu): choose a backup → enter master password (or recovery code) → the app **attempts full decryption**; only on success does it proceed. Prominent warning: _"Restoring will permanently erase all current data. This cannot be undone."_ Optionally auto-create a `pre-restore-<timestamp>.dat` of the current vault first, then atomically replace the live file and reload. Restore also **clears the device-local Touch ID Keychain item**; because backups carry no biometric wrap (§4.7), the restored vault has Touch ID **off** — re-enable it in Settings → System → Security.
 - **Atomicity:** write to a temp file, `fsync`, then rename over the live vault so a crash mid-write can't corrupt data.
 - **Version in backups:** backups are normal vault containers. The clear container header stores `container.version`; the encrypted vault body stores `meta.appVersion` and `meta.schemaVersion`, so the backup itself knows which app/data format wrote it once unlocked.
@@ -650,12 +650,6 @@ OwnKeep upgrades by **manual replacement**: download a new `.dmg`, drag the new 
 Applications, and replace the old OwnKeep app. This never touches your data: the production vault lives at
 `~/Library/Application Support/com.shaojiang.ownkeep/vault.dat`, **outside** the `.app` bundle. Opening the new
 app reuses the old vault by design.
-
-**One-time rename from the former app:** because the `.app` name and bundle identifier changed,
-install `OwnKeep.app` alongside the former build for the first launch. OwnKeep adopts the validated
-legacy vault into its new app-data directory (§3.2) without deleting the former copy. macOS may ask
-for Accessibility and notification permissions again because it sees a new bundle identity; Touch
-ID may require re-enrollment if code signing invalidates the old Keychain access rule.
 
 Auto-update (Tauri updater) stays off by default because it needs network (§12). The only upgrade
 risk is the app code expecting a newer data shape than the existing vault has, handled by §11.2.
@@ -712,12 +706,15 @@ The guide shown at upgrade time is the union of the change lists from the vault'
 - Each step owns **both** its transform *and* its change list — the guide is generated from these, so the docs and the behavior can't drift.
 - Migrations are pure, ordered, forward-only, and unit-tested against old-schema fixtures; a failed step leaves the original file untouched.
 
-**OwnKeep rebrand migration decision (working release 1.1):** no `APP_SCHEMA_VERSION` or
-`container.version` bump is required. The encrypted model and container fields are unchanged; the
-bundle-id move is handled before unlock by the validated app-data copy in §3.2. Backup filename
-prefixes change to `ownkeep-`, but restore is filename-agnostic, so existing `.dat` backups need no
-transform or migration-guide step. `KSTH` and the original recovery HKDF context remain stable
-format identifiers so password and recovery unlock continue to work.
+**OwnKeep identity-finalization decision (working release 1.2; baseline `v1.1`):** bump
+`container.version` from 2 to 3 because the existing magic field now writes the OwnKeep-native
+`OWNK` marker and earlier builds cannot read it. The v1.2 reader accepts v1–v2 marker bytes and
+stamps v3 only on an accepted vault mutation. New and regenerated recovery codes use the OwnKeep
+HKDF context; recovery unlock tries the v0 context only after the current context fails, preserving
+every existing Emergency Kit. The app-data path is now exclusively `com.shaojiang.ownkeep`, and
+Touch ID uses the matching Keychain service. There is **no `APP_SCHEMA_VERSION` bump or TypeScript
+migration-registry step** because the encrypted model is unchanged; Rust container/KDF regression
+tests cover the format transition and backup restore remains filename-agnostic.
 
 **Conceptual shape**
 ```ts

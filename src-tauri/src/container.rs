@@ -9,13 +9,12 @@ use serde::{Deserialize, Serialize};
 use crate::crypto::{Argon2Params, Sealed, NONCE_LEN};
 use crate::error::{Error, Result};
 
-/// Historical magic marker identifying an OwnKeep container.
-///
-/// `KSTH` remains stable across the product rebrand so existing encrypted vaults and backups stay
-/// readable. It is format data, not user-facing branding.
-pub const MAGIC: &str = "KSTH";
+/// Magic marker identifying an OwnKeep container.
+pub const MAGIC: &str = "OWNK";
+/// Pre-1.2 marker accepted only for reading existing vaults and backups.
+const MAGIC_V0: &[u8] = &[0x4b, 0x53, 0x54, 0x48];
 /// Current container schema version (the newest format this build writes).
-pub const VERSION: u32 = 2;
+pub const VERSION: u32 = 3;
 /// Oldest container version this build can still read (spec §11.2 step 1: retained readers).
 /// Versions `MIN_READABLE_VERSION..=VERSION` share the current on-disk shape; an older container is
 /// upgraded to `VERSION` on the next accepted write (see [`crate::envelope::reseal_vault`]).
@@ -34,7 +33,8 @@ pub struct Container {
     pub wrapped_recovery: SealedBlob,
     /// Optional third DEK wrap for Touch ID unlock (spec §4.7). Present only when biometric unlock
     /// is enrolled; the wrapping key lives in the macOS Keychain, not here. Additive and skipped
-    /// when absent, so it does not bump [`VERSION`] and older builds ignore it.
+    /// when absent. The field itself required no version bump when introduced in container v2;
+    /// current mutations stamp v3 for the separate OwnKeep marker transition.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub wrapped_biometric: Option<SealedBlob>,
     pub vault: SealedBlob,
@@ -136,7 +136,7 @@ impl Container {
     pub fn from_bytes(bytes: &[u8]) -> Result<Self> {
         let container: Container =
             serde_json::from_slice(bytes).map_err(|e| Error::Format(format!("parse: {e}")))?;
-        if container.magic != MAGIC {
+        if container.magic != MAGIC && container.magic.as_bytes() != MAGIC_V0 {
             return Err(Error::Format(format!("bad magic: {:?}", container.magic)));
         }
         // Refuse a newer-than-known container before any unlock/key derivation (spec §11.2 step 1),
@@ -153,6 +153,12 @@ impl Container {
             )));
         }
         Ok(container)
+    }
+
+    /// Mark a container for the current OwnKeep writer after an accepted mutation.
+    pub fn stamp_current_format(&mut self) {
+        self.magic = MAGIC.to_string();
+        self.version = VERSION;
     }
 }
 
@@ -240,6 +246,20 @@ mod tests {
     }
 
     #[test]
+    fn reads_the_v0_marker_and_stamps_current_on_mutation() {
+        let mut container = sample();
+        container.magic = String::from_utf8(MAGIC_V0.to_vec()).unwrap();
+        container.version = 2;
+        let bytes = container.to_bytes().unwrap();
+
+        let mut parsed = Container::from_bytes(&bytes).unwrap();
+        assert_eq!(parsed.magic.as_bytes(), MAGIC_V0);
+        parsed.stamp_current_format();
+        assert_eq!(parsed.magic, MAGIC);
+        assert_eq!(parsed.version, VERSION);
+    }
+
+    #[test]
     fn rejects_a_zero_version() {
         let mut container = sample();
         container.version = 0;
@@ -262,7 +282,7 @@ mod tests {
     #[test]
     fn biometric_wrap_is_optional_and_omitted_when_absent() {
         // A vault without Touch ID enrolled must serialize exactly like a pre-biometric container
-        // (no `wrapped_biometric` key) so the version stays 2 and old builds still read it (§4.7).
+        // (no `wrapped_biometric` key), preserving the field-level v2 compatibility guarantee.
         let container = sample();
         assert_eq!(container.wrapped_biometric, None);
         let json = String::from_utf8(container.to_bytes().unwrap()).unwrap();

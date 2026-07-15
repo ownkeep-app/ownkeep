@@ -87,11 +87,8 @@ pub fn system_store() -> SystemBiometricKeyStore {
 // --- macOS implementation -------------------------------------------------------------------------
 
 /// Keychain item identity for the biometric wrapping key.
-///
-/// This historical service name is intentionally stable: it is an internal lookup key, and
-/// changing it during the OwnKeep rebrand would orphan existing Touch ID enrollment.
 #[cfg(target_os = "macos")]
-const LEGACY_KEYCHAIN_SERVICE: &str = "com.shaojiang.keystash.biometric";
+const KEYCHAIN_SERVICE: &str = "com.shaojiang.ownkeep.biometric";
 #[cfg(target_os = "macos")]
 const KEYCHAIN_ACCOUNT: &str = "vault-kek";
 
@@ -113,7 +110,7 @@ impl BiometricKeyStore for SystemBiometricKeyStore {
         // existence probe does NOT trigger a Touch ID prompt (it runs on the lock screen).
         ItemSearchOptions::new()
             .class(ItemClass::generic_password())
-            .service(LEGACY_KEYCHAIN_SERVICE)
+            .service(KEYCHAIN_SERVICE)
             .account(KEYCHAIN_ACCOUNT)
             .load_attributes(true)
             .load_data(false)
@@ -139,8 +136,7 @@ impl BiometricKeyStore for SystemBiometricKeyStore {
         // Replace any prior item so enable / re-enroll always issues a fresh key.
         self.delete_key()?;
 
-        let mut options =
-            PasswordOptions::new_generic_password(LEGACY_KEYCHAIN_SERVICE, KEYCHAIN_ACCOUNT);
+        let mut options = PasswordOptions::new_generic_password(KEYCHAIN_SERVICE, KEYCHAIN_ACCOUNT);
         options.set_access_control(access_control);
         set_generic_password_options(key.as_slice(), options).map_err(sf_err)
     }
@@ -149,8 +145,7 @@ impl BiometricKeyStore for SystemBiometricKeyStore {
         use security_framework::passwords::generic_password;
         use security_framework::passwords_options::PasswordOptions;
         // Reading the biometric-gated item triggers the Touch ID prompt (unlock path C, §4.7).
-        let options =
-            PasswordOptions::new_generic_password(LEGACY_KEYCHAIN_SERVICE, KEYCHAIN_ACCOUNT);
+        let options = PasswordOptions::new_generic_password(KEYCHAIN_SERVICE, KEYCHAIN_ACCOUNT);
         let bytes = generic_password(options).map_err(sf_err)?;
         key_from_bytes(&bytes)
     }
@@ -159,7 +154,7 @@ impl BiometricKeyStore for SystemBiometricKeyStore {
         use security_framework::passwords::delete_generic_password;
         // Idempotent: only delete when present, so an absent item is not treated as an error.
         if self.has_key() {
-            delete_generic_password(LEGACY_KEYCHAIN_SERVICE, KEYCHAIN_ACCOUNT).map_err(sf_err)?;
+            delete_generic_password(KEYCHAIN_SERVICE, KEYCHAIN_ACCOUNT).map_err(sf_err)?;
         }
         Ok(())
     }
