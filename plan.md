@@ -272,6 +272,9 @@ v1.1 builds refuse the resulting file. Document both facts and keep `$verify` ho
   reads / deletes a random 256-bit `KEK_biometric` as a Keychain item with
   `SecAccessControl(BiometryCurrentSet, WhenUnlockedThisDeviceOnly)`, non-synchronizable; prompts
   Touch ID via `LAContext` (reason "Unlock OwnKeep"); and probes availability (`canEvaluatePolicy`).
+  Isolate Keychain services by build channel: production uses `com.shaojiang.ownkeep.biometric`,
+  debug uses `.dev`, and Rust unit tests use `.test`, so development/test cleanup cannot invalidate
+  a production enrollment.
   Crates: `security-framework` + `objc2-local-authentication` (macOS-only target, beside the Phase 3
   `objc2` clipboard shim). Put the OS calls behind a small trait so session/command logic stays
   testable without hardware.

@@ -137,7 +137,12 @@ Two test surfaces, matching the two-language architecture:
 
 ### 3.2 Storage model — one file, no database
 - A single production file: `~/Library/Application Support/com.shaojiang.ownkeep/vault.dat`.
-- Development builds (`tauri dev` / debug builds) use `~/Library/Application Support/com.shaojiang.ownkeep/vault-dev.dat` instead, so local development cannot accidentally read or mutate the production vault.
+- Development builds (`tauri dev` / debug builds) use
+  `~/Library/Application Support/com.shaojiang.ownkeep/vault-dev.dat` and the Keychain service
+  `com.shaojiang.ownkeep.biometric.dev`, so local development cannot read, replace, or delete the
+  production vault or Touch ID key. Rust unit-test binaries use a third service,
+  `com.shaojiang.ownkeep.biometric.test`; release builds alone use
+  `com.shaojiang.ownkeep.biometric`.
 - Self-describing, versioned, **AEAD-encrypted** container (§4.2).
 - **In memory after unlock:** the full decrypted model lives in the **Rust core**. The frontend receives a **redacted projection** (secrets stripped) for its search index and views. Secret fields are handed out only at the moment of an explicit copy action (§4.5).
 - On every mutation: Rust re-encrypts and atomically writes (temp file → `fsync` → rename).
@@ -327,6 +332,10 @@ without this vault file (defense in depth).
   invalidates the item → re-enroll with the master password) + `kSecAttrAccessibleWhenUnlockedThisDeviceOnly`
   (never leaves the device, never syncs to iCloud Keychain, only readable while the macOS session is
   unlocked).
+- **Build isolation:** release, debug, and test builds use separate Keychain services
+  (`com.shaojiang.ownkeep.biometric`, `.dev`, and `.test`) so development or native unit tests
+  cannot overwrite/delete a production enrollment. This changes only device-local Keychain
+  addressing — not the vault/container shape — and therefore requires no migration.
 - **Unlock path C:** LocalAuthentication (`LAContext`, reason "Unlock OwnKeep") prompts Touch ID →
   on success the Keychain releases `KEK_biometric` → Rust unwraps `wrapped_biometric` → DEK →
   decrypt the vault. Identical to paths A/B from the DEK onward; **the wrapping key and the biometric

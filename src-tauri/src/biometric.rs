@@ -86,9 +86,22 @@ pub fn system_store() -> SystemBiometricKeyStore {
 
 // --- macOS implementation -------------------------------------------------------------------------
 
-/// Keychain item identity for the biometric wrapping key.
+/// Keychain item identity for the biometric wrapping key. Release, debug, and test builds must not
+/// share an item: a debug enrollment or a Keychain-writing test must never replace/delete the
+/// production app's device-local Touch ID key.
 #[cfg(target_os = "macos")]
-const KEYCHAIN_SERVICE: &str = "com.shaojiang.ownkeep.biometric";
+const fn keychain_service_for(test_build: bool, debug_build: bool) -> &'static str {
+    if test_build {
+        "com.shaojiang.ownkeep.biometric.test"
+    } else if debug_build {
+        "com.shaojiang.ownkeep.biometric.dev"
+    } else {
+        "com.shaojiang.ownkeep.biometric"
+    }
+}
+
+#[cfg(target_os = "macos")]
+const KEYCHAIN_SERVICE: &str = keychain_service_for(cfg!(test), cfg!(debug_assertions));
 #[cfg(target_os = "macos")]
 const KEYCHAIN_ACCOUNT: &str = "vault-kek";
 
@@ -307,6 +320,22 @@ mod tests {
         store.delete_key().unwrap();
         assert!(!store.has_key());
         assert!(matches!(store.load_key(), Err(Error::BiometricNotEnrolled)));
+    }
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn keychain_services_are_isolated_by_build_channel() {
+        let production = keychain_service_for(false, false);
+        let development = keychain_service_for(false, true);
+        let tests = keychain_service_for(true, true);
+
+        assert_eq!(production, "com.shaojiang.ownkeep.biometric");
+        assert_eq!(development, "com.shaojiang.ownkeep.biometric.dev");
+        assert_eq!(tests, "com.shaojiang.ownkeep.biometric.test");
+        assert_ne!(production, development);
+        assert_ne!(production, tests);
+        assert_ne!(development, tests);
+        assert_eq!(KEYCHAIN_SERVICE, tests);
     }
 
     #[cfg(target_os = "macos")]
