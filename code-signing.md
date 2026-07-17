@@ -41,26 +41,46 @@ work in an unsigned development process, but creating the biometric-protected Ke
 An ordinary `pnpm tauri dev` process has no app bundle in which to embed the authorizing profile, so
 native Touch ID enrollment is not expected to work there.
 
-### Implementation prerequisite found by this audit
+### Implementation prerequisite found by this audit — resolved in code
 
-Signing is necessary, but it is not the only remaining prerequisite in the current code. Apple says
-macOS `SecItem` operations default to the legacy file-based Keychain, while biometric protection
-requires the data-protection Keychain. Every add, search, read, and delete query for OwnKeep's
-biometric item must set `kSecUseDataProtectionKeychain` to `true`.
+Signing was necessary but was not the only remaining prerequisite. Apple says macOS `SecItem`
+operations default to the legacy file-based Keychain, while biometric protection requires the
+data-protection Keychain. Every add, search, read, and delete query for OwnKeep's biometric item
+must therefore set `kSecUseDataProtectionKeychain` to `true`. At the time of the audit,
+`src-tauri/src/biometric.rs` did not set that key.
 
-At the time of this audit, `src-tauri/src/biometric.rs` does not explicitly set that key. Before
-expecting the signed build to work, update all four operation paths:
+That code fix has landed, so **signing is now the only remaining prerequisite**. All four operation
+paths target the data-protection Keychain:
 
-- enable the `security-framework` crate's `OSX_10_15` feature;
-- call `PasswordOptions::use_protected_keychain()` for store, load, and delete queries; and
-- make the attributes-only existence search target the same protected Keychain (the crate exposes
-  this as `ItemSearchOptions::ignore_legacy_keychains()` when that feature is enabled).
+- `src-tauri/Cargo.toml` enables the `security-framework` crate's `OSX_10_15` feature, which is what
+  exposes `kSecUseDataProtectionKeychain` at all.
+- A shared `protected_item_query()` helper builds the store, load, and delete query and calls
+  `PasswordOptions::use_protected_keychain()`, so those three paths cannot drift apart.
+- The delete path calls `delete_generic_password_options`, not `delete_generic_password`. The latter
+  builds its own query internally and cannot be pointed away from the legacy Keychain.
+- The attributes-only existence search calls `ItemSearchOptions::ignore_legacy_keychains()`, the
+  crate's spelling of the same key.
 
-Do not use `kSecAttrSynchronizable` as a substitute; that opts into iCloud synchronization and would
+`kSecAttrSynchronizable` is deliberately not set; that opts into iCloud synchronization and would
 conflict with OwnKeep's device-local design. Apple's
 [data-protection Keychain reference](https://developer.apple.com/documentation/security/ksecusedataprotectionkeychain)
-recommends setting `kSecUseDataProtectionKeychain` on add, search, and delete operations. Complete
-this code fix and its tests before using the signing procedure as the final Touch ID validation.
+recommends setting `kSecUseDataProtectionKeychain` on add, search, and delete operations.
+
+Two traps are worth knowing before revisiting this code:
+
+- `ItemSearchOptions::ignore_legacy_keychains()` still compiles with the `OSX_10_15` feature off and
+  then silently does nothing, quietly sending the existence probe to the legacy Keychain. The
+  feature is instead held on by `use_protected_keychain()`, which does **not** exist without it, so
+  dropping the feature fails the build rather than degrading at runtime.
+- `protected_query_targets_data_protection_keychain_and_nothing_else` in `biometric.rs` pins the
+  exact set of query keys, so removing the data-protection opt-in or adding iCloud sync fails
+  `cargo test` instead of surfacing only on signed hardware. The existence search cannot be asserted
+  the same way — `ItemSearchOptions` keeps its query private — so that one path still relies on the
+  on-device check in section 9.
+
+Because the data-protection Keychain is itself entitlement-gated, an unsigned build now fails at
+enrollment more consistently than before. `errSecMissingEntitlement` (`-34018`) from a `tauri dev`
+process is the expected result, not a regression.
 
 ## 1. Create the Apple signing assets
 

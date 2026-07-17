@@ -105,6 +105,28 @@ const KEYCHAIN_SERVICE: &str = keychain_service_for(cfg!(test), cfg!(debug_asser
 #[cfg(target_os = "macos")]
 const KEYCHAIN_ACCOUNT: &str = "vault-kek";
 
+/// The query identifying OwnKeep's biometric item — shared by store / load / delete so all three
+/// address the *same* item in the *same* Keychain.
+///
+/// macOS `SecItem` calls default to the **legacy file-based Keychain**, which cannot hold a
+/// biometric-gated `SecAccessControl`. Only the **data-protection Keychain** can, so every query
+/// must opt in via `kSecUseDataProtectionKeychain`; without it the item is written to — and looked
+/// for in — the wrong store, and enrollment fails even on a correctly signed build. Deliberately
+/// *not* `kSecAttrSynchronizable`, which would opt into iCloud sync and break the device-local
+/// design (spec §4.7).
+///
+/// This call site doubles as the compile-time guard for the `security-framework/OSX_10_15` feature:
+/// `use_protected_keychain` does not exist without it, whereas `has_key`'s search silently falls
+/// back to the legacy Keychain instead of failing to build.
+#[cfg(target_os = "macos")]
+fn protected_item_query() -> security_framework::passwords_options::PasswordOptions {
+    use security_framework::passwords_options::PasswordOptions;
+
+    let mut options = PasswordOptions::new_generic_password(KEYCHAIN_SERVICE, KEYCHAIN_ACCOUNT);
+    options.use_protected_keychain();
+    options
+}
+
 #[cfg(target_os = "macos")]
 impl BiometricKeyStore for SystemBiometricKeyStore {
     fn is_available(&self) -> bool {
@@ -121,10 +143,13 @@ impl BiometricKeyStore for SystemBiometricKeyStore {
         use security_framework::item::{ItemClass, ItemSearchOptions, Limit};
         // Attributes-only search: `load_data(false)` means the protected data is never read, so this
         // existence probe does NOT trigger a Touch ID prompt (it runs on the lock screen).
+        // `ignore_legacy_keychains` is this builder's spelling of `kSecUseDataProtectionKeychain`,
+        // so the probe looks in the same Keychain `protected_item_query` writes to.
         ItemSearchOptions::new()
             .class(ItemClass::generic_password())
             .service(KEYCHAIN_SERVICE)
             .account(KEYCHAIN_ACCOUNT)
+            .ignore_legacy_keychains()
             .load_attributes(true)
             .load_data(false)
             .limit(Limit::Max(1))
@@ -136,7 +161,7 @@ impl BiometricKeyStore for SystemBiometricKeyStore {
     fn store_key(&self, key: &Key) -> Result<()> {
         use security_framework::access_control::{ProtectionMode, SecAccessControl};
         use security_framework::passwords::set_generic_password_options;
-        use security_framework::passwords_options::{AccessControlOptions, PasswordOptions};
+        use security_framework::passwords_options::AccessControlOptions;
 
         // BiometryCurrentSet: adding/removing a fingerprint invalidates the item (→ re-enroll, §4.7).
         // WhenUnlockedThisDeviceOnly: never leaves the device, never syncs to iCloud Keychain.
@@ -149,25 +174,25 @@ impl BiometricKeyStore for SystemBiometricKeyStore {
         // Replace any prior item so enable / re-enroll always issues a fresh key.
         self.delete_key()?;
 
-        let mut options = PasswordOptions::new_generic_password(KEYCHAIN_SERVICE, KEYCHAIN_ACCOUNT);
+        let mut options = protected_item_query();
         options.set_access_control(access_control);
         set_generic_password_options(key.as_slice(), options).map_err(sf_err)
     }
 
     fn load_key(&self) -> Result<Key> {
         use security_framework::passwords::generic_password;
-        use security_framework::passwords_options::PasswordOptions;
         // Reading the biometric-gated item triggers the Touch ID prompt (unlock path C, §4.7).
-        let options = PasswordOptions::new_generic_password(KEYCHAIN_SERVICE, KEYCHAIN_ACCOUNT);
-        let bytes = generic_password(options).map_err(sf_err)?;
+        let bytes = generic_password(protected_item_query()).map_err(sf_err)?;
         key_from_bytes(&bytes)
     }
 
     fn delete_key(&self) -> Result<()> {
-        use security_framework::passwords::delete_generic_password;
+        use security_framework::passwords::delete_generic_password_options;
         // Idempotent: only delete when present, so an absent item is not treated as an error.
+        // The options form is required over `delete_generic_password`, which builds its own query
+        // and so would target the legacy Keychain.
         if self.has_key() {
-            delete_generic_password(KEYCHAIN_SERVICE, KEYCHAIN_ACCOUNT).map_err(sf_err)?;
+            delete_generic_password_options(protected_item_query()).map_err(sf_err)?;
         }
         Ok(())
     }
@@ -320,6 +345,34 @@ mod tests {
         store.delete_key().unwrap();
         assert!(!store.has_key());
         assert!(matches!(store.load_key(), Err(Error::BiometricNotEnrolled)));
+    }
+
+    /// Every `kSec*` key the store / load / delete query is allowed to carry, as the four-character
+    /// wire values Security.framework uses: `class` (`kSecClass`), `svce` (`kSecAttrService`),
+    /// `acct` (`kSecAttrAccount`), and `nleg` (`kSecUseDataProtectionKeychain`).
+    #[cfg(target_os = "macos")]
+    const EXPECTED_QUERY_KEYS: [&str; 4] = ["acct", "class", "nleg", "svce"];
+
+    /// Pins the exact query OwnKeep hands to macOS. Two §4.7 constraints regress silently and are
+    /// invisible without a signed build, so they are asserted rather than discovered on-device:
+    /// dropping `nleg` sends the query to the legacy Keychain, which cannot hold a biometric-gated
+    /// item; adding `sync` (`kSecAttrSynchronizable`) would opt the wrapping key into iCloud.
+    /// Asserting the whole set — not just `nleg`'s presence — is what catches the second one.
+    ///
+    /// `has_key`'s search cannot be covered this way: `ItemSearchOptions` keeps its query private,
+    /// so that path stays covered by the manual on-device check (plan Phase 13).
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn protected_query_targets_data_protection_keychain_and_nothing_else() {
+        #[allow(deprecated)]
+        let mut keys: Vec<String> = protected_item_query()
+            .query
+            .iter()
+            .map(|(key, _)| key.to_string())
+            .collect();
+        keys.sort();
+
+        assert_eq!(keys, EXPECTED_QUERY_KEYS);
     }
 
     #[cfg(target_os = "macos")]

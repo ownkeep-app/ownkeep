@@ -332,6 +332,11 @@ without this vault file (defense in depth).
   invalidates the item → re-enroll with the master password) + `kSecAttrAccessibleWhenUnlockedThisDeviceOnly`
   (never leaves the device, never syncs to iCloud Keychain, only readable while the macOS session is
   unlocked).
+- **Data-protection Keychain:** every add/search/read/delete sets `kSecUseDataProtectionKeychain`.
+  macOS `SecItem` calls otherwise default to the legacy file-based Keychain, which cannot hold a
+  biometric-gated item. This is what makes the item entitlement-gated (hence the signing + Keychain
+  access-group requirement, §12 and `code-signing.md`) rather than merely service-name-addressed.
+  `kSecAttrSynchronizable` is *not* set — that would mean iCloud sync, contradicting device-local.
 - **Build isolation:** release, debug, and test builds use separate Keychain services
   (`com.shaojiang.ownkeep.biometric`, `.dev`, and `.test`) so development or native unit tests
   cannot overwrite/delete a production enrollment. This changes only device-local Keychain

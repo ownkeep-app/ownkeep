@@ -270,7 +270,9 @@ v1.1 builds refuse the resulting file. Document both facts and keep `$verify` ho
   existing wraps.
 - [x] **Keychain + LocalAuthentication shim (Rust):** a `src-tauri/src/biometric.rs` that stores /
   reads / deletes a random 256-bit `KEK_biometric` as a Keychain item with
-  `SecAccessControl(BiometryCurrentSet, WhenUnlockedThisDeviceOnly)`, non-synchronizable; prompts
+  `SecAccessControl(BiometryCurrentSet, WhenUnlockedThisDeviceOnly)`, non-synchronizable, in the
+  **data-protection Keychain** (`kSecUseDataProtectionKeychain` on all four paths — the legacy
+  file-based Keychain cannot hold a biometric-gated item, §4.7); prompts
   Touch ID via `LAContext` (reason "Unlock OwnKeep"); and probes availability (`canEvaluatePolicy`).
   Isolate Keychain services by build channel: production uses `com.shaojiang.ownkeep.biometric`,
   debug uses `.dev`, and Rust unit tests use `.test`, so development/test cleanup cannot invalidate
