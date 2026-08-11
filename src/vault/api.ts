@@ -18,7 +18,7 @@ export interface EmergencyKit {
 export interface BiometricStatus {
   /** The sensor is present and a fingerprint is enrolled on this Mac. */
   available: boolean;
-  /** This vault has Touch ID enrolled (container wrap + Keychain key both present). */
+  /** This vault carries a biometric wrap and Touch ID is available; key access is checked on use. */
   enrolled: boolean;
 }
 

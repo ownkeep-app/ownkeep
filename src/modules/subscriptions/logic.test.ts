@@ -16,6 +16,7 @@ import {
   isoToDateInput,
   sortSubscriptions,
   subscriptionEntries,
+  subscriptionNextDateLabel,
   summarizeSubscriptions,
   updateSubscriptionEntry,
   validateSubscriptionInput,
@@ -59,7 +60,17 @@ describe("subscription module logic", () => {
       }),
     );
     expect(index[0].displayLine).toContain("Linode - USD 20.00 /mo");
+    expect(index[0].displayLine).toContain("invoice");
+    expect(
+      buildSubscriptionIndex([subscription({ autoRenew: false })])[0]
+        .displayLine,
+    ).toContain("due");
     expect(index[0].searchString).toContain("VPS");
+  });
+
+  it("labels the next date field by renewal mode", () => {
+    expect(subscriptionNextDateLabel(true)).toBe("Next invoice date");
+    expect(subscriptionNextDateLabel(false)).toBe("Due date");
   });
 
   it("normalizes new and edited entries", () => {
@@ -199,7 +210,15 @@ describe("subscription module logic", () => {
         service: "Linode",
         amount: "1",
       }),
-    ).toMatch(/next due/i);
+    ).toMatch(/invoice date/i);
+    expect(
+      validateSubscriptionInput({
+        ...emptySubscriptionForm(),
+        service: "Linode",
+        amount: "1",
+        autoRenew: false,
+      }),
+    ).toMatch(/due date/i);
   });
 
   it("calculates annualized and FX-converted summaries", () => {
@@ -322,8 +341,21 @@ describe("subscription module logic", () => {
     ).toEqual([
       expect.objectContaining({
         id: "sub-1:due",
+        title: "Subscription invoice: Linode",
+        body: expect.stringContaining("Invoice"),
+      }),
+    ]);
+
+    expect(
+      collectSubscriptionReminders(
+        [subscription({ autoRenew: false })],
+        new Date(NOW),
+        settings,
+      ),
+    ).toEqual([
+      expect.objectContaining({
         title: "Subscription due: Linode",
-        body: expect.stringContaining("USD 20.00"),
+        body: expect.stringContaining("Due"),
       }),
     ]);
 

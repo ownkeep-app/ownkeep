@@ -2,10 +2,10 @@
 
 This guide covers two related but separate requirements:
 
-| Goal                                              | Required                                                                                                                                                            |
-| ------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Make OwnKeep's native Touch ID Keychain item work | Code that explicitly targets the data-protection Keychain, plus a signed `.app` with the correct Keychain entitlements and a matching embedded provisioning profile |
-| Distribute OwnKeep outside the Mac App Store      | Developer ID signing, hardened runtime, Apple notarization, and stapling                                                                                            |
+| Goal                                              | Required                                                                                                                                                                         |
+| ------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Make OwnKeep's native Touch ID Keychain item work | Code that explicitly targets the data-protection Keychain, plus a signed `.app` with its private application-identifier entitlement and a matching embedded provisioning profile |
+| Distribute OwnKeep outside the Mac App Store      | Developer ID signing, hardened runtime, Apple notarization, and stapling                                                                                                         |
 
 Notarization does not grant Keychain access, and hardened runtime does not replace Keychain
 entitlements. Conversely, a locally signed and provisioned development app can test Touch ID without
@@ -15,8 +15,9 @@ being notarized.
 
 OwnKeep protects its device-local biometric wrapping key with `SecAccessControl` and
 `biometryCurrentSet`. On macOS, this uses the data protection Keychain. Its access groups come from
-the app's code-signing entitlements, and restricted entitlements such as `keychain-access-groups`
-must be authorized by a provisioning profile.
+the app's code-signing entitlements. OwnKeep does not pass `kSecAttrAccessGroup`, so Keychain
+Services uses the app identifier (`com.apple.application-identifier`) as the private default access
+group. That restricted entitlement must be authorized by a provisioning profile.
 
 This is a security boundary. A Keychain service or account name is only an item label; it must not
 allow an unrelated program to impersonate OwnKeep and retrieve the biometric wrapping key. The
@@ -24,8 +25,11 @@ signed Team ID, bundle identifier, access group, and profile establish which app
 that item. See Apple's [Mac Keychain technical note](https://developer.apple.com/documentation/Technotes/tn3137-on-mac-keychains)
 and [provisioning-profile technical note](https://developer.apple.com/documentation/Technotes/tn3125-inside-code-signing-provisioning-profiles).
 
-There is no separate generic "Touch ID entitlement" to add. The required capability for this
-implementation is the private Keychain access group.
+There is no separate generic "Touch ID entitlement" to add, and OwnKeep does not share its
+biometric item with another app. The Apple Developer portal's **Keychain Sharing** capability and a
+`keychain-access-groups` entitlement are therefore not required. Apple's
+[Keychain access-group documentation](https://developer.apple.com/documentation/security/sharing-access-to-keychain-items-among-a-collection-of-apps)
+states that when no Keychain access groups are specified, the app identifier is the default group.
 
 ### Confirmed current behavior
 
@@ -91,24 +95,49 @@ guarantee that they are identical.
 
 In Apple Developer **Certificates, Identifiers & Profiles**:
 
-1. Register an explicit macOS App ID for `com.shaojiang.ownkeep`.
-2. Enable **Keychain Sharing** for that App ID, then save the change.
-3. Create a **Developer ID Application** certificate for distribution outside the Mac App Store.
-4. Create a **Developer ID** provisioning profile for the explicit OwnKeep App ID and that
-   certificate.
-5. Download the profile as `OwnKeep_Developer_ID.provisionprofile`.
+### 1.1 Register the identifier
 
-Apple lists Keychain Sharing as supported for Developer ID apps in its
-[macOS capability matrix](https://developer.apple.com/help/account/reference/supported-capabilities-macos).
+1. Open **Identifiers**, click **+**, and choose **App IDs → App**.
+2. Enter a description such as `OwnKeep`.
+3. Select an **Explicit** Bundle ID and enter `com.shaojiang.ownkeep`.
+4. Leave the **Capabilities**, **App Services**, and **Capability Requests** tabs unchanged. It is
+   correct that searching them does not show Keychain Sharing for this registration flow; OwnKeep
+   uses its app identifier as a private Keychain group and does not enable cross-app sharing.
+5. Click **Continue**, review the values, and click **Register**.
 
-If the certificate is not installed yet:
+### 1.2 Create the Developer ID Application certificate
 
-1. Open Keychain Access.
-2. Choose **Certificate Assistant → Request a Certificate From a Certificate Authority**.
-3. Save the certificate signing request (CSR) to disk.
-4. Use the CSR to create the Developer ID Application certificate in Apple Developer.
-5. Download and open the `.cer` file.
-6. Confirm the certificate and its private key appear under **My Certificates** in Keychain Access.
+From the newly registered identifier list:
+
+1. Click **Certificates** in the left sidebar, then click **+**.
+2. Under **Software**, choose **Developer ID**, then choose **Developer ID Application** — not
+   Developer ID Installer — and click **Continue**.
+3. When the portal requests a certificate signing request (CSR), open **Keychain Access** and choose
+   **Certificate Assistant → Request a Certificate From a Certificate Authority**.
+4. Enter the Apple Account email address, enter a recognizable common name such as
+   `OwnKeep Developer ID`, leave the CA email address empty, choose **Saved to disk**, and save the
+   `.certSigningRequest` file.
+5. Return to the portal, upload that CSR, click **Continue**, and download the generated `.cer`.
+6. Open the `.cer` file to install it. In Keychain Access → **My Certificates**, expand the
+   **Developer ID Application** certificate and confirm that its private key appears underneath it.
+
+Apple's current [Developer ID certificate instructions](https://developer.apple.com/help/account/certificates/create-developer-id-certificates/)
+describe the same CSR, download, and installation flow.
+
+### 1.3 Create the Developer ID provisioning profile
+
+After the Developer ID Application certificate is installed:
+
+1. Click **Profiles** in the portal's left sidebar, then click **+**.
+2. Under **Distribution**, choose **Developer ID** and click **Continue**.
+3. Select the explicit OwnKeep App ID (`com.shaojiang.ownkeep`) and click **Continue**.
+4. Select the Developer ID Application certificate created above and click **Continue**.
+5. Name the profile `OwnKeep Developer ID`, click **Generate**, then click **Download**.
+6. Keep the downloaded file as `OwnKeep_Developer_ID.provisionprofile` for section 3.
+
+Do not go back and add a Keychain Sharing capability before generating this profile. The profile
+binds the Team ID, App ID prefix, explicit Bundle ID, and Developer ID certificate; section 3
+verifies its entitlement allowlist before it is used.
 
 Verify the installed identity:
 
@@ -122,7 +151,7 @@ The output should include a value resembling:
 Developer ID Application: Your Name (TEAMID)
 ```
 
-Apple documents why `keychain-access-groups` requires a profile and why a macOS profile belongs at
+Apple documents why restricted entitlements require a profile and why a macOS profile belongs at
 `OwnKeep.app/Contents/embedded.provisionprofile` in
 [TN3125](https://developer.apple.com/documentation/Technotes/tn3125-inside-code-signing-provisioning-profiles).
 
@@ -144,22 +173,21 @@ hand-written plist.
   <string>APP_ID_PREFIX.com.shaojiang.ownkeep</string>
   <key>com.apple.developer.team-identifier</key>
   <string>TEAM_ID</string>
-  <key>keychain-access-groups</key>
-  <array>
-    <string>APP_ID_PREFIX.com.shaojiang.ownkeep</string>
-  </array>
 </dict>
 </plist>
 ```
 
-The group is private to OwnKeep even though the entitlement is named `keychain-access-groups`.
-OwnKeep does not share the biometric key with another app. The current native code relies on this
-single group as its default Keychain access group.
+`APP_ID_PREFIX.com.shaojiang.ownkeep` is OwnKeep's private Keychain access group because the native
+code does not specify `kSecAttrAccessGroup`. Do not add `keychain-access-groups` unless OwnKeep later
+needs to share Keychain items with a second app. Adding such an entitlement changes the ordered
+access-group list and can change the default group, so that would require an intentional migration
+design for already-enrolled biometric items.
 
 Apple's [distribution-signing guide](https://developer.apple.com/documentation/xcode/creating-distribution-signed-code-for-the-mac)
-shows these three entitlements for manually signed macOS code. Apple's
-[Keychain access-groups reference](https://developer.apple.com/documentation/bundleresources/entitlements/keychain-access-groups)
-explains the Keychain Sharing capability.
+explains manual distribution signing. Apple's
+[Keychain access-group documentation](https://developer.apple.com/documentation/security/sharing-access-to-keychain-items-among-a-collection-of-apps)
+explains that the application identifier is the default when no Keychain Sharing groups are
+declared.
 
 ## 3. Embed the matching provisioning profile with Tauri
 
@@ -215,11 +243,16 @@ Confirm that the profile:
 
 - has not expired;
 - belongs to the intended Team ID;
-- covers `com.shaojiang.ownkeep`; and
-- authorizes `APP_ID_PREFIX.com.shaojiang.ownkeep`, either exactly or through an allowed wildcard.
+- has `ApplicationIdentifierPrefix` set to the expected App ID prefix;
+- authorizes `APP_ID_PREFIX.com.shaojiang.ownkeep` through its application-identifier entitlement;
+  and
+- includes an entitlement allowlist compatible with the app's exact claims in section 2. A profile
+  may contain a broader `keychain-access-groups` wildcard such as `APP_ID_PREFIX.*`; that is an
+  authorization allowlist in the profile, not a requirement to claim that entitlement in the app
+  signature.
 
-Regenerate the profile after changing an App ID capability. Do not continue with a profile whose
-App ID, team, certificate, or authorized access groups do not match the app.
+Do not continue with a profile whose App ID prefix, Team ID, Bundle ID, certificate, or entitlement
+allowlist does not match the app.
 
 ## 4. Configure release signing and notarization
 
@@ -366,8 +399,10 @@ The signed entitlements must contain:
 ```text
 com.apple.application-identifier = APP_ID_PREFIX.com.shaojiang.ownkeep
 com.apple.developer.team-identifier = TEAM_ID
-keychain-access-groups = [APP_ID_PREFIX.com.shaojiang.ownkeep]
 ```
+
+It is expected that the final app signature does not contain `keychain-access-groups`. In that
+case, the application identifier above is the private default group used by OwnKeep.
 
 Then verify the app signature and stapled app ticket:
 
@@ -469,11 +504,11 @@ Also validate global-hotkey, notification, and Accessibility permission prompts.
 are separate from the Keychain entitlement but should be tested against the same final signature.
 
 From the first signed Touch ID release onward, keep the App ID prefix, Apple Team ID, bundle
-identifier, and Keychain access group stable. Renewing a Developer ID certificate within the same
-team normally preserves that app identity; ad-hoc signing, signing with another team, or changing
-the identifiers does not. A fingerprint-set change invalidates a `biometryCurrentSet` item
-independently and requires Touch ID re-enrollment. The master password and recovery code remain
-unaffected.
+identifier, and resulting private Keychain access group stable. Renewing a Developer ID certificate
+within the same team normally preserves that app identity; ad-hoc signing, signing with another
+team, or changing the identifiers does not. A fingerprint-set change invalidates a
+`biometryCurrentSet` item independently and requires Touch ID re-enrollment. The master password
+and recovery code remain unaffected.
 
 ## 10. Testing Touch ID during development
 
@@ -515,8 +550,9 @@ If Touch ID still reports `errSecMissingEntitlement` (`-34018`), check for these
 
 1. The process is a raw `tauri dev` or Cargo executable rather than the packaged `.app`.
 2. `Contents/embedded.provisionprofile` is missing.
-3. The final signature does not contain `keychain-access-groups`.
-4. The App ID prefix, Team ID, bundle identifier, or access-group value differs between the signature
-   and profile.
-5. The profile was generated before Keychain Sharing was enabled or has expired.
+3. The final signature does not contain `com.apple.application-identifier` and
+   `com.apple.developer.team-identifier` with the expected values.
+4. The App ID prefix, Team ID, Bundle ID, or application-identifier value differs between the
+   signature and profile.
+5. The profile belongs to the wrong App ID or certificate, or has expired.
 6. The app was re-signed after packaging without preserving the entitlements.

@@ -238,7 +238,7 @@ describe("SubscriptionsListView", () => {
     expect(subscriptionRowServices()).toEqual(["Figma", "Linode", "Apple"]);
 
     await user.click(
-      screen.getByRole("button", { name: /sort next due ascending/i }),
+      screen.getByRole("button", { name: /sort next date ascending/i }),
     );
     expect(subscriptionRowServices()).toEqual(["Figma", "Linode", "Apple"]);
 
@@ -311,7 +311,7 @@ describe("SubscriptionsListView", () => {
       screen.getByLabelText("Subscription custom interval days"),
       "45",
     );
-    await pickDate(user, "Subscription next due date", "2026-07-15");
+    await pickDate(user, "Subscription next invoice date", "2026-07-15");
     await user.clear(screen.getByLabelText("Subscription reminder lead days"));
     await user.type(
       screen.getByLabelText("Subscription reminder lead days"),
@@ -363,7 +363,7 @@ describe("SubscriptionsListView", () => {
       screen.getByLabelText("Subscription cycle"),
       "yearly",
     );
-    await pickDate(user, "Subscription next due date", "2026-08-01");
+    await pickDate(user, "Subscription next invoice date", "2026-08-01");
     await user.click(screen.getByRole("button", { name: "Save" }));
     expect(saveSubscription).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -414,7 +414,7 @@ describe("SubscriptionsListView", () => {
     expect(deleteSubscription).toHaveBeenCalledWith("sub-1");
   });
 
-  it("shows a due-status badge for next due dates", () => {
+  it("shows invoice-status badges for auto renew and due badges for manual", () => {
     const now = dayjs();
     render(
       <SubscriptionsListView
@@ -437,13 +437,21 @@ describe("SubscriptionsListView", () => {
             service: "Soon sub",
             nextDueDate: now.add(2, "day").toISOString(),
           },
+          {
+            ...item,
+            id: "manual-soon",
+            service: "Manual soon",
+            autoRenew: false,
+            nextDueDate: now.add(3, "day").toISOString(),
+          },
         ]}
       />,
     );
 
     expect(screen.getByText("Overdue")).toBeVisible();
-    expect(screen.getByText("Due today")).toBeVisible();
-    expect(screen.getByText("Due in 2 days")).toBeVisible();
+    expect(screen.getByText("Invoice today")).toBeVisible();
+    expect(screen.getByText("Invoice in 2 days")).toBeVisible();
+    expect(screen.getByText("Due in 3 days")).toBeVisible();
   });
 
   it("renders detail fields", () => {

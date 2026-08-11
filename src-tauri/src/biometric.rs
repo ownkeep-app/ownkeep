@@ -20,7 +20,8 @@ use crate::error::{Error, Result};
 pub struct BiometricStatus {
     /// Touch ID hardware is present and a fingerprint is enrolled on this Mac.
     pub available: bool,
-    /// OwnKeep has a biometric key for this vault: the container wrap *and* the Keychain item exist.
+    /// This vault carries a biometric wrap and Touch ID is available. The protected Keychain item
+    /// is verified only by an explicit unlock/update so a status refresh never prompts.
     pub enrolled: bool,
 }
 
@@ -28,7 +29,8 @@ pub struct BiometricStatus {
 pub trait BiometricKeyStore {
     /// Whether Touch ID can be used on this Mac right now (sensor present + a fingerprint enrolled).
     fn is_available(&self) -> bool;
-    /// Whether OwnKeep's biometric key item exists — a non-prompting check (never shows Touch ID).
+    /// Whether OwnKeep's biometric key item exists. On macOS, inspecting an access-controlled item
+    /// may authenticate, so routine status checks must not call this method.
     fn has_key(&self) -> bool;
     /// Store (creating or replacing) the biometric-gated wrapping key.
     fn store_key(&self, key: &Key) -> Result<()>;
@@ -39,8 +41,11 @@ pub trait BiometricKeyStore {
 }
 
 /// Derive the Touch ID status from the store plus whether the on-disk container carries a wrap
-/// (spec §4.7). Pure over the trait, so it is exercised without hardware. `enrolled` requires all
-/// three: hardware available, the container wrap present, and the Keychain key present.
+/// (spec §4.7). Pure over the trait, so it is exercised without hardware. The on-disk biometric
+/// wrap is the non-secret enrollment marker; the protected Keychain item is read only during an
+/// explicit unlock/update action. This keeps lock-screen and Settings status refreshes from
+/// showing a second Touch ID prompt. If the item was deleted or invalidated, the explicit unlock
+/// fails cleanly and the user can fall back to the master password or re-enroll.
 pub fn status_from<S: BiometricKeyStore + ?Sized>(
     store: &S,
     wrap_present: bool,
@@ -48,7 +53,7 @@ pub fn status_from<S: BiometricKeyStore + ?Sized>(
     let available = store.is_available();
     BiometricStatus {
         available,
-        enrolled: available && wrap_present && store.has_key(),
+        enrolled: available && wrap_present,
     }
 }
 
@@ -141,10 +146,11 @@ impl BiometricKeyStore for SystemBiometricKeyStore {
 
     fn has_key(&self) -> bool {
         use security_framework::item::{ItemClass, ItemSearchOptions, Limit};
-        // Attributes-only search: `load_data(false)` means the protected data is never read, so this
-        // existence probe does NOT trigger a Touch ID prompt (it runs on the lock screen).
-        // `ignore_legacy_keychains` is this builder's spelling of `kSecUseDataProtectionKeychain`,
-        // so the probe looks in the same Keychain `protected_item_query` writes to.
+        // This helper is used only by explicit key-management actions. macOS may still authenticate
+        // an access-controlled item even when only its attributes are requested, so status_from
+        // deliberately relies on the container wrap instead. `ignore_legacy_keychains` is this
+        // builder's spelling of `kSecUseDataProtectionKeychain`, keeping management operations in
+        // the same Keychain that `protected_item_query` writes to.
         ItemSearchOptions::new()
             .class(ItemClass::generic_password())
             .service(KEYCHAIN_SERVICE)
@@ -296,9 +302,9 @@ mod tests {
     use crate::crypto::random_key;
 
     #[test]
-    fn enrolled_requires_available_wrap_and_key() {
+    fn enrolled_requires_available_hardware_and_wrap() {
         let store = FakeBiometricKeyStore::available();
-        // Available but neither wrap nor key → not enrolled.
+        // Available but no wrap → not enrolled.
         assert_eq!(
             status_from(&store, false),
             BiometricStatus {
@@ -306,13 +312,49 @@ mod tests {
                 enrolled: false
             }
         );
-        // Wrap present but no Keychain key → not enrolled.
-        assert!(!status_from(&store, true).enrolled);
-        // Both present → enrolled.
+        // The wrap is the non-prompting enrollment marker; an invalidated/missing key is discovered
+        // only during an explicit unlock, which then falls back to the master password.
+        assert!(status_from(&store, true).enrolled);
+        // Key presence does not change the status result.
         store.store_key(&random_key().unwrap()).unwrap();
         assert!(status_from(&store, true).enrolled);
         // Key present but wrap absent → not enrolled.
         assert!(!status_from(&store, false).enrolled);
+    }
+
+    #[test]
+    fn status_does_not_read_the_biometric_gated_key() {
+        struct NonPromptingStatusStore;
+
+        impl BiometricKeyStore for NonPromptingStatusStore {
+            fn is_available(&self) -> bool {
+                true
+            }
+
+            fn has_key(&self) -> bool {
+                panic!("status must not query the biometric-gated Keychain item")
+            }
+
+            fn store_key(&self, _key: &Key) -> Result<()> {
+                unreachable!()
+            }
+
+            fn load_key(&self) -> Result<Key> {
+                unreachable!()
+            }
+
+            fn delete_key(&self) -> Result<()> {
+                unreachable!()
+            }
+        }
+
+        assert_eq!(
+            status_from(&NonPromptingStatusStore, true),
+            BiometricStatus {
+                available: true,
+                enrolled: true,
+            }
+        );
     }
 
     #[test]
@@ -412,12 +454,11 @@ mod tests {
 
     #[cfg(target_os = "macos")]
     #[test]
-    fn system_store_probes_are_non_prompting() {
-        // Best-effort on the macOS test host: the availability + existence probes run on the lock
-        // screen and in settings, so they must never prompt or panic. They are read-only, so this
-        // does not touch any real enrollment (store/load are validated manually — plan Phase 13).
+    fn system_status_probe_is_non_prompting() {
+        // Best-effort on the macOS test host: status reads hardware availability and the container
+        // wrap only. It must not inspect the protected Keychain item, which can show Touch ID even
+        // for an attributes-only query (store/load are validated manually — plan Phase 13).
         let store = SystemBiometricKeyStore::new();
-        let _ = store.is_available();
-        let _ = store.has_key();
+        let _ = status_from(&store, true);
     }
 }

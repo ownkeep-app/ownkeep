@@ -30,6 +30,9 @@ vi.mock("@/vault/api", () => ({
     unlockRecovery: vi.fn(async () => {}),
     unlockBiometric: vi.fn(async () => {}),
     biometricStatus: vi.fn(async () => ({ available: false, enrolled: false })),
+    getVault: vi.fn(async () => "{}"),
+    setAutoLock: vi.fn(async () => {}),
+    setHotkeys: vi.fn(async () => {}),
   },
 }));
 
@@ -76,6 +79,23 @@ describe("Dashboard", () => {
     expect(
       screen.getByRole("button", { name: /^unlock$/i }),
     ).toBeInTheDocument();
+  });
+
+  it("stays in the Dashboard and renders the vault after Touch ID unlock", async () => {
+    api.biometricStatus.mockResolvedValue({ available: true, enrolled: true });
+    useVaultStore.setState({ status: "locked", model: null });
+    const user = userEvent.setup();
+
+    render(<Dashboard />);
+    await user.click(
+      await screen.findByRole("button", { name: /unlock with touch id/i }),
+    );
+
+    expect(api.unlockBiometric).toHaveBeenCalledOnce();
+    expect(
+      await screen.findByRole("heading", { name: "Passwords" }),
+    ).toBeVisible();
+    expect(useVaultStore.getState().status).toBe("unlocked");
   });
 
   it("shows onboarding, reset, migration, and incompatible auth screens", () => {

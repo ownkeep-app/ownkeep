@@ -20,6 +20,11 @@ export { dateInputToIso, formatDate, isoToDateInput };
 
 const DAY_MS = 86_400_000;
 
+/** Manual renewals are due dates; auto-renew is the next invoice date. */
+export function subscriptionNextDateLabel(autoRenew: boolean): string {
+  return autoRenew ? "Next invoice date" : "Due date";
+}
+
 export interface CurrencyTotal {
   currency: string;
   monthly: number;
@@ -95,7 +100,9 @@ export function buildSubscriptionIndex(
     displayLine: `${item.service} - ${formatCurrencyAmount(
       item.amount,
       item.currency,
-    )} ${cycleLabel(item.cycle)} - due ${formatDate(item.nextDueDate)}`,
+    )} ${cycleLabel(item.cycle)} - ${
+      item.autoRenew ? "invoice" : "due"
+    } ${formatDate(item.nextDueDate)}`,
   }));
 }
 
@@ -214,7 +221,9 @@ export function validateSubscriptionInput(
   ) {
     return "Custom interval must be a positive whole number of days.";
   }
-  if (!dateInputToIso(input.nextDueDate)) return "Next due date is required.";
+  if (!dateInputToIso(input.nextDueDate)) {
+    return `${subscriptionNextDateLabel(input.autoRenew)} is required.`;
+  }
   if (!Number.isInteger(Number(input.notifyLeadDays))) {
     return "Reminder lead must be a whole number of days.";
   }
@@ -296,7 +305,9 @@ export function collectSubscriptionReminders(
     return [
       {
         id: `${item.id}:due`,
-        title: `Subscription due: ${item.service}`,
+        title: item.autoRenew
+          ? `Subscription invoice: ${item.service}`
+          : `Subscription due: ${item.service}`,
         body: formatReminderBody(item),
       },
     ];
@@ -405,7 +416,9 @@ function readFinanceSettings(
 
 function formatReminderBody(item: SubscriptionEntry): string {
   const parts = [
-    `Due ${formatDate(item.nextDueDate)}`,
+    item.autoRenew
+      ? `Invoice ${formatDate(item.nextDueDate)}`
+      : `Due ${formatDate(item.nextDueDate)}`,
     formatCurrencyAmount(item.amount, item.currency),
     item.autoRenew ? "auto-renew" : "manual renewal",
   ];

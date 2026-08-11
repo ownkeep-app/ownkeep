@@ -348,11 +348,14 @@ without this vault file (defense in depth).
 - **Enable / disable:** enable = generate + Keychain-store `KEK_biometric`, wrap the DEK, persist
   `wrapped_biometric`. Disable = delete the Keychain item and drop `wrapped_biometric`. Toggled from
   Settings → System → Security (§9).
-- **Availability & fallback:** the Touch ID button appears only when the sensor is present *and*
-  enrolled; a failed/canceled prompt, a missing sensor, or an invalidated item (fingerprints
-  changed) falls back to the master-password field with no data change. **Enrolled state is derived
-  in Rust** (`wrapped_biometric` present ∧ Keychain key present ∧ hardware available) — it is
-  **not** stored in `settings`, so there is no encrypted-model schema change and nothing to drift.
+- **Availability & fallback:** the Touch ID button appears only when the sensor is available and the
+  vault carries `wrapped_biometric`. A failed/canceled prompt, a missing sensor, or an invalidated /
+  missing Keychain item (for example, after fingerprints change) falls back to the master-password
+  field with no data change. **Enrolled status is derived in Rust without reading the protected
+  key** (`wrapped_biometric` present ∧ hardware available), because even an attributes-only
+  Keychain lookup can show an authentication prompt on macOS. The Keychain item is validated only
+  during an explicit unlock/update action. Status is **not** stored in `settings`, so there is no
+  encrypted-model schema change and nothing to drift.
 - **Auto-lock still applies:** Touch ID unlocks whenever the vault is locked (cold start or after
   auto-lock); it does not weaken the idle timeout or `zeroize`-on-lock (§4.3).
 - **Backups exclude Touch ID (§11).** Enrollment is device-local, so `wrapped_biometric` is
@@ -511,18 +514,19 @@ so editing a rate re-totals every snapshot. Future calendar/notes modules add th
 - Optional lightweight **recurrence** (`none` | `daily` | `weekly`) — keep minimal; no full RRULE. Checking Done always marks the item done (moves it to the Done tab); recurrence is metadata for the task, not an auto-postpone on complete.
 - **Due status badges** (open todos with a due date): the list Due column shows only the colorful chip (**Overdue** / **Due today** / **Due in N days**, calendar-day diff via dayjs) — not the absolute datetime. Done and undated open todos still show the formatted due text (or “No due date”). Detail/done rows show date + time.
 - **Priority badges**: list and detail views show a colored chip with icon — **High** (rose), **Normal** (neutral), **Low** (sky).
-- **Date fields (shared):** subscription next due and finance snapshot date use a date-only DatePicker (stored as local end-of-day). Todo due uses a DateTimePicker (date + editable time, default `23:59:59`).
+- **Date fields (shared):** subscription next date (`nextDueDate` — labeled **Next invoice date** when Auto, **Due date** when Manual) and finance snapshot date use a date-only DatePicker (stored as local end-of-day). Todo due uses a DateTimePicker (date + editable time, default `23:59:59`).
 - **Notifications** fire at `dueAt − notifyLeadMinutes` via the shared scheduler (§8). Completing or snoozing a todo from the notification is a nice-to-have.
 - Optional command-bar search when `searchable` is on (off by default; scope `t `). Activating a todo hit opens the Dashboard Todos pane (no per-item focus). Dashboard is the primary surface for complete/edit.
 - **Acceptance:** add/complete/delete; due todos notify once per window; checking Done marks the item done (including recurring); open dated todos show the correct due-status badge.
 
 #### M2 — Subscriptions tracker (module `subscriptions`)
-- Track: **service, URL, amount + currency, cycle (weekly/monthly/yearly/custom), next due date, auto-renew, per-item notify-lead-days, notes.** Info-only (no payment integration).
-- **Due status badges** (same calendar-day chip as todos): the list Next due column shows only **Overdue** / **Due today** / **Due in N days** — not the absolute date. Detail shows the formatted date plus the chip.
+- Track: **service, URL, amount + currency, cycle (weekly/monthly/yearly/custom), next date (`nextDueDate`), auto-renew, per-item notify-lead-days, notes.** Info-only (no payment integration).
+- **Next date wording** depends on renewal: **Auto** → **Next invoice date** (badges: Overdue / Invoice today / Invoice in N days); **Manual** → **Due date** (badges: Overdue / Due today / Due in N days). The list column header is the neutral **Next date**; absolute date still shows only in detail.
+- **Due status badges** (same calendar-day chip pattern as todos): the list Next date column shows only the relative chip — not the absolute date. Detail shows the formatted date plus the chip.
 - **List:** a headerless billing-URL column (left of the ⋮ menu) shows a **Link** icon when `url` is http(s); empty or non-http URLs show nothing. Click opens in the system browser (§4 / passwords login-URL pattern).
-- **Notifications** when within the lead window; lead configurable globally + per item.
+- **Notifications** when within the lead window; lead configurable globally + per item. Auto reminders say “invoice”; manual say “due”.
 - **FX rates:** the same header **FX rates** control as Finance opens the shared manual rate table (`settings.modules.finance`) used for the converted summary.
-- **Acceptance:** editing due date/cycle reschedules; open dated rows show the correct due-status badge; a monthly total + annualized summary is shown across all subscriptions (converted to `finance.baseCurrency` if Finance is enabled, else raw); FX rates can be edited from the Subscriptions header.
+- **Acceptance:** editing next date/cycle reschedules; open dated rows show the correct status badge with Auto/Manual wording; a monthly total + annualized summary is shown across all subscriptions (converted to `finance.baseCurrency` if Finance is enabled, else raw); FX rates can be edited from the Subscriptions header.
 
 #### M3 — Finance snapshots (module `finance`)
 - **Monthly-ish snapshots**, each a set of `{place, holder, category, amount, currency, dueDate?}` across bank / crypto / real estate / stock / gold / lent / e-wallet / etc.
@@ -580,7 +584,7 @@ input opens the Dashboard (§7.6).
 | Password | `GitHub — shao` | copy password (Rust → concealed clipboard) |
 | Command | `Git command to delete a remote branch: git push origin --delete {{branch}}` | fill-in placeholders → copy completed (⌥⌘n = raw) |
 | Todo | `☐ Renew passport — due Fri` | open Dashboard → Todos |
-| Subscription | `Linode — $20/mo — due Jul 20 — auto-renew` | open Dashboard → Subscriptions |
+| Subscription | `Linode — $20/mo — invoice Jul 20 — auto-renew` | open Dashboard → Subscriptions |
 | Finance | `Snapshot Jul 2026 — $17,540` | open Dashboard → Finance |
 
 ### 7.5 The Dashboard (browse & manage) — the second surface

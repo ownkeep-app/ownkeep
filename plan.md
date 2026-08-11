@@ -312,16 +312,19 @@ v1.1 builds refuse the resulting file. Document both facts and keep `$verify` ho
   container **without** the field parses (`None`) and one **with** it round-trips and is ignored by an
   old-shape v2 serde reader (field-level backward compatibility). Frontend (Vitest) — LockScreen shows/hides the Touch ID button
   per mocked `biometric_status` and falls back to the password on failure; SettingsPanel
-  enable/disable/re-enroll call the right API and the backup notice shows only when enrolled. Keep
-  coverage **>95%** on both surfaces (Phase 2.2 bar); mock the Keychain/LAContext boundary and
-  validate the native path manually.
+  enable/disable/re-enroll call the right API and the backup notice shows only when enrolled;
+  `biometric_status` derives from hardware + the container wrap without reading the protected
+  Keychain item, so routine focus/status refreshes never prompt. Keep coverage **>95%** on both
+  surfaces (Phase 2.2 bar); mock the Keychain/LAContext boundary and validate the native path
+  manually.
 - **Exit:** the **master password and recovery code always unlock** and are the only authoritative
   credentials (disabling/losing Touch ID never locks the user out). On a signed build, enrolling
   while unlocked stores a biometric-gated key and Touch ID unlocks the vault (path C);
   enable/disable/re-enroll work from Settings → System → Security; **backups exclude
   `wrapped_biometric`** and show the notice, and a restored vault has Touch ID off and can be
-  re-enabled fresh; an absent sensor, denied prompt, or fingerprint-set change falls back cleanly to
-  the password with **no encrypted-model change**; v1.1 could read the additive biometric field in
+  re-enabled fresh; routine status checks never prompt, while an absent sensor, denied prompt, or
+  fingerprint-set change is detected on explicit use and falls back cleanly to the password with
+  **no encrypted-model change**; v1.1 could read the additive biometric field in
   v2 containers, while v1.2 mutations intentionally move the file to forward-incompatible v3;
   `pnpm check` + coverage stay green.
 - **Deps:** Phase 12 (post-v1.0 baseline). Builds on the Phase 1 envelope, the Phase 3 `objc2`

@@ -1,5 +1,9 @@
 import { cn } from "@/lib/utils";
-import { calendarDueStatus, type DueStatusKind } from "@/lib/due-status";
+import {
+  calendarDueStatus,
+  type DueStatusKind,
+  type DueStatusVocabulary,
+} from "@/lib/due-status";
 
 const DUE_STATUS_BADGE_CLASS: Record<DueStatusKind, string> = {
   overdue:
@@ -9,17 +13,20 @@ const DUE_STATUS_BADGE_CLASS: Record<DueStatusKind, string> = {
   upcoming: "bg-sky-500/15 text-sky-800 dark:bg-sky-400/20 dark:text-sky-200",
 };
 
-/** Colored Overdue / Due today / Due in N days chip (todos + subscriptions). */
+/** Colored relative-date chip (todos + subscriptions). */
 export function DueStatusBadge({
   dueAt,
   inactive = false,
+  vocabulary = "due",
 }: {
   dueAt: string | null | undefined;
   /** When true (e.g. completed todo), hide the badge. */
   inactive?: boolean;
+  /** Auto-renew subscriptions use invoice wording instead of "Due …". */
+  vocabulary?: DueStatusVocabulary;
 }) {
   if (inactive) return null;
-  const status = calendarDueStatus(dueAt);
+  const status = calendarDueStatus(dueAt, new Date(), vocabulary);
   if (!status) return null;
   return (
     <span
