@@ -76,6 +76,8 @@ import {
   formatCurrencyAmount,
   formatDate,
   formFromSubscription,
+  nextAutoInvoiceDate,
+  resolveSubscription,
   sortSubscriptions,
   subscriptionEntries,
   subscriptionNextDateLabel,
@@ -112,7 +114,23 @@ export function SubscriptionsListView({
   const [sortState, setSortState] =
     useState<SortState<SubscriptionSortColumn> | null>(null);
 
-  const subscriptions = useMemo(() => subscriptionEntries(items), [items]);
+  const subscriptions = useMemo(
+    () => subscriptionEntries(items).map((item) => resolveSubscription(item)),
+    [items],
+  );
+
+  useEffect(() => {
+    const now = new Date();
+    for (const item of subscriptionEntries(items)) {
+      const nextDueDate = nextAutoInvoiceDate(item, now);
+      if (nextDueDate === item.nextDueDate) continue;
+      void saveSubscription({
+        ...item,
+        nextDueDate,
+        updatedAt: now.toISOString(),
+      });
+    }
+  }, [items, saveSubscription]);
   const filterCategories = useMemo(
     () =>
       categoryFilterOptions(
@@ -184,13 +202,17 @@ export function SubscriptionsListView({
     item: SubscriptionEntry,
     cycle: SubscriptionEntry["cycle"],
   ) {
-    const updated: SubscriptionEntry = {
-      ...item,
-      cycle,
-      customIntervalDays:
-        cycle === "custom" ? (item.customIntervalDays ?? 30) : null,
-      updatedAt: new Date().toISOString(),
-    };
+    const now = new Date();
+    const updated = resolveSubscription(
+      {
+        ...item,
+        cycle,
+        customIntervalDays:
+          cycle === "custom" ? (item.customIntervalDays ?? 30) : null,
+        updatedAt: now.toISOString(),
+      },
+      now,
+    );
     await saveSubscription(updated);
     setViewing((current) => (current?.id === item.id ? updated : current));
   }
@@ -199,11 +221,15 @@ export function SubscriptionsListView({
     item: SubscriptionEntry,
     autoRenew: boolean,
   ) {
-    const updated: SubscriptionEntry = {
-      ...item,
-      autoRenew,
-      updatedAt: new Date().toISOString(),
-    };
+    const now = new Date();
+    const updated = resolveSubscription(
+      {
+        ...item,
+        autoRenew,
+        updatedAt: now.toISOString(),
+      },
+      now,
+    );
     await saveSubscription(updated);
     setViewing((current) => (current?.id === item.id ? updated : current));
   }
@@ -523,6 +549,7 @@ const subscriptionCycleRank: Record<SubscriptionEntry["cycle"], number> = {
 };
 
 export function SubscriptionDetailView({ item }: { item: SubscriptionEntry }) {
+  const resolved = resolveSubscription(item);
   return (
     <DetailModalBody>
       <DetailModalHero>
@@ -530,45 +557,45 @@ export function SubscriptionDetailView({ item }: { item: SubscriptionEntry }) {
         <div className="mt-1 flex items-start gap-2">
           <CreditCard className="mt-1 h-4 w-4 text-primary" />
           <h2 className="min-w-0 flex-1 text-lg font-semibold">
-            {item.service}
+            {resolved.service}
           </h2>
         </div>
       </DetailModalHero>
       <DetailFields>
         <DetailField
           label="Amount"
-          value={formatCurrencyAmount(item.amount, item.currency)}
+          value={formatCurrencyAmount(resolved.amount, resolved.currency)}
         />
-        <DetailField label="Cycle" value={formatCycleDetail(item)} />
-        <DetailField label={subscriptionNextDateLabel(item.autoRenew)}>
+        <DetailField label="Cycle" value={formatCycleDetail(resolved)} />
+        <DetailField label={subscriptionNextDateLabel(resolved.autoRenew)}>
           <div className="mt-1 flex flex-wrap items-center gap-2 text-sm">
-            <span>{formatDate(item.nextDueDate)}</span>
+            <span>{formatDate(resolved.nextDueDate)}</span>
             <DueStatusBadge
-              dueAt={item.nextDueDate}
-              vocabulary={item.autoRenew ? "invoice" : "due"}
+              dueAt={resolved.nextDueDate}
+              vocabulary={resolved.autoRenew ? "invoice" : "due"}
             />
           </div>
         </DetailField>
         <DetailField
           label="Reminder"
           value={
-            item.autoRenew
-              ? `${item.notifyLeadDays} days before invoice`
-              : `${item.notifyLeadDays} days before due`
+            resolved.autoRenew
+              ? `${resolved.notifyLeadDays} days before invoice`
+              : `${resolved.notifyLeadDays} days before due`
           }
         />
         <DetailField
           label="Renewal"
-          value={item.autoRenew ? "Auto" : "Manual"}
+          value={resolved.autoRenew ? "Auto" : "Manual"}
         />
-        <DetailField label="Category" value={item.category} />
-        <DetailField label="Tags" value={item.tags.join(", ") || "-"} />
-        <DetailUrlField label="Billing URL" value={item.url} />
+        <DetailField label="Category" value={resolved.category} />
+        <DetailField label="Tags" value={resolved.tags.join(", ") || "-"} />
+        <DetailUrlField label="Billing URL" value={resolved.url} />
         <DetailField
           label="Updated"
-          value={new Date(item.updatedAt).toLocaleString()}
+          value={new Date(resolved.updatedAt).toLocaleString()}
         />
-        <DetailFieldSpan label="Notes" value={item.notes || "-"} />
+        <DetailFieldSpan label="Notes" value={resolved.notes || "-"} />
       </DetailFields>
     </DetailModalBody>
   );
@@ -585,7 +612,9 @@ export function SubscriptionEditView({
 }) {
   const { categoryOptions, tagOptions, taxonomy } = useTaxonomySettings();
   const [form, setForm] = useState<SubscriptionFormInput>(() =>
-    item ? formFromSubscription(item) : emptySubscriptionForm(taxonomy),
+    item
+      ? formFromSubscription(resolveSubscription(item))
+      : emptySubscriptionForm(taxonomy),
   );
   const [error, setError] = useState<string | null>(null);
 

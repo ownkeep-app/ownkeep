@@ -1,4 +1,7 @@
+import dayjs from "dayjs";
+
 import { dateInputToIso, formatDate, isoToDateInput } from "@/lib/date";
+import { calendarDueStatus } from "@/lib/due-status";
 import type { IndexEntry, ReminderEvent } from "@/modules/types";
 import type { VaultSettings } from "@/vault/model";
 import {
@@ -23,6 +26,48 @@ const DAY_MS = 86_400_000;
 /** Manual renewals are due dates; auto-renew is the next invoice date. */
 export function subscriptionNextDateLabel(autoRenew: boolean): string {
   return autoRenew ? "Next invoice date" : "Due date";
+}
+
+/**
+ * Auto subscriptions are never overdue: walk the billing cycle forward until
+ * the next invoice is today or later. Manual dues are left unchanged.
+ */
+export function nextAutoInvoiceDate(
+  item: Pick<
+    SubscriptionEntry,
+    "autoRenew" | "cycle" | "customIntervalDays" | "nextDueDate"
+  >,
+  now: Date = new Date(),
+): string {
+  if (!item.autoRenew) return item.nextDueDate;
+  if (calendarDueStatus(item.nextDueDate, now, "invoice")?.kind !== "overdue") {
+    return item.nextDueDate;
+  }
+
+  const startInput = isoToDateInput(item.nextDueDate);
+  if (!startInput) return item.nextDueDate;
+
+  const start = dayjs(startInput);
+  const today = dayjs(now).startOf("day");
+  for (let periods = 1; periods <= 1_200; periods += 1) {
+    const advanced = addBillingCycles(start, item, periods);
+    if (!advanced || !advanced.isValid() || !advanced.isAfter(start, "day")) {
+      return item.nextDueDate;
+    }
+    if (!advanced.startOf("day").isBefore(today)) {
+      return dateInputToIso(advanced.format("YYYY-MM-DD")) ?? item.nextDueDate;
+    }
+  }
+  return item.nextDueDate;
+}
+
+/** Apply {@link nextAutoInvoiceDate} without touching other fields. */
+export function resolveSubscription(
+  item: SubscriptionEntry,
+  now: Date = new Date(),
+): SubscriptionEntry {
+  const nextDueDate = nextAutoInvoiceDate(item, now);
+  return nextDueDate === item.nextDueDate ? item : { ...item, nextDueDate };
 }
 
 export interface CurrencyTotal {
@@ -80,30 +125,34 @@ export function subscriptionEntries(items: unknown[]): SubscriptionEntry[] {
 
 export function buildSubscriptionIndex(
   items: SubscriptionEntry[],
+  now: Date = new Date(),
 ): IndexEntry[] {
-  return items.map((item) => ({
-    id: item.id,
-    moduleId: SUBSCRIPTIONS_MODULE_ID,
-    type: "subscription",
-    searchString: [
-      item.service,
-      item.url,
-      item.currency,
-      item.cycle,
-      item.nextDueDate,
-      item.notes,
-      item.category,
-      item.tags.join(" "),
-    ]
-      .filter(Boolean)
-      .join(" "),
-    displayLine: `${item.service} - ${formatCurrencyAmount(
-      item.amount,
-      item.currency,
-    )} ${cycleLabel(item.cycle)} - ${
-      item.autoRenew ? "invoice" : "due"
-    } ${formatDate(item.nextDueDate)}`,
-  }));
+  return items.map((raw) => {
+    const item = resolveSubscription(raw, now);
+    return {
+      id: item.id,
+      moduleId: SUBSCRIPTIONS_MODULE_ID,
+      type: "subscription",
+      searchString: [
+        item.service,
+        item.url,
+        item.currency,
+        item.cycle,
+        item.nextDueDate,
+        item.notes,
+        item.category,
+        item.tags.join(" "),
+      ]
+        .filter(Boolean)
+        .join(" "),
+      displayLine: `${item.service} - ${formatCurrencyAmount(
+        item.amount,
+        item.currency,
+      )} ${cycleLabel(item.cycle)} - ${
+        item.autoRenew ? "invoice" : "due"
+      } ${formatDate(item.nextDueDate)}`,
+    };
+  });
 }
 
 export function emptySubscriptionForm(
@@ -297,7 +346,8 @@ export function collectSubscriptionReminders(
   now: Date,
   settings: VaultSettings,
 ): ReminderEvent[] {
-  return subscriptionEntries(items).flatMap((item) => {
+  return subscriptionEntries(items).flatMap((raw) => {
+    const item = resolveSubscription(raw, now);
     const dueTime = Date.parse(item.nextDueDate);
     if (Number.isNaN(dueTime)) return [];
     const lead = effectiveLeadDays(item, settings);
@@ -351,7 +401,7 @@ function normalizeSubscriptionEntry(
       item.cycle === "custom" && item.customIntervalDays
         ? item.customIntervalDays
         : null,
-    nextDueDate: item.nextDueDate,
+    nextDueDate: nextAutoInvoiceDate(item, new Date(fallbackUpdatedAt)),
     autoRenew: item.autoRenew,
     notifyLeadDays: item.notifyLeadDays,
     notes: item.notes.trim(),
@@ -412,6 +462,18 @@ function readFinanceSettings(
     return { baseCurrency, rates: {} };
   }
   return { baseCurrency, rates: rates as Record<string, number> };
+}
+
+function addBillingCycles(
+  start: dayjs.Dayjs,
+  item: Pick<SubscriptionEntry, "cycle" | "customIntervalDays">,
+  periods: number,
+): dayjs.Dayjs | null {
+  if (item.cycle === "weekly") return start.add(periods, "week");
+  if (item.cycle === "monthly") return start.add(periods, "month");
+  if (item.cycle === "yearly") return start.add(periods, "year");
+  if (!item.customIntervalDays || item.customIntervalDays <= 0) return null;
+  return start.add(periods * item.customIntervalDays, "day");
 }
 
 function formatReminderBody(item: SubscriptionEntry): string {
