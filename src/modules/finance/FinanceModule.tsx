@@ -595,10 +595,11 @@ export function FinanceEditView({
           value={form.date}
         />
       </label>
-      <label className="space-y-1 text-sm font-medium">
+      <label className="col-span-2 space-y-1 text-sm font-medium">
         Note
-        <Input
+        <textarea
           aria-label="Snapshot note"
+          className="min-h-24 w-full rounded-md border border-input bg-card px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
           onChange={(event) =>
             setForm((current) => ({ ...current, note: event.target.value }))
           }

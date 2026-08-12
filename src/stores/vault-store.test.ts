@@ -33,6 +33,11 @@ vi.mock("@/vault/api", () => ({
     })),
     unlock: vi.fn(async () => {}),
     unlockRecovery: vi.fn(async () => {}),
+    unlockBiometric: vi.fn(async () => {}),
+    biometricStatus: vi.fn(async () => ({ available: true, enrolled: true })),
+    enableBiometric: vi.fn(async () => {}),
+    disableBiometric: vi.fn(async () => {}),
+    reenrollBiometric: vi.fn(async () => {}),
     changeMaster: vi.fn(async () => {}),
     lock: vi.fn(async () => {}),
     setAutoLock: vi.fn(async () => {}),
@@ -1201,6 +1206,31 @@ describe("vault store", () => {
       "Cmd+Option+D",
     );
     expect(useVaultStore.getState().status).toBe("unlocked");
+  });
+
+  it("Touch ID enters the same unlocked session and runtime timeout as a password", async () => {
+    api.getVault.mockResolvedValue(
+      JSON.stringify({
+        meta: {
+          schemaVersion: SCHEMA_VERSION,
+          appVersion: APP_VERSION,
+          createdAt: "2026-07-01T00:00:00.000Z",
+          updatedAt: "2026-07-01T00:00:00.000Z",
+        },
+        settings: {
+          autoLockMinutes: 30,
+          globalHotkey: "Cmd+Shift+Space",
+          dashboardHotkey: "Cmd+Shift+D",
+        },
+      }),
+    );
+
+    await useVaultStore.getState().unlockBiometric();
+
+    expect(api.unlockBiometric).toHaveBeenCalledOnce();
+    expect(api.setAutoLock).toHaveBeenCalledWith(30);
+    expect(useVaultStore.getState().status).toBe("unlocked");
+    expect(useVaultStore.getState().model).not.toBeNull();
   });
 
   it("no-ops migration and model actions when their required state is absent", async () => {

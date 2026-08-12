@@ -15,7 +15,7 @@ const subscription: SubscriptionEntry = {
   currency: "USD",
   cycle: "monthly",
   customIntervalDays: null,
-  nextDueDate: "2026-07-10T00:00:00.000Z",
+    nextDueDate: "2099-07-10T00:00:00.000Z",
   autoRenew: true,
   notifyLeadDays: 3,
   notes: "",

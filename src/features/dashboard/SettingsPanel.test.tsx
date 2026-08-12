@@ -262,7 +262,7 @@ describe("SettingsPanel auto-lock", () => {
   });
 });
 
-describe.skip("SettingsPanel Touch ID (§4.7) — deferred until after v1.0", () => {
+describe("SettingsPanel Touch ID (§4.7)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     useVaultStore.setState({

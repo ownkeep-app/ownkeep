@@ -20,7 +20,8 @@ use crate::error::{Error, Result};
 pub struct BiometricStatus {
     /// Touch ID hardware is present and a fingerprint is enrolled on this Mac.
     pub available: bool,
-    /// OwnKeep has a biometric key for this vault: the container wrap *and* the Keychain item exist.
+    /// This vault carries a biometric wrap and Touch ID is available. The protected Keychain item
+    /// is verified only by an explicit unlock/update so a status refresh never prompts.
     pub enrolled: bool,
 }
 
@@ -28,7 +29,8 @@ pub struct BiometricStatus {
 pub trait BiometricKeyStore {
     /// Whether Touch ID can be used on this Mac right now (sensor present + a fingerprint enrolled).
     fn is_available(&self) -> bool;
-    /// Whether OwnKeep's biometric key item exists — a non-prompting check (never shows Touch ID).
+    /// Whether OwnKeep's biometric key item exists. On macOS, inspecting an access-controlled item
+    /// may authenticate, so routine status checks must not call this method.
     fn has_key(&self) -> bool;
     /// Store (creating or replacing) the biometric-gated wrapping key.
     fn store_key(&self, key: &Key) -> Result<()>;
@@ -39,8 +41,11 @@ pub trait BiometricKeyStore {
 }
 
 /// Derive the Touch ID status from the store plus whether the on-disk container carries a wrap
-/// (spec §4.7). Pure over the trait, so it is exercised without hardware. `enrolled` requires all
-/// three: hardware available, the container wrap present, and the Keychain key present.
+/// (spec §4.7). Pure over the trait, so it is exercised without hardware. The on-disk biometric
+/// wrap is the non-secret enrollment marker; the protected Keychain item is read only during an
+/// explicit unlock/update action. This keeps lock-screen and Settings status refreshes from
+/// showing a second Touch ID prompt. If the item was deleted or invalidated, the explicit unlock
+/// fails cleanly and the user can fall back to the master password or re-enroll.
 pub fn status_from<S: BiometricKeyStore + ?Sized>(
     store: &S,
     wrap_present: bool,
@@ -48,7 +53,7 @@ pub fn status_from<S: BiometricKeyStore + ?Sized>(
     let available = store.is_available();
     BiometricStatus {
         available,
-        enrolled: available && wrap_present && store.has_key(),
+        enrolled: available && wrap_present,
     }
 }
 
@@ -86,11 +91,46 @@ pub fn system_store() -> SystemBiometricKeyStore {
 
 // --- macOS implementation -------------------------------------------------------------------------
 
-/// Keychain item identity for the biometric wrapping key.
+/// Keychain item identity for the biometric wrapping key. Release, debug, and test builds must not
+/// share an item: a debug enrollment or a Keychain-writing test must never replace/delete the
+/// production app's device-local Touch ID key.
 #[cfg(target_os = "macos")]
-const KEYCHAIN_SERVICE: &str = "com.shaojiang.ownkeep.biometric";
+const fn keychain_service_for(test_build: bool, debug_build: bool) -> &'static str {
+    if test_build {
+        "com.shaojiang.ownkeep.biometric.test"
+    } else if debug_build {
+        "com.shaojiang.ownkeep.biometric.dev"
+    } else {
+        "com.shaojiang.ownkeep.biometric"
+    }
+}
+
+#[cfg(target_os = "macos")]
+const KEYCHAIN_SERVICE: &str = keychain_service_for(cfg!(test), cfg!(debug_assertions));
 #[cfg(target_os = "macos")]
 const KEYCHAIN_ACCOUNT: &str = "vault-kek";
+
+/// The query identifying OwnKeep's biometric item — shared by store / load / delete so all three
+/// address the *same* item in the *same* Keychain.
+///
+/// macOS `SecItem` calls default to the **legacy file-based Keychain**, which cannot hold a
+/// biometric-gated `SecAccessControl`. Only the **data-protection Keychain** can, so every query
+/// must opt in via `kSecUseDataProtectionKeychain`; without it the item is written to — and looked
+/// for in — the wrong store, and enrollment fails even on a correctly signed build. Deliberately
+/// *not* `kSecAttrSynchronizable`, which would opt into iCloud sync and break the device-local
+/// design (spec §4.7).
+///
+/// This call site doubles as the compile-time guard for the `security-framework/OSX_10_15` feature:
+/// `use_protected_keychain` does not exist without it, whereas `has_key`'s search silently falls
+/// back to the legacy Keychain instead of failing to build.
+#[cfg(target_os = "macos")]
+fn protected_item_query() -> security_framework::passwords_options::PasswordOptions {
+    use security_framework::passwords_options::PasswordOptions;
+
+    let mut options = PasswordOptions::new_generic_password(KEYCHAIN_SERVICE, KEYCHAIN_ACCOUNT);
+    options.use_protected_keychain();
+    options
+}
 
 #[cfg(target_os = "macos")]
 impl BiometricKeyStore for SystemBiometricKeyStore {
@@ -106,12 +146,16 @@ impl BiometricKeyStore for SystemBiometricKeyStore {
 
     fn has_key(&self) -> bool {
         use security_framework::item::{ItemClass, ItemSearchOptions, Limit};
-        // Attributes-only search: `load_data(false)` means the protected data is never read, so this
-        // existence probe does NOT trigger a Touch ID prompt (it runs on the lock screen).
+        // This helper is used only by explicit key-management actions. macOS may still authenticate
+        // an access-controlled item even when only its attributes are requested, so status_from
+        // deliberately relies on the container wrap instead. `ignore_legacy_keychains` is this
+        // builder's spelling of `kSecUseDataProtectionKeychain`, keeping management operations in
+        // the same Keychain that `protected_item_query` writes to.
         ItemSearchOptions::new()
             .class(ItemClass::generic_password())
             .service(KEYCHAIN_SERVICE)
             .account(KEYCHAIN_ACCOUNT)
+            .ignore_legacy_keychains()
             .load_attributes(true)
             .load_data(false)
             .limit(Limit::Max(1))
@@ -123,7 +167,7 @@ impl BiometricKeyStore for SystemBiometricKeyStore {
     fn store_key(&self, key: &Key) -> Result<()> {
         use security_framework::access_control::{ProtectionMode, SecAccessControl};
         use security_framework::passwords::set_generic_password_options;
-        use security_framework::passwords_options::{AccessControlOptions, PasswordOptions};
+        use security_framework::passwords_options::AccessControlOptions;
 
         // BiometryCurrentSet: adding/removing a fingerprint invalidates the item (→ re-enroll, §4.7).
         // WhenUnlockedThisDeviceOnly: never leaves the device, never syncs to iCloud Keychain.
@@ -136,25 +180,25 @@ impl BiometricKeyStore for SystemBiometricKeyStore {
         // Replace any prior item so enable / re-enroll always issues a fresh key.
         self.delete_key()?;
 
-        let mut options = PasswordOptions::new_generic_password(KEYCHAIN_SERVICE, KEYCHAIN_ACCOUNT);
+        let mut options = protected_item_query();
         options.set_access_control(access_control);
         set_generic_password_options(key.as_slice(), options).map_err(sf_err)
     }
 
     fn load_key(&self) -> Result<Key> {
         use security_framework::passwords::generic_password;
-        use security_framework::passwords_options::PasswordOptions;
         // Reading the biometric-gated item triggers the Touch ID prompt (unlock path C, §4.7).
-        let options = PasswordOptions::new_generic_password(KEYCHAIN_SERVICE, KEYCHAIN_ACCOUNT);
-        let bytes = generic_password(options).map_err(sf_err)?;
+        let bytes = generic_password(protected_item_query()).map_err(sf_err)?;
         key_from_bytes(&bytes)
     }
 
     fn delete_key(&self) -> Result<()> {
-        use security_framework::passwords::delete_generic_password;
+        use security_framework::passwords::delete_generic_password_options;
         // Idempotent: only delete when present, so an absent item is not treated as an error.
+        // The options form is required over `delete_generic_password`, which builds its own query
+        // and so would target the legacy Keychain.
         if self.has_key() {
-            delete_generic_password(KEYCHAIN_SERVICE, KEYCHAIN_ACCOUNT).map_err(sf_err)?;
+            delete_generic_password_options(protected_item_query()).map_err(sf_err)?;
         }
         Ok(())
     }
@@ -258,9 +302,9 @@ mod tests {
     use crate::crypto::random_key;
 
     #[test]
-    fn enrolled_requires_available_wrap_and_key() {
+    fn enrolled_requires_available_hardware_and_wrap() {
         let store = FakeBiometricKeyStore::available();
-        // Available but neither wrap nor key → not enrolled.
+        // Available but no wrap → not enrolled.
         assert_eq!(
             status_from(&store, false),
             BiometricStatus {
@@ -268,13 +312,49 @@ mod tests {
                 enrolled: false
             }
         );
-        // Wrap present but no Keychain key → not enrolled.
-        assert!(!status_from(&store, true).enrolled);
-        // Both present → enrolled.
+        // The wrap is the non-prompting enrollment marker; an invalidated/missing key is discovered
+        // only during an explicit unlock, which then falls back to the master password.
+        assert!(status_from(&store, true).enrolled);
+        // Key presence does not change the status result.
         store.store_key(&random_key().unwrap()).unwrap();
         assert!(status_from(&store, true).enrolled);
         // Key present but wrap absent → not enrolled.
         assert!(!status_from(&store, false).enrolled);
+    }
+
+    #[test]
+    fn status_does_not_read_the_biometric_gated_key() {
+        struct NonPromptingStatusStore;
+
+        impl BiometricKeyStore for NonPromptingStatusStore {
+            fn is_available(&self) -> bool {
+                true
+            }
+
+            fn has_key(&self) -> bool {
+                panic!("status must not query the biometric-gated Keychain item")
+            }
+
+            fn store_key(&self, _key: &Key) -> Result<()> {
+                unreachable!()
+            }
+
+            fn load_key(&self) -> Result<Key> {
+                unreachable!()
+            }
+
+            fn delete_key(&self) -> Result<()> {
+                unreachable!()
+            }
+        }
+
+        assert_eq!(
+            status_from(&NonPromptingStatusStore, true),
+            BiometricStatus {
+                available: true,
+                enrolled: true,
+            }
+        );
     }
 
     #[test]
@@ -309,6 +389,50 @@ mod tests {
         assert!(matches!(store.load_key(), Err(Error::BiometricNotEnrolled)));
     }
 
+    /// Every `kSec*` key the store / load / delete query is allowed to carry, as the four-character
+    /// wire values Security.framework uses: `class` (`kSecClass`), `svce` (`kSecAttrService`),
+    /// `acct` (`kSecAttrAccount`), and `nleg` (`kSecUseDataProtectionKeychain`).
+    #[cfg(target_os = "macos")]
+    const EXPECTED_QUERY_KEYS: [&str; 4] = ["acct", "class", "nleg", "svce"];
+
+    /// Pins the exact query OwnKeep hands to macOS. Two §4.7 constraints regress silently and are
+    /// invisible without a signed build, so they are asserted rather than discovered on-device:
+    /// dropping `nleg` sends the query to the legacy Keychain, which cannot hold a biometric-gated
+    /// item; adding `sync` (`kSecAttrSynchronizable`) would opt the wrapping key into iCloud.
+    /// Asserting the whole set — not just `nleg`'s presence — is what catches the second one.
+    ///
+    /// `has_key`'s search cannot be covered this way: `ItemSearchOptions` keeps its query private,
+    /// so that path stays covered by the manual on-device check (plan Phase 13).
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn protected_query_targets_data_protection_keychain_and_nothing_else() {
+        #[allow(deprecated)]
+        let mut keys: Vec<String> = protected_item_query()
+            .query
+            .iter()
+            .map(|(key, _)| key.to_string())
+            .collect();
+        keys.sort();
+
+        assert_eq!(keys, EXPECTED_QUERY_KEYS);
+    }
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn keychain_services_are_isolated_by_build_channel() {
+        let production = keychain_service_for(false, false);
+        let development = keychain_service_for(false, true);
+        let tests = keychain_service_for(true, true);
+
+        assert_eq!(production, "com.shaojiang.ownkeep.biometric");
+        assert_eq!(development, "com.shaojiang.ownkeep.biometric.dev");
+        assert_eq!(tests, "com.shaojiang.ownkeep.biometric.test");
+        assert_ne!(production, development);
+        assert_ne!(production, tests);
+        assert_ne!(development, tests);
+        assert_eq!(KEYCHAIN_SERVICE, tests);
+    }
+
     #[cfg(target_os = "macos")]
     #[test]
     fn diag_store_key_reports_the_real_error() {
@@ -330,12 +454,11 @@ mod tests {
 
     #[cfg(target_os = "macos")]
     #[test]
-    fn system_store_probes_are_non_prompting() {
-        // Best-effort on the macOS test host: the availability + existence probes run on the lock
-        // screen and in settings, so they must never prompt or panic. They are read-only, so this
-        // does not touch any real enrollment (store/load are validated manually — plan Phase 13).
+    fn system_status_probe_is_non_prompting() {
+        // Best-effort on the macOS test host: status reads hardware availability and the container
+        // wrap only. It must not inspect the protected Keychain item, which can show Touch ID even
+        // for an attributes-only query (store/load are validated manually — plan Phase 13).
         let store = SystemBiometricKeyStore::new();
-        let _ = store.is_available();
-        let _ = store.has_key();
+        let _ = status_from(&store, true);
     }
 }

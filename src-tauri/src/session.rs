@@ -772,6 +772,25 @@ mod tests {
     }
 
     #[test]
+    fn biometric_unlock_uses_the_same_auto_lock_timeout_as_password_unlock() {
+        let dir = unique_temp_dir();
+        let path = dir.join(VAULT_FILE);
+        let store = FakeBiometricKeyStore::available();
+        let timeout = Duration::from_secs(5 * 60);
+        let mut s = Session::new(Some(timeout));
+        s.create(&path, "pw", TEST_ARGON).unwrap();
+        s.enable_biometric(&path, &store).unwrap();
+
+        s.lock();
+        s.unlock_biometric(&path, &store).unwrap();
+
+        let unlocked_at = s.unlocked.as_ref().unwrap().last_activity;
+        assert!(!s.is_idle_expired(unlocked_at + timeout - Duration::from_secs(1)));
+        assert!(s.is_idle_expired(unlocked_at + timeout));
+        fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
     fn disable_biometric_clears_key_and_wrap_but_password_still_unlocks() {
         let dir = unique_temp_dir();
         let path = dir.join(VAULT_FILE);
@@ -790,6 +809,31 @@ mod tests {
             Err(Error::BiometricNotEnrolled)
         ));
         // The authoritative credential always works (§4.7).
+        s.unlock_password(&path, "pw").unwrap();
+        assert!(s.is_unlocked());
+        fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
+    fn missing_biometric_key_falls_back_without_turning_status_into_a_prompt() {
+        let dir = unique_temp_dir();
+        let path = dir.join(VAULT_FILE);
+        let store = FakeBiometricKeyStore::available();
+        let mut s = session();
+        s.create(&path, "pw", TEST_ARGON).unwrap();
+        s.enable_biometric(&path, &store).unwrap();
+
+        // Simulate macOS invalidating/removing the device-local item while its wrap remains in the
+        // vault. Status stays non-prompting; explicit unlock discovers the stale key and falls back.
+        store.delete_key().unwrap();
+        assert!(biometric_status(&path, &store).enrolled);
+        s.lock();
+        assert!(matches!(
+            s.unlock_biometric(&path, &store),
+            Err(Error::BiometricNotEnrolled)
+        ));
+        assert!(!s.is_unlocked());
+
         s.unlock_password(&path, "pw").unwrap();
         assert!(s.is_unlocked());
         fs::remove_dir_all(&dir).ok();

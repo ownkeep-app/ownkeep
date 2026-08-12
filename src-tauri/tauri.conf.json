@@ -47,7 +47,12 @@
       "icons/icon.ico"
     ],
     "macOS": {
-      "infoPlist": "Info.plist"
+      "infoPlist": "Info.plist",
+      "hardenedRuntime": true,
+      "entitlements": "./OwnKeep.entitlements",
+      "files": {
+        "embedded.provisionprofile": "./signing/OwnKeep_Developer_ID.provisionprofile"
+      }
     }
   }
 }

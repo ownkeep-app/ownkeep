@@ -7,10 +7,12 @@ import { chooseRowAction, confirmDelete } from "@/test/row-actions";
 import { pickDate } from "@/test/date-picker";
 import { useVaultStore } from "@/stores/vault-store";
 import { createDefaultModel } from "@/vault/model";
+import { dateInputToIso } from "@/lib/date";
 import {
   SubscriptionDetailView,
   SubscriptionsListView,
 } from "./SubscriptionsModule";
+import { nextAutoInvoiceDate } from "./logic";
 import type { SubscriptionEntry } from "./types";
 
 const openUrl = vi.fn(async (_url: string) => {});
@@ -31,7 +33,7 @@ const item: SubscriptionEntry = {
   currency: "USD",
   cycle: "monthly",
   customIntervalDays: null,
-  nextDueDate: "2026-07-10T00:00:00.000Z",
+  nextDueDate: dayjs().add(14, "day").toISOString(),
   autoRenew: true,
   notifyLeadDays: 3,
   notes: "VPS",
@@ -238,7 +240,7 @@ describe("SubscriptionsListView", () => {
     expect(subscriptionRowServices()).toEqual(["Figma", "Linode", "Apple"]);
 
     await user.click(
-      screen.getByRole("button", { name: /sort next due ascending/i }),
+      screen.getByRole("button", { name: /sort next date ascending/i }),
     );
     expect(subscriptionRowServices()).toEqual(["Figma", "Linode", "Apple"]);
 
@@ -311,7 +313,7 @@ describe("SubscriptionsListView", () => {
       screen.getByLabelText("Subscription custom interval days"),
       "45",
     );
-    await pickDate(user, "Subscription next due date", "2026-07-15");
+    await pickDate(user, "Subscription next invoice date", "2026-07-15");
     await user.clear(screen.getByLabelText("Subscription reminder lead days"));
     await user.type(
       screen.getByLabelText("Subscription reminder lead days"),
@@ -363,14 +365,14 @@ describe("SubscriptionsListView", () => {
       screen.getByLabelText("Subscription cycle"),
       "yearly",
     );
-    await pickDate(user, "Subscription next due date", "2026-08-01");
+    await pickDate(user, "Subscription next invoice date", "2026-09-01");
     await user.click(screen.getByRole("button", { name: "Save" }));
     expect(saveSubscription).toHaveBeenCalledWith(
       expect.objectContaining({
         id: "sub-1",
         service: "Linode Pro",
         cycle: "yearly",
-        nextDueDate: new Date(2026, 7, 1, 23, 59, 59, 0).toISOString(),
+        nextDueDate: new Date(2026, 8, 1, 23, 59, 59, 0).toISOString(),
       }),
     );
 
@@ -414,15 +416,16 @@ describe("SubscriptionsListView", () => {
     expect(deleteSubscription).toHaveBeenCalledWith("sub-1");
   });
 
-  it("shows a due-status badge for next due dates", () => {
+  it("shows invoice-status badges for auto renew and due badges for manual", () => {
     const now = dayjs();
     render(
       <SubscriptionsListView
         items={[
           {
             ...item,
-            id: "overdue",
-            service: "Overdue sub",
+            id: "overdue-manual",
+            service: "Overdue manual",
+            autoRenew: false,
             nextDueDate: now.subtract(2, "day").toISOString(),
           },
           {
@@ -437,13 +440,42 @@ describe("SubscriptionsListView", () => {
             service: "Soon sub",
             nextDueDate: now.add(2, "day").toISOString(),
           },
+          {
+            ...item,
+            id: "manual-soon",
+            service: "Manual soon",
+            autoRenew: false,
+            nextDueDate: now.add(3, "day").toISOString(),
+          },
         ]}
       />,
     );
 
     expect(screen.getByText("Overdue")).toBeVisible();
-    expect(screen.getByText("Due today")).toBeVisible();
-    expect(screen.getByText("Due in 2 days")).toBeVisible();
+    expect(screen.getByText("Invoice today")).toBeVisible();
+    expect(screen.getByText("Invoice in 2 days")).toBeVisible();
+    expect(screen.getByText("Due in 3 days")).toBeVisible();
+  });
+
+  it("rolls overdue auto invoices forward and persists the next date", async () => {
+    const overdue = {
+      ...item,
+      cycle: "monthly" as const,
+      nextDueDate:
+        dateInputToIso(dayjs().subtract(2, "month").format("YYYY-MM-DD")) ?? "",
+    };
+
+    render(<SubscriptionsListView items={[overdue]} />);
+
+    await waitFor(() => {
+      expect(saveSubscription).toHaveBeenCalledWith(
+        expect.objectContaining({
+          id: "sub-1",
+          nextDueDate: nextAutoInvoiceDate(overdue),
+        }),
+      );
+    });
+    expect(screen.queryByText("Overdue")).not.toBeInTheDocument();
   });
 
   it("renders detail fields", () => {

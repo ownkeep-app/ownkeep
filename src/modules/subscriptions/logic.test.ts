@@ -14,8 +14,11 @@ import {
   formatDate,
   formFromSubscription,
   isoToDateInput,
+  nextAutoInvoiceDate,
+  resolveSubscription,
   sortSubscriptions,
   subscriptionEntries,
+  subscriptionNextDateLabel,
   summarizeSubscriptions,
   updateSubscriptionEntry,
   validateSubscriptionInput,
@@ -59,7 +62,17 @@ describe("subscription module logic", () => {
       }),
     );
     expect(index[0].displayLine).toContain("Linode - USD 20.00 /mo");
+    expect(index[0].displayLine).toContain("invoice");
+    expect(
+      buildSubscriptionIndex([subscription({ autoRenew: false })])[0]
+        .displayLine,
+    ).toContain("due");
     expect(index[0].searchString).toContain("VPS");
+  });
+
+  it("labels the next date field by renewal mode", () => {
+    expect(subscriptionNextDateLabel(true)).toBe("Next invoice date");
+    expect(subscriptionNextDateLabel(false)).toBe("Due date");
   });
 
   it("normalizes new and edited entries", () => {
@@ -199,7 +212,15 @@ describe("subscription module logic", () => {
         service: "Linode",
         amount: "1",
       }),
-    ).toMatch(/next due/i);
+    ).toMatch(/invoice date/i);
+    expect(
+      validateSubscriptionInput({
+        ...emptySubscriptionForm(),
+        service: "Linode",
+        amount: "1",
+        autoRenew: false,
+      }),
+    ).toMatch(/due date/i);
   });
 
   it("calculates annualized and FX-converted summaries", () => {
@@ -322,8 +343,21 @@ describe("subscription module logic", () => {
     ).toEqual([
       expect.objectContaining({
         id: "sub-1:due",
+        title: "Subscription invoice: Linode",
+        body: expect.stringContaining("Invoice"),
+      }),
+    ]);
+
+    expect(
+      collectSubscriptionReminders(
+        [subscription({ autoRenew: false })],
+        new Date(NOW),
+        settings,
+      ),
+    ).toEqual([
+      expect.objectContaining({
         title: "Subscription due: Linode",
-        body: expect.stringContaining("USD 20.00"),
+        body: expect.stringContaining("Due"),
       }),
     ]);
 
@@ -341,6 +375,123 @@ describe("subscription module logic", () => {
         settings,
       ),
     ).toHaveLength(1);
+
+    expect(
+      collectSubscriptionReminders(
+        [
+          subscription({
+            nextDueDate: dateInputToIso("2026-05-01") ?? "",
+            cycle: "monthly",
+          }),
+        ],
+        new Date(NOW),
+        settings,
+      ),
+    ).toEqual([]);
+  });
+
+  it("advances overdue auto invoice dates by billing cycle", () => {
+    const now = new Date("2026-08-11T12:00:00");
+
+    expect(
+      nextAutoInvoiceDate(
+        subscription({
+          cycle: "monthly",
+          nextDueDate: dateInputToIso("2026-06-15") ?? "",
+        }),
+        now,
+      ),
+    ).toBe(dateInputToIso("2026-08-15"));
+    expect(
+      nextAutoInvoiceDate(
+        subscription({
+          cycle: "yearly",
+          nextDueDate: dateInputToIso("2025-03-01") ?? "",
+        }),
+        now,
+      ),
+    ).toBe(dateInputToIso("2027-03-01"));
+    expect(
+      nextAutoInvoiceDate(
+        subscription({
+          cycle: "weekly",
+          nextDueDate: dateInputToIso("2026-08-01") ?? "",
+        }),
+        now,
+      ),
+    ).toBe(dateInputToIso("2026-08-15"));
+    expect(
+      nextAutoInvoiceDate(
+        subscription({
+          cycle: "custom",
+          customIntervalDays: 30,
+          nextDueDate: dateInputToIso("2026-07-01") ?? "",
+        }),
+        now,
+      ),
+    ).toBe(dateInputToIso("2026-08-30"));
+    expect(
+      nextAutoInvoiceDate(
+        subscription({
+          cycle: "monthly",
+          nextDueDate: dateInputToIso("2026-01-31") ?? "",
+        }),
+        new Date("2026-03-15T12:00:00"),
+      ),
+    ).toBe(dateInputToIso("2026-03-31"));
+    expect(
+      nextAutoInvoiceDate(
+        subscription({
+          autoRenew: false,
+          nextDueDate: dateInputToIso("2026-06-15") ?? "",
+        }),
+        now,
+      ),
+    ).toBe(dateInputToIso("2026-06-15"));
+    expect(
+      nextAutoInvoiceDate(
+        subscription({
+          cycle: "monthly",
+          nextDueDate: dateInputToIso("2026-08-11") ?? "",
+        }),
+        now,
+      ),
+    ).toBe(dateInputToIso("2026-08-11"));
+    expect(
+      nextAutoInvoiceDate(
+        subscription({
+          cycle: "custom",
+          customIntervalDays: null,
+          nextDueDate: dateInputToIso("2026-06-15") ?? "",
+        }),
+        now,
+      ),
+    ).toBe(dateInputToIso("2026-06-15"));
+    expect(nextAutoInvoiceDate(subscription({ nextDueDate: "bad" }), now)).toBe(
+      "bad",
+    );
+
+    const created = createSubscriptionEntry(
+      {
+        ...emptySubscriptionForm(),
+        service: "Old invoice",
+        amount: "1",
+        cycle: "monthly",
+        nextDueDate: "2026-06-15",
+      },
+      now.toISOString(),
+      "rolled",
+    );
+    expect(created.nextDueDate).toBe(dateInputToIso("2026-08-15"));
+    expect(
+      resolveSubscription(
+        subscription({
+          cycle: "monthly",
+          nextDueDate: dateInputToIso("2026-06-15") ?? "",
+        }),
+        now,
+      ).nextDueDate,
+    ).toBe(dateInputToIso("2026-08-15"));
   });
 
   it("filters invalid records, sorts by due date, and formats dates", () => {
