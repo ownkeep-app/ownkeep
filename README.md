@@ -1,19 +1,97 @@
+<div align="center">
+
+<img src="docs/media/icon.png" width="96" alt="OwnKeep">
+
 # OwnKeep
 
-An **offline-first, single-file, master-password-gated macOS app** — a keyboard-first **password
-vault** and **command-line library** behind one Spotlight-style command bar, plus backup/restore and
-configuration. No cloud, no database, no telemetry.
+### One hotkey for the things you shouldn't lose
 
-Website: [ownkeep.app](https://ownkeep.app)
+Your shell incantations, your passwords, your renewal dates — behind a single Spotlight-style
+bar, in one encrypted file on your own Mac. No cloud, no account, no telemetry.
 
-- **What & why:** [`spec.md`](spec.md)
-- **Build order & status:** [`plan.md`](plan.md)
+[![Download](https://img.shields.io/github/v/release/ownkeep-app/ownkeep?label=download&style=for-the-badge&color=4A5AE8)](https://github.com/ownkeep-app/ownkeep/releases/latest)
+
+[![License](https://img.shields.io/badge/license-GPL--3.0-blue.svg)](LICENSE)
+[![Platform](https://img.shields.io/badge/macOS-13%2B-black?logo=apple&logoColor=white)](https://github.com/ownkeep-app/ownkeep/releases/latest)
+[![Universal 2](https://img.shields.io/badge/build-Universal%202-lightgrey)](https://github.com/ownkeep-app/ownkeep/releases/latest)
+[![Notarized](https://img.shields.io/badge/Apple-notarized-success)](SECURITY.md)
+[![Coverage](https://img.shields.io/badge/coverage-%3E95%25-brightgreen)](#test--quality)
+[![Website](https://img.shields.io/badge/ownkeep.app-4A5AE8)](https://ownkeep.app)
+
+<img src="docs/media/command-bar.gif" width="720" alt="Typing in the OwnKeep command bar: fuzzy search finds a docker command, a numbered hotkey fills in its placeholders and copies it">
+
+</div>
+
+---
+
+## What it is
+
+You already have somewhere to put passwords. You probably don't have anywhere good to put the
+`docker run -p {{port}}:{{port}} {{image}}` you rewrite from memory every few weeks, or the date your
+domain renews. OwnKeep puts all of it behind `⌘⇧Space`.
+
+- **⌨️ One bar for everything.** Fuzzy search ranked by frecency — the things you actually use surface first. `⌥⇧1`–`⌥⇧9` runs a result's primary action without your hands leaving the keyboard.
+- **📋 A command library that fills itself in.** Snippets use `{{placeholder}}` markers; picking one prompts for the values and copies the finished command. Syntax-highlighted, and never truncated at the first blank.
+- **🔐 A real vault underneath.** One file, encrypted with XChaCha20-Poly1305 under an Argon2id-derived key. Secrets stay in the Rust core and never enter the WebView; copies go to the pasteboard as *concealed*, so clipboard-history tools skip them, and auto-clear.
+- **🧩 Modules you can switch off.** Passwords and commands, plus todos, subscriptions, and finance. Each one toggles from Settings with its data preserved.
+- **✈️ Genuinely offline.** No network access at runtime. Not "privacy-respecting cloud" — no cloud.
+- **👆 Touch ID, optionally.** A shortcut, never a replacement: the master password and recovery code always unlock, so you can't get locked out by a fingerprint change.
+
+**Not** a 1Password replacement, and not trying to be: no sync, no browser autofill, no TOTP, no
+import from other managers. If you want those, use KeePassXC or Bitwarden — OwnKeep exists for the
+overlap between a vault and a launcher.
+
+## Install
+
+[**Download the latest `.dmg`**](https://github.com/ownkeep-app/ownkeep/releases/latest) — Universal
+2, macOS 13+, about 12 MB.
+
+Open the DMG, drag OwnKeep to Applications, launch it. macOS will ask for **Accessibility**
+permission so the global hotkey works system-wide; OwnKeep then lives in the menu bar with no Dock
+icon.
+
+Releases are signed with a Developer ID certificate, built with hardened runtime, and notarized by
+Apple — so Gatekeeper opens it without a warning. Verify that yourself before you trust it with
+anything:
+
+```bash
+spctl -a -vvv -t open --context context:primary-signature OwnKeep_1.2.0_universal.dmg
+# accepted
+# source=Notarized Developer ID
+```
+
+Or build it from source — see [Stack](#stack), [Prerequisites](#prerequisites), and [Setup](#setup) below.
+
+## Screenshots
+
+| Command bar | Dashboard |
+|---|---|
+| <img src="docs/media/command-bar.png" alt="The OwnKeep command bar showing ranked results"> | <img src="docs/media/dashboard.png" alt="The OwnKeep Dashboard with the module sidebar and a list view"> |
+| **Lock screen** | **Settings** |
+| <img src="docs/media/lock-screen.png" alt="The OwnKeep lock screen with master password and Touch ID"> | <img src="docs/media/settings.png" alt="OwnKeep settings showing appearance and security options"> |
+
+## Security
+
+The whole vault is one AEAD-encrypted file; the master password is never stored and cannot be
+recovered. [**SECURITY.md**](SECURITY.md) documents the exact construction — Argon2id parameters,
+the three-way envelope wrap, the Touch ID key's Keychain attributes — along with what OwnKeep
+deliberately does **not** do, including the fact that it has had no third-party audit. Read it before
+you put anything important in here.
+
+Found a vulnerability? [Report it privately](https://github.com/ownkeep-app/ownkeep/security/advisories/new).
+
+## Documentation
+
+- **What & why:** [`spec.md`](spec.md) · **Build order & status:** [`plan.md`](plan.md)
+- **Contributing:** [`CONTRIBUTING.md`](CONTRIBUTING.md) · **Releasing:** [`RELEASING.md`](RELEASING.md)
+- **Signing & Touch ID on macOS:** [`code-signing.md`](code-signing.md)
 - **Rules for humans & AI agents:** [`AGENTS.md`](AGENTS.md), [`.cursor/rules/`](.cursor/rules/)
 
-> Status: **Phase 13 (Touch ID + ship)** — the encrypted vault core, all feature modules (passwords,
-> commands, todos, subscriptions, finance), command bar, Dashboard, backup/restore, scheduler, and
-> migration framework are in place. Current work is the signed/notarized OwnKeep release and final
-> Touch ID validation (see `plan.md`).
+> **Status:** v1.2 shipped — signed, notarized, Touch ID live. The encrypted vault core, every
+> feature module, the command bar, Dashboard, backup/restore, scheduler, and migration framework are
+> all in place (see [`plan.md`](plan.md)).
+
+---
 
 ## Stack
 
@@ -159,3 +237,14 @@ ownkeep/
 ├── plan.md         # phased development plan
 └── AGENTS.md       # AI-agent rules (also read by Codex, Claude, Cursor)
 ```
+
+## Contributing
+
+Issues and PRs are welcome — please read [`CONTRIBUTING.md`](CONTRIBUTING.md) first. OwnKeep is
+spec-driven with a hard >95% coverage gate on both surfaces, and it has deliberate non-goals, so a
+quick issue before you write code saves everyone an evening.
+
+## License
+
+[GPL-3.0-or-later](LICENSE). You can read it, build it, fork it, and run it however you like; if you
+distribute a modified version, it stays open under the same terms.

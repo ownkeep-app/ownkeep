@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 🔒 Report a security vulnerability
+    url: https://github.com/ownkeep-app/ownkeep/security/advisories/new
+    about: Private disclosure. Please don't file security bugs as public issues.
+  - name: 💬 Question, idea, or general discussion
+    url: https://github.com/ownkeep-app/ownkeep/discussions
+    about: For anything that isn't a bug report or a concrete feature request.
+  - name: 📖 Documentation
+    url: https://github.com/ownkeep-app/ownkeep#using-ownkeep
+    about: Emergency Kit, keyboard shortcuts, upgrading, and troubleshooting.

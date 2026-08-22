@@ -4,7 +4,7 @@ Companion to [spec.md](spec.md). A phased, dependency-ordered build for a **solo
 optimized for getting a genuinely useful app **running on macOS as early as possible**, then
 layering optional modules on the stable core.
 
-**Author:** Shaojiang · **Start:** 2026-07-06 · **Status:** Planning
+**Author:** Shaojiang · **Start:** 2026-07-06 · **Status:** **v1.2 shipped** (2026-08-12) — signed, notarized, Touch ID live. Phases 0–13 complete.
 
 ---
 
@@ -39,6 +39,7 @@ layering optional modules on the stable core.
 | **12** | 🧹 UI wrap up + bugfixes | Dashboard list UX improvements (sorting, column resize, detail modals, password quick actions, commands category layout) ship polished | 2–5 d | W10+ · 2026-09 |
 | **━━ v1.0 ━━** | **Signed, notarized release** | — | — | **~W10 · 2026-09-07** |
 | **13** | 🔐 Touch ID unlock (optional) | Enroll while unlocked → Touch ID = unlock path C; master password + recovery are the authoritative auth; device-local Keychain key excluded from backups (re-enroll after restore); enable/disable/re-enroll in Settings; no model-schema migration | 2–3 d | W11+ · 2026-09 |
+| **━━ v1.2 ━━** | **Shipped — signed, notarized, Touch ID live** | Universal 2 DMG, `source=Notarized Developer ID`, ticket stapled | — | **2026-08-12** |
 
 ---
 
@@ -187,7 +188,7 @@ with a **browsable Dashboard** (sidebar + content pane) and a safe upgrade path 
   with `OWNK` and the OwnKeep recovery KDF context while retaining byte-level v1–v2 container and
   recovery-code readers. **No model schema bump:** encrypted JSON is unchanged, so no TypeScript
   migration step is required; Rust regression tests own the format transition.
-- [ ] **Developer ID sign + notarize**; DMG/`.app` packaging; README + Emergency-Kit docs + migration-guide docs. *(Docs done: README now has a "Using OwnKeep" section covering the Emergency Kit / recovery code, keyboard shortcuts, theme, and the upgrade/migration-guide flow. Signing, notarization, and DMG packaging still pending.)*
+- [x] **Developer ID sign + notarize**; DMG/`.app` packaging; README + Emergency-Kit docs + migration-guide docs. *(Done and verified 2026-08-22. `OwnKeep.entitlements` carries `com.apple.application-identifier` + `com.apple.developer.team-identifier` for team `7Y7D9729RJ`; `tauri.conf.json` sets `hardenedRuntime: true` and embeds `signing/OwnKeep_Developer_ID.provisionprofile` (git-ignored). The shipped `OwnKeep_1.2.0_universal.dmg` is Universal 2 (`x86_64 arm64`), signed `Developer ID Application: Shaojiang Cai (7Y7D9729RJ)`, notarized and stapled — `spctl -a -vvv -t open` reports `accepted / source=Notarized Developer ID` and `stapler validate` passes on both the DMG and the installed `.app`.)*
 - [ ] **Release bookkeeping:** tag shipped commits as `v<main>.<minor>`; immediately after a shipped tag, bump the working app version in `package.json` to the next release version (`main.minor`), run `node scripts/sync-version.mjs` to derive SemVer-only package metadata, and keep those derived fields from becoming a second app-version source.
 - **Exit:** Gatekeeper opens it clean on a second Mac; permissions prompt correctly; the shipped `.dmg` includes the migration guide for every schema step since the previous `v*` tag. **← v1.0.**
 - **Deps:** all prior.
@@ -300,12 +301,14 @@ v1.1 builds refuse the resulting file. Document both facts and keep `$verify` ho
   unavailable/hardware-missing state gracefully. In the **Backup & restore** section, show a
   **notice** — whenever Touch ID is enrolled — that biometric unlock isn't included in backups and
   must be re-enabled after restoring.
-- [ ] **Packaging + docs:** ensure the app is **code-signed** so the Keychain item + LocalAuthentication
+- [x] **Packaging + docs:** ensure the app is **code-signed** so the Keychain item + LocalAuthentication
   behave (spec §12); document the reason string, the `WhenUnlockedThisDeviceOnly` attributes, and the
   re-sign / fingerprint-change invalidation caveat; record the additive container field per §11.2 and
-  bump `package.json.version` per the release-bookkeeping contract when shipping. *(Docs done — spec
-  §4.7/§11.2/§12 written and the additive container field recorded; code-signing + notarization + the
-  version bump ride the Phase 11 release step, still pending.)*
+  bump `package.json.version` per the release-bookkeeping contract when shipping. *(Done — spec
+  §4.7/§11.2/§12 written, the additive container field recorded, and `code-signing.md` documents the
+  data-protection-Keychain prerequisite, the `errSecMissingEntitlement` (-34018) failure mode, and the
+  provisioning-profile embedding. Signing + notarization landed with the v1.2 release; the
+  `kSecUseDataProtectionKeychain` fix is in `src-tauri/src/biometric.rs` on all four Keychain paths.)*
 - [x] **Tests:** Rust — `wrap_biometric`/`unlock_with_biometric` recover the same DEK as
   password/recovery; `clear_biometric` disables path C while both other paths still unlock; the
   backup path **omits** `wrapped_biometric` and the result still restores via password/recovery; a
@@ -327,6 +330,12 @@ v1.1 builds refuse the resulting file. Document both facts and keep `$verify` ho
   **no encrypted-model change**; v1.1 could read the additive biometric field in
   v2 containers, while v1.2 mutations intentionally move the file to forward-incompatible v3;
   `pnpm check` + coverage stay green.
+- **✅ Met (verified 2026-08-22).** Touch ID is enrolled and unlocking on the signed build: the
+  production container at `~/Library/Application Support/com.shaojiang.ownkeep/vault.dat` carries the
+  optional `wrapped_biometric` field alongside `wrapped_recovery`, and the installed
+  `/Applications/OwnKeep.app` is notarized with the private application-identifier entitlement and an
+  embedded provisioning profile — the two prerequisites `code-signing.md` identified. **← Phase 13
+  complete; v1.2 is the shipped release.**
 - **Deps:** Phase 12 (post-v1.0 baseline). Builds on the Phase 1 envelope, the Phase 3 `objc2`
   clipboard shim (same native tooling), the Phase 6 lock/settings + backup/restore surfaces, and the
   Phase 11 signing story.

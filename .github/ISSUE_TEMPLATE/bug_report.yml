@@ -1,0 +1,76 @@
+name: Bug report
+description: Something in OwnKeep doesn't work the way it should.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **Never paste a password, a recovery code, or your vault file into an issue.**
+        If this is a security vulnerability, close this and use
+        [private reporting](https://github.com/ownkeep-app/ownkeep/security/advisories/new) instead.
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What you did, what you expected, and what you got instead.
+      placeholder: |
+        1. Pressed ⌘⇧Space
+        2. Typed "aws"
+        3. Expected the command to copy; the bar closed with no toast.
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: OwnKeep version
+      description: Dashboard sidebar footer, or ⌘/ (About).
+      placeholder: "1.2"
+    validations:
+      required: true
+
+  - type: input
+    id: macos
+    attributes:
+      label: macOS version and chip
+      placeholder: "macOS 15.2, Apple Silicon (M2)"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Where does it happen?
+      options:
+        - Command bar
+        - Dashboard
+        - Unlock / master password
+        - Touch ID
+        - Recovery code / Emergency Kit
+        - Backup or restore
+        - Migration on upgrade
+        - Settings
+        - Notifications / reminders
+        - A module (passwords, commands, todos, subscriptions, finance)
+        - Install / Gatekeeper / first run
+        - Something else
+    validations:
+      required: true
+
+  - type: dropdown
+    id: reproducible
+    attributes:
+      label: Does it happen every time?
+      options:
+        - Every time
+        - Sometimes
+        - Happened once
+    validations:
+      required: true
+
+  - type: textarea
+    id: extra
+    attributes:
+      label: Anything else?
+      description: Screenshots, a screen recording, or console output. Redact anything sensitive first.

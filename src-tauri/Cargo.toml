@@ -4,6 +4,9 @@ version = "1.2.0"
 description = "Offline-first macOS vault and command launcher"
 authors = ["Shaojiang"]
 edition = "2021"
+license = "GPL-3.0-or-later"
+repository = "https://github.com/ownkeep-app/ownkeep"
+homepage = "https://ownkeep.app"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 

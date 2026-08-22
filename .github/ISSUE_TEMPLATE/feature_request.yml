@@ -1,0 +1,58 @@
+name: Feature request
+description: Suggest something OwnKeep should do.
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        OwnKeep is built against a written spec with deliberate non-goals. Worth a look at
+        [`spec.md`](../../spec.md) §1 first — some things are excluded on purpose, including cloud
+        sync, browser autofill, TOTP generation, and importing from other password managers.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem are you hitting?
+      description: The situation, not the solution. This is the part that decides whether it gets built.
+      placeholder: "I keep a set of kubectl commands per cluster and can't tell them apart in the bar."
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What would you like OwnKeep to do?
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Which part of OwnKeep?
+      options:
+        - Command bar / search
+        - Dashboard
+        - Passwords
+        - Commands
+        - Todos
+        - Subscriptions
+        - Finance
+        - Backup / restore
+        - Settings / theming
+        - Security or unlock
+        - A new module
+        - Something else
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: constraints
+    attributes:
+      label: Does it fit OwnKeep's non-negotiables?
+      options:
+        - label: It works fully offline — no network access at runtime.
+          required: true
+        - label: It doesn't require a database or a second on-disk store.
+          required: true
+        - label: It doesn't put secret values in the WebView.
+          required: true
