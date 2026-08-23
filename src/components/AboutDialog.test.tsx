@@ -6,6 +6,8 @@ import { describe, expect, it, vi } from "vitest";
 import {
   APP_DEVELOPER_EMAIL,
   APP_FEATURES,
+  APP_LICENSE,
+  APP_LICENSE_URL,
   APP_RELEASE_DATE,
   APP_WEBSITE,
   aboutVersionLabel,
@@ -49,9 +51,15 @@ describe("AboutDialog", () => {
       APP_WEBSITE,
     );
     expect(screen.getByText(APP_FEATURES[0])).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: APP_LICENSE })).toHaveAttribute(
+      "href",
+      APP_LICENSE_URL,
+    );
 
     await user.click(screen.getByRole("link", { name: APP_WEBSITE }));
     expect(openExternal).toHaveBeenCalledWith(APP_WEBSITE);
+    await user.click(screen.getByRole("link", { name: APP_LICENSE }));
+    expect(openExternal).toHaveBeenCalledWith(APP_LICENSE_URL);
     await user.click(screen.getByRole("link", { name: APP_DEVELOPER_EMAIL }));
     expect(openExternal).toHaveBeenCalledWith(`mailto:${APP_DEVELOPER_EMAIL}`);
   });

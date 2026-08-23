@@ -1,15 +1,15 @@
 <div align="center">
 
-<img src="docs/media/icon.png" width="96" alt="OwnKeep">
+<img src="docs/media/icon.png" width="88" alt="OwnKeep">
 
 # OwnKeep
 
 ### One hotkey for the things you shouldn't lose
 
-Your shell incantations, your passwords, your renewal dates — behind a single Spotlight-style
-bar, in one encrypted file on your own Mac. No cloud, no account, no telemetry.
+Your shell incantations, your logins, your renewal dates — behind a single Spotlight-style bar,
+in one encrypted file on your own Mac. No cloud, no account, no telemetry.
 
-[![Download](https://img.shields.io/github/v/release/ownkeep-app/ownkeep?label=download&style=for-the-badge&color=4A5AE8)](https://github.com/ownkeep-app/ownkeep/releases/latest)
+[![Download](https://img.shields.io/github/v/release/ownkeep-app/ownkeep?label=Download%20for%20macOS&style=for-the-badge&color=4A5AE8)](https://github.com/ownkeep-app/ownkeep/releases/latest)
 
 [![License](https://img.shields.io/badge/license-GPL--3.0-blue.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/macOS-13%2B-black?logo=apple&logoColor=white)](https://github.com/ownkeep-app/ownkeep/releases/latest)
@@ -18,41 +18,100 @@ bar, in one encrypted file on your own Mac. No cloud, no account, no telemetry.
 [![Coverage](https://img.shields.io/badge/coverage-%3E95%25-brightgreen)](#test--quality)
 [![Website](https://img.shields.io/badge/ownkeep.app-4A5AE8)](https://ownkeep.app)
 
-<img src="docs/media/command-bar.gif" width="720" alt="Typing in the OwnKeep command bar: fuzzy search finds a docker command, a numbered hotkey fills in its placeholders and copies it">
+<img src="docs/media/shots/command-bar.webp" width="760" alt="The OwnKeep command bar: typing 'git re' surfaces three saved git commands with placeholder markers, each with a numbered hotkey">
+
+<sub><code>⌘⇧Space</code> from anywhere · type a few letters · <code>⌥⇧1</code> to copy</sub>
 
 </div>
 
 ---
 
-## What it is
+## The problem
 
-You already have somewhere to put passwords. You probably don't have anywhere good to put the
-`docker run -p {{port}}:{{port}} {{image}}` you rewrite from memory every few weeks, or the date your
-domain renews. OwnKeep puts all of it behind `⌘⇧Space`.
+You already have somewhere to put passwords. You probably don't have anywhere good to put
+`git rebase {{target-branch}}`, or the `docker run` invocation you rewrite from memory every few
+weeks, or the date your domain renews.
 
-- **⌨️ One bar for everything.** Fuzzy search ranked by frecency — the things you actually use surface first. `⌥⇧1`–`⌥⇧9` runs a result's primary action without your hands leaving the keyboard.
-- **📋 A command library that fills itself in.** Snippets use `{{placeholder}}` markers; picking one prompts for the values and copies the finished command. Syntax-highlighted, and never truncated at the first blank.
-- **🔐 A real vault underneath.** One file, encrypted with XChaCha20-Poly1305 under an Argon2id-derived key. Secrets stay in the Rust core and never enter the WebView; copies go to the pasteboard as *concealed*, so clipboard-history tools skip them, and auto-clear.
-- **🧩 Modules you can switch off.** Passwords and commands, plus todos, subscriptions, and finance. Each one toggles from Settings with its data preserved.
-- **✈️ Genuinely offline.** No network access at runtime. Not "privacy-respecting cloud" — no cloud.
-- **👆 Touch ID, optionally.** A shortcut, never a replacement: the master password and recovery code always unlock, so you can't get locked out by a fingerprint change.
+So it ends up scattered: half in a notes app, half in shell history, half in a gist you can't find.
+Meanwhile your password manager — the one tool you actually trained yourself to open — refuses to
+hold anything that isn't a login.
 
-**Not** a 1Password replacement, and not trying to be: no sync, no browser autofill, no TOTP, no
-import from other managers. If you want those, use KeePassXC or Bitwarden — OwnKeep exists for the
-overlap between a vault and a launcher.
+**OwnKeep is that tool, widened.** One bar, one hotkey, one encrypted file, for everything you'd hate
+to lose and can never quite remember.
+
+## A command library that fills itself in
+
+Save a snippet once with `{{placeholder}}` markers. When you pick it, OwnKeep prompts for the values
+and copies the finished command — so a template with a placeholder in the middle works exactly as
+well as one with a placeholder at the end.
+
+<img src="docs/media/shots/commands.webp" alt="The Commands module: git snippets grouped by category, syntax-highlighted, showing git tag, git reset and git rebase with placeholder markers">
+
+Snippets are syntax-highlighted, grouped into categories you define, and searchable by full text —
+not just by title. `⌥⌘1`–`⌥⌘9` copies the raw template instead if you'd rather fill it in yourself.
+
+## One bar for everything
+
+The bar is the home screen. Results rank by **fuzzy match × frecency**, so the things you actually
+use surface first instead of whatever happens to match alphabetically. Scope prefixes narrow to one
+module when you already know where you're going.
+
+Nothing needs the mouse: `⌥⇧1`–`⌥⇧9` runs a result's primary action — copy the password, fill in the
+command — and `Esc` makes the bar disappear. It hides on blur too, so it never becomes another window
+to manage.
+
+## Modules you can switch off
+
+Passwords and commands are the core. Todos, subscriptions, and finance are modules — each toggles
+from Settings with its data preserved, and each shows up in the same bar and the same Dashboard
+sidebar.
+
+| | |
+|:--|:--|
+| <img src="docs/media/shots/passwords.webp" alt="The Passwords module: logins in a sortable table with categories"><br>**Passwords** — logins with categories, sortable columns, and one-click concealed copy for usernames and passwords. | <img src="docs/media/shots/todos.webp" alt="The Todos module showing tasks with due dates and priorities"><br>**Todos** — due dates, priorities, recurrence, and notifications that fire once per window. |
+| <img src="docs/media/shots/subscriptions.webp" alt="The Subscriptions module showing recurring services with renewal dates"><br>**Subscriptions** — what renews, when, and what it costs, with lead-time reminders before you're charged. | <img src="docs/media/shots/finance.webp" alt="The Finance module showing a net-worth trend chart and category breakdown"><br>**Finance** — periodic snapshots, per-category stats, a net-worth trend, and a manual FX table. |
+
+Calendar, notes, and bookmarks are candidates for later — the module registry is what makes adding
+one a self-contained job rather than surgery on the core.
+
+## One door in
+
+<table>
+<tr>
+<td width="50%"><img src="docs/media/shots/lock-screen.webp" alt="The OwnKeep lock screen with a master password field and a Touch ID button"></td>
+<td width="50%"><img src="docs/media/shots/touch-id.webp" alt="The macOS Touch ID prompt asking to unlock OwnKeep"></td>
+</tr>
+</table>
+
+The whole vault is a single file encrypted with **XChaCha20-Poly1305** under a key derived by
+**Argon2id**. Secret values live in the Rust core and never enter the WebView; copying a password
+writes it to the pasteboard as *concealed*, so clipboard-history tools skip it, and it auto-clears.
+
+Your **master password** is never stored and cannot be recovered. The **recovery code** from your
+Emergency Kit is the only other way in, and both always work.
+
+**Touch ID is a shortcut, never a replacement.** Enrolling requires an already-unlocked vault, the
+key is device-local and excluded from every backup, and a fingerprint change invalidates it — so
+losing Touch ID can't lock you out of your own vault.
+
+## Yours to configure
+
+| | |
+|:--|:--|
+| <img src="docs/media/shots/settings.webp" alt="OwnKeep settings: module toggles, hotkeys, categories and tags"> | <img src="docs/media/shots/settings-system.webp" alt="OwnKeep system settings: security, vault file location, backup and Emergency Kit"> |
+| Toggle modules on and off, rebind the hotkeys, define your own categories and tags, and pick a theme and accent that apply live. | Manage security, see exactly where your vault file lives, take a backup, and regenerate the Emergency Kit. |
 
 ## Install
 
 [**Download the latest `.dmg`**](https://github.com/ownkeep-app/ownkeep/releases/latest) — Universal
 2, macOS 13+, about 12 MB.
 
-Open the DMG, drag OwnKeep to Applications, launch it. macOS will ask for **Accessibility**
-permission so the global hotkey works system-wide; OwnKeep then lives in the menu bar with no Dock
-icon.
+Open the DMG, drag OwnKeep to Applications, launch it. macOS asks for **Accessibility** permission so
+the global hotkey works system-wide; OwnKeep then lives in the menu bar with no Dock icon.
 
 Releases are signed with a Developer ID certificate, built with hardened runtime, and notarized by
-Apple — so Gatekeeper opens it without a warning. Verify that yourself before you trust it with
-anything:
+Apple — so Gatekeeper opens it without a warning. Confirm that yourself rather than taking my word
+for it:
 
 ```bash
 spctl -a -vvv -t open --context context:primary-signature OwnKeep_1.2.0_universal.dmg
@@ -60,25 +119,25 @@ spctl -a -vvv -t open --context context:primary-signature OwnKeep_1.2.0_universa
 # source=Notarized Developer ID
 ```
 
-Or build it from source — see [Stack](#stack), [Prerequisites](#prerequisites), and [Setup](#setup) below.
+Prefer to build it? See [Development](#development).
 
-## Screenshots
+## What OwnKeep isn't
 
-| Command bar | Dashboard |
-|---|---|
-| <img src="docs/media/command-bar.png" alt="The OwnKeep command bar showing ranked results"> | <img src="docs/media/dashboard.png" alt="The OwnKeep Dashboard with the module sidebar and a list view"> |
-| **Lock screen** | **Settings** |
-| <img src="docs/media/lock-screen.png" alt="The OwnKeep lock screen with master password and Touch ID"> | <img src="docs/media/settings.png" alt="OwnKeep settings showing appearance and security options"> |
+Stated plainly, because it should save some people a download:
+
+- **Not a 1Password or KeePassXC replacement.** No sync, no browser autofill, no TOTP generation, no import from other managers. If those are what you need, use KeePassXC or Bitwarden — genuinely good tools that OwnKeep isn't competing with.
+- **Not audited.** Standard primitives, conventional parameters, property-tested crypto core, >95% coverage on both surfaces — but no third-party review. [SECURITY.md](SECURITY.md) is blunt about this and about everything else OwnKeep doesn't do.
+- **Not cross-platform.** macOS 13+ only. Touch ID, the concealed clipboard, and the menu-bar behavior are macOS-native.
+- **Not a team tool.** One person, one Mac, one file.
 
 ## Security
 
-The whole vault is one AEAD-encrypted file; the master password is never stored and cannot be
-recovered. [**SECURITY.md**](SECURITY.md) documents the exact construction — Argon2id parameters,
-the three-way envelope wrap, the Touch ID key's Keychain attributes — along with what OwnKeep
-deliberately does **not** do, including the fact that it has had no third-party audit. Read it before
-you put anything important in here.
+The exact construction — Argon2id parameters, the three-way envelope wrap, the Touch ID key's
+Keychain attributes — is documented in [**SECURITY.md**](SECURITY.md), along with the limitations and
+five commands you can run to verify the claims yourself. Read it before you put anything important in
+here.
 
-Found a vulnerability? [Report it privately](https://github.com/ownkeep-app/ownkeep/security/advisories/new).
+Found a vulnerability? [Report it privately](https://github.com/ownkeep-app/ownkeep/security/advisories/new) — please don't open a public issue.
 
 ## Documentation
 
@@ -92,6 +151,8 @@ Found a vulnerability? [Report it privately](https://github.com/ownkeep-app/ownk
 > all in place (see [`plan.md`](plan.md)).
 
 ---
+
+# Development
 
 ## Stack
 
@@ -123,6 +184,9 @@ On first launch, macOS will ask you to grant **Accessibility** permission so the
 (`Cmd+Shift+Space`) works system-wide. The app runs in the **menu bar** (no Dock icon); use the tray
 icon's **Search ... / Dashboard / Exit** menu, or the hotkey to toggle the window. It hides on **Esc** or when it loses
 focus.
+
+Development builds use a separate vault (`vault-dev.dat`) and a separate Keychain service, so you
+cannot damage a real vault while working on OwnKeep.
 
 ## Using OwnKeep
 
@@ -211,9 +275,17 @@ coverage rather than unit coverage.
 pnpm build        # builds the front-end and bundles the macOS app
 ```
 
-Output lands in `src-tauri/target/release/bundle/` (`.app` and `.dmg`). Signing & notarization are
-deferred until the app is a daily driver (see `spec.md` §12); early builds are unsigned, so Gatekeeper
-may warn on first open.
+Output lands in `src-tauri/target/release/bundle/` (`.app` and `.dmg`).
+
+Release builds are signed with a Developer ID certificate, built with hardened runtime, and notarized
+and stapled by Apple — which is also what makes Touch ID work, since the biometric Keychain item
+needs the app's private application-identifier entitlement and a matching embedded provisioning
+profile. A local `pnpm build` without the signing assets produces an **ad-hoc signed** bundle:
+fine for development, but Gatekeeper will reject it and Touch ID enrollment will fail with
+`errSecMissingEntitlement`.
+
+The full procedure is in [`code-signing.md`](code-signing.md); the release checklist — including the
+verification commands to run **before** uploading an artifact — is in [`RELEASING.md`](RELEASING.md).
 
 ## Troubleshooting
 
@@ -222,6 +294,8 @@ may warn on first open.
   the tray if the permission is denied.
 - **Window vanished** — that's the launcher behavior (hide on blur/Esc). Press `Cmd+Shift+Space` or
   use the tray's **Search ...**.
+- **Touch ID button doesn't appear** — it needs a signed build and an already-unlocked vault to
+  enroll from Settings → System → Security. See [`code-signing.md`](code-signing.md).
 - **`Port 1420 is already in use`** — another Vite/OwnKeep dev server is running; stop it or free the
   port (the dev server uses a fixed port on purpose).
 - **First `cargo`/Tauri build is slow** — the Rust core and Tauri dependencies compile from source
@@ -233,6 +307,7 @@ may warn on first open.
 ownkeep/
 ├── src/            # React + TypeScript front-end (UI only; no secrets)
 ├── src-tauri/      # Rust core (crypto, storage, concealed clipboard, scheduler)
+├── docs/media/     # README screenshots
 ├── spec.md         # product & technical spec
 ├── plan.md         # phased development plan
 └── AGENTS.md       # AI-agent rules (also read by Codex, Claude, Cursor)

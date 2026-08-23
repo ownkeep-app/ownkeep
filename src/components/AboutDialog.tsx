@@ -1,11 +1,13 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 
-import { CalendarDays, Globe, Info, Mail, Tag, X } from "lucide-react";
+import { CalendarDays, Globe, Info, Mail, Scale, Tag, X } from "lucide-react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 
 import {
   APP_DEVELOPER_EMAIL,
   APP_FEATURES,
+  APP_LICENSE,
+  APP_LICENSE_URL,
   APP_RELEASE_DATE,
   APP_WEBSITE,
   aboutVersionLabel,
@@ -211,6 +213,24 @@ export function AboutDialog({
                       rel="noopener noreferrer"
                     >
                       {APP_WEBSITE}
+                    </a>
+                  </DetailItem>
+                  <DetailItem
+                    icon={
+                      <Scale className="size-3.5 text-violet-500 dark:text-violet-400" />
+                    }
+                    label="License"
+                  >
+                    <a
+                      className="text-primary underline-offset-2 hover:underline"
+                      href={APP_LICENSE_URL}
+                      onClick={(event) => {
+                        event.preventDefault();
+                        void openExternalUrl(APP_LICENSE_URL);
+                      }}
+                      rel="noopener noreferrer"
+                    >
+                      {APP_LICENSE}
                     </a>
                   </DetailItem>
                 </dl>
