@@ -915,6 +915,7 @@ interface Migration {
 - **Activation policy:** tray/menu-bar app; optionally `Accessory` (no Dock icon) so it feels like a launcher.
 - **Signing & notarization:** Developer ID sign + notarize so Gatekeeper allows it and permission prompts behave well. (Fine to defer during early dev with an ad-hoc/self-signed build; do it before "daily driver" use.) Touch ID additionally needs a **stable code-signing identity**: the biometric Keychain item is bound to the app's signature, so re-signing with a different identity (or an ad-hoc rebuild) can invalidate it → re-enroll (the master password is unaffected).
 - **Auto-update (optional):** Tauri updater plugin — but it needs network; keep it opt-in and off by default to honor offline-first.
+- **License:** **GPL-3.0-or-later** (`LICENSE` at the repo root; declared in `package.json` and `src-tauri/Cargo.toml`, surfaced in the ⌘/ About dialog, and stated in the README). Copyleft is deliberate: OwnKeep stays readable and forkable, while a closed, rebranded redistribution is not permitted. Contributions ship under the same terms (`CONTRIBUTING.md`).
 
 ---
 

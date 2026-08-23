@@ -3,6 +3,9 @@ import { APP_VERSION } from "@/vault/model";
 /** Product About metadata (Dashboard sidebar + ⌘/ dialog). */
 export const APP_WEBSITE = "https://ownkeep.app";
 export const APP_DEVELOPER_EMAIL = "caishaojiang@gmail.com";
+export const APP_LICENSE = "GPL-3.0-or-later";
+export const APP_LICENSE_URL =
+  "https://github.com/ownkeep-app/ownkeep/blob/main/LICENSE";
 
 /** Human-readable release date for the current `package.json` version. Update on each ship. */
 export const APP_RELEASE_DATE = "July 15, 2026";
