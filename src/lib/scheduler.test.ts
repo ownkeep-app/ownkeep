@@ -86,7 +86,7 @@ describe("scheduler", () => {
     ).toEqual([]);
   });
 
-  it("de-dupes reminders within the notification window", () => {
+  it("de-dupes reminders after they have been sent once", () => {
     const reminder: ScheduledReminder = {
       id: "one",
       moduleId: "dummy",
@@ -97,20 +97,8 @@ describe("scheduler", () => {
       "dummy:one": "2026-07-08T11:58:00.000Z",
     };
 
-    expect(shouldNotifyReminder(reminder, lastNotified, NOW, 5 * 60_000)).toBe(
-      false,
-    );
-    expect(shouldNotifyReminder(reminder, lastNotified, NOW, 60_000)).toBe(
-      true,
-    );
-    expect(
-      shouldNotifyReminder(
-        reminder,
-        { "dummy:one": "not a date" },
-        NOW,
-        5 * 60_000,
-      ),
-    ).toBe(true);
+    expect(shouldNotifyReminder(reminder, lastNotified)).toBe(false);
+    expect(shouldNotifyReminder(reminder, {})).toBe(true);
   });
 
   it("sends a due reminder once and updates last-notified only after notify succeeds", async () => {
@@ -122,7 +110,6 @@ describe("scheduler", () => {
       lastNotified: {},
       now: NOW,
       notify,
-      windowMs: 5 * 60_000,
     });
 
     expect(notify).toHaveBeenCalledTimes(1);
@@ -133,9 +120,8 @@ describe("scheduler", () => {
       model: modelWithDummy(),
       modules: [dummyModule],
       lastNotified: first.lastNotified,
-      now: new Date("2026-07-08T12:01:00.000Z"),
+      now: new Date("2026-07-08T12:30:00.000Z"),
       notify,
-      windowMs: 5 * 60_000,
     });
 
     expect(notify).toHaveBeenCalledTimes(1);
@@ -153,7 +139,6 @@ describe("scheduler", () => {
       lastNotified: {},
       now: NOW,
       notify,
-      windowMs: 5 * 60_000,
     });
 
     expect(result.sent).toEqual([]);

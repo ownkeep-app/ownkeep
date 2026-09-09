@@ -18,16 +18,23 @@ export function DetailModal({
   children,
   actions,
   ariaLabel,
+  beforeClose,
+  titleClassName,
 }: {
   open: boolean;
-  title: string;
+  title: ReactNode;
   onClose: () => void;
   children: ReactNode;
   actions?: ReactNode;
   ariaLabel?: string;
+  /** Shown just left of the close button (e.g. updated timestamp). */
+  beforeClose?: ReactNode;
+  titleClassName?: string;
 }) {
   const closeRef = useRef<HTMLButtonElement>(null);
   const reduce = useReducedMotion();
+  const label =
+    ariaLabel ?? (typeof title === "string" ? title : "Details");
 
   useEffect(() => {
     if (open) closeRef.current?.focus();
@@ -58,7 +65,7 @@ export function DetailModal({
             type="button"
           />
           <section
-            aria-label={ariaLabel ?? title}
+            aria-label={label}
             aria-modal="true"
             className={cn(
               modalPanelClassName,
@@ -66,10 +73,16 @@ export function DetailModal({
             )}
             role="dialog"
           >
-            <header className="flex shrink-0 items-center gap-2 border-b border-border px-5 py-4">
-              <h2 className="min-w-0 flex-1 truncate text-sm font-semibold">
+            <header className="flex shrink-0 items-center gap-3 border-b border-border px-5 py-4">
+              <h2
+                className={cn(
+                  "min-w-0 flex-1 text-sm font-semibold",
+                  titleClassName ?? "truncate",
+                )}
+              >
                 {title}
               </h2>
+              {beforeClose}
               <Button
                 aria-label="Close details"
                 onClick={onClose}
@@ -83,7 +96,7 @@ export function DetailModal({
             </header>
             <div className="min-h-0 flex-1 overflow-auto">{children}</div>
             {actions && (
-              <footer className="flex shrink-0 flex-wrap gap-2 border-t border-border px-5 py-4">
+              <footer className="flex w-full shrink-0 flex-wrap items-center gap-2 border-t border-border px-5 py-4">
                 {actions}
               </footer>
             )}

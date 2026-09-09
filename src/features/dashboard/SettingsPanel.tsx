@@ -38,6 +38,12 @@ const AUTO_LOCK_OPTIONS: { label: string; minutes: number }[] = [
   { label: "Never", minutes: 0 },
 ];
 
+const THEME_OPTIONS: ButtonGroupOption<Theme>[] = [
+  { value: "system", label: "System" },
+  { value: "light", label: "Light" },
+  { value: "dark", label: "Dark" },
+];
+
 const CLIPBOARD_CLEAR_OPTIONS = [10, 30, 60, 120, 300];
 const RESULT_LIMIT_OPTIONS = [3, 5, 7, 9];
 
@@ -213,8 +219,8 @@ export function SettingsPanel() {
   }
 
   return (
-    <div className="p-6">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+    <div className="flex h-full min-h-0 flex-col">
+      <div className="flex shrink-0 flex-col gap-3 border-b border-border bg-background px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
         <h1 className="text-lg font-semibold">Settings</h1>
         <ButtonGroup
           aria-label="Settings menu"
@@ -225,9 +231,10 @@ export function SettingsPanel() {
         />
       </div>
 
+      <div className="min-h-0 flex-1 overflow-y-auto px-6 pb-6 pt-5">
       <div
         aria-label={`${activeMenu === "settings" ? "Primary" : "System"} settings`}
-        className="grid max-w-5xl gap-5 pt-5 lg:grid-cols-2"
+        className="grid max-w-5xl gap-5 lg:grid-cols-2"
         id={`settings-${activeMenu}-panel`}
         role="tabpanel"
       >
@@ -436,21 +443,17 @@ export function SettingsPanel() {
                 Appearance
               </h2>
               <div className="flex flex-col divide-y divide-border rounded-md border border-border bg-card">
-                <label className="flex items-center gap-3 px-3 py-2.5">
+                <div className="flex items-center gap-3 px-3 py-2.5">
                   <span className="flex-1 text-sm">Theme</span>
-                  <Select
+                  <ButtonGroup
                     aria-label="Theme"
-                    className="w-auto"
-                    onChange={(e) =>
-                      void updateSettings({ theme: e.target.value as Theme })
+                    onValueChange={(theme) =>
+                      void updateSettings({ theme })
                     }
+                    options={THEME_OPTIONS}
                     value={settings.theme}
-                  >
-                    <option value="system">System</option>
-                    <option value="light">Light</option>
-                    <option value="dark">Dark</option>
-                  </Select>
-                </label>
+                  />
+                </div>
                 <label className="flex items-center gap-3 px-3 py-2.5">
                   <span className="flex-1 text-sm">Accent</span>
                   <Input
@@ -615,6 +618,7 @@ export function SettingsPanel() {
         </p>
       )}
       {error && <p className="mt-4 text-xs text-destructive">{error}</p>}
+      </div>
     </div>
   );
 }

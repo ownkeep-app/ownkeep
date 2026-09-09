@@ -206,7 +206,8 @@ export function collectTodoReminders(
     if (now.getTime() < dueTime - lead * MINUTE_MS) return [];
     return [
       {
-        id: `${item.id}:due`,
+        // Include dueAt so a reschedule can notify again once for the new due.
+        id: `${item.id}:due:${item.dueAt}`,
         title: `Todo due: ${item.title}`,
         body: formatReminderBody(item),
       },

@@ -117,4 +117,111 @@
     height: 100%;
     overflow: hidden;
   }
+
+  .markdown-body {
+    @apply text-foreground;
+  }
+
+  .markdown-body > :first-child {
+    margin-top: 0;
+  }
+
+  .markdown-body > :last-child {
+    margin-bottom: 0;
+  }
+
+  .markdown-body h1,
+  .markdown-body h2,
+  .markdown-body h3,
+  .markdown-body h4 {
+    @apply font-semibold tracking-tight;
+    margin: 1em 0 0.4em;
+  }
+
+  .markdown-body h1 {
+    @apply text-xl;
+  }
+
+  .markdown-body h2 {
+    @apply text-lg;
+  }
+
+  .markdown-body h3 {
+    @apply text-base;
+  }
+
+  .markdown-body p,
+  .markdown-body ul,
+  .markdown-body ol,
+  .markdown-body blockquote,
+  .markdown-body pre {
+    margin: 0.75em 0;
+  }
+
+  .markdown-body ul,
+  .markdown-body ol {
+    @apply pl-5;
+  }
+
+  .markdown-body ul {
+    list-style: disc;
+  }
+
+  .markdown-body ol {
+    list-style: decimal;
+  }
+
+  .markdown-body a {
+    @apply text-primary underline underline-offset-2;
+  }
+
+  .markdown-body code {
+    @apply rounded bg-muted px-1 py-0.5 font-mono text-[0.85em];
+  }
+
+  .markdown-body pre {
+    @apply overflow-x-auto rounded-md border border-border bg-muted/50 p-3;
+  }
+
+  .markdown-body pre code {
+    @apply bg-transparent p-0;
+  }
+
+  .markdown-body blockquote {
+    @apply border-l-2 border-border pl-3 text-muted-foreground;
+  }
+
+  .markdown-body table {
+    @apply w-full border-collapse text-left;
+  }
+
+  .markdown-body th,
+  .markdown-body td {
+    @apply border border-border px-2 py-1;
+  }
+
+  .markdown-body hr {
+    @apply my-4 border-border;
+  }
+
+  /* Compact per-line markdown used by copyable note previews. */
+  .markdown-line > :first-child {
+    margin-top: 0;
+  }
+
+  .markdown-line > :last-child {
+    margin-bottom: 0;
+  }
+
+  .markdown-line h1,
+  .markdown-line h2,
+  .markdown-line h3,
+  .markdown-line h4,
+  .markdown-line p,
+  .markdown-line ul,
+  .markdown-line ol,
+  .markdown-line blockquote,
+  .markdown-line pre {
+    margin: 0;
+  }
 }

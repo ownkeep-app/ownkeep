@@ -322,7 +322,7 @@ describe("subscription module logic", () => {
     });
   });
 
-  it("collects lead-window reminders and falls back to module defaults", () => {
+  it("collects auto renewal and manual lead-window reminders", () => {
     const settings = {
       ...createDefaultModel(NOW).settings,
       modules: {
@@ -330,6 +330,7 @@ describe("subscription module logic", () => {
       },
     };
 
+    // Auto: silent until the invoice day is reached.
     expect(
       collectSubscriptionReminders(
         [subscription({ nextDueDate: "2026-07-12T00:00:00.000Z" })],
@@ -338,13 +339,18 @@ describe("subscription module logic", () => {
       ),
     ).toEqual([]);
 
+    const dueToday = dateInputToIso("2026-07-08") ?? "";
     expect(
-      collectSubscriptionReminders([subscription()], new Date(NOW), settings),
+      collectSubscriptionReminders(
+        [subscription({ nextDueDate: dueToday, service: "YouTube" })],
+        new Date(NOW),
+        settings,
+      ),
     ).toEqual([
       expect.objectContaining({
-        id: "sub-1:due",
-        title: "Subscription invoice: Linode",
-        body: expect.stringContaining("Invoice"),
+        id: `sub-1:due:${dueToday}`,
+        title:
+          "Your subscription on YouTube has been automatically renewed. Expect invoice to come",
       }),
     ]);
 
@@ -365,6 +371,7 @@ describe("subscription module logic", () => {
       collectSubscriptionReminders(
         [
           subscription({
+            autoRenew: false,
             nextDueDate: "2026-07-09T00:00:00.000Z",
             notifyLeadDays: -1,
           }),
@@ -376,18 +383,27 @@ describe("subscription module logic", () => {
       ),
     ).toHaveLength(1);
 
+    // Past auto invoice still notifies once (then UI/Rust rolls the date forward).
+    const overdueAuto = dateInputToIso("2026-05-01") ?? "";
     expect(
       collectSubscriptionReminders(
         [
           subscription({
-            nextDueDate: dateInputToIso("2026-05-01") ?? "",
+            nextDueDate: overdueAuto,
             cycle: "monthly",
+            service: "YouTube",
           }),
         ],
         new Date(NOW),
         settings,
       ),
-    ).toEqual([]);
+    ).toEqual([
+      expect.objectContaining({
+        id: `sub-1:due:${overdueAuto}`,
+        title:
+          "Your subscription on YouTube has been automatically renewed. Expect invoice to come",
+      }),
+    ]);
   });
 
   it("advances overdue auto invoice dates by billing cycle", () => {
@@ -456,7 +472,7 @@ describe("subscription module logic", () => {
         }),
         now,
       ),
-    ).toBe(dateInputToIso("2026-08-11"));
+    ).toBe(dateInputToIso("2026-09-11"));
     expect(
       nextAutoInvoiceDate(
         subscription({
@@ -534,13 +550,18 @@ describe("subscription module logic", () => {
   });
 
   it("uses scheduler de-dupe for due subscription reminders", async () => {
+    const dueToday = dateInputToIso("2026-07-08") ?? "";
     const model = {
       ...createDefaultModel(NOW),
       settings: {
         ...createDefaultModel(NOW).settings,
         modules: { subscriptions: { enabled: true } },
       },
-      modules: { subscriptions: [subscription()] },
+      modules: {
+        subscriptions: [
+          subscription({ nextDueDate: dueToday, service: "YouTube" }),
+        ],
+      },
     };
     const notify = vi.fn(async () => {});
 
@@ -560,8 +581,9 @@ describe("subscription module logic", () => {
     });
 
     expect(first.sent.map((reminder) => reminder.key)).toEqual([
-      "subscriptions:sub-1:due",
+      `subscriptions:sub-1:due:${dueToday}`,
     ]);
+    expect(first.sent[0]?.title).toContain("automatically renewed");
     expect(second.sent).toEqual([]);
     expect(notify).toHaveBeenCalledTimes(1);
   });

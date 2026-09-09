@@ -245,7 +245,10 @@ export function Dashboard() {
           </p>
         </div>
       </nav>
-      <section className="flex-1 overflow-auto">
+      <section
+        className="relative flex min-h-0 flex-1 flex-col overflow-hidden"
+        data-dashboard-pane
+      >
         {Pane ? (
           <Pane
             items={items}

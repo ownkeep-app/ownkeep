@@ -497,6 +497,19 @@ export function TodosListView({
             viewing && (
               <>
                 <Button
+                  onClick={() =>
+                    setPendingDelete({
+                      id: viewing.id,
+                      name: viewing.title,
+                    })
+                  }
+                  type="button"
+                  variant="destructive"
+                >
+                  <Trash2 className="h-4 w-4" />
+                  Delete
+                </Button>
+                <Button
                   onClick={() => void handleToggle(viewing.id, !viewing.done)}
                   type="button"
                   variant="outline"
@@ -504,6 +517,7 @@ export function TodosListView({
                   {viewing.done ? "Mark open" : "Mark done"}
                 </Button>
                 <Button
+                  className="ml-auto"
                   onClick={() => {
                     setViewing(null);
                     setEditing(viewing);
@@ -513,19 +527,6 @@ export function TodosListView({
                 >
                   <Pencil className="h-4 w-4" />
                   Edit
-                </Button>
-                <Button
-                  onClick={() =>
-                    setPendingDelete({
-                      id: viewing.id,
-                      name: viewing.title,
-                    })
-                  }
-                  type="button"
-                  variant="outline"
-                >
-                  <Trash2 className="h-4 w-4" />
-                  Delete
                 </Button>
               </>
             )

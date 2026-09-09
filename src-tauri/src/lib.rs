@@ -449,24 +449,35 @@ fn spawn_auto_lock(handle: tauri::AppHandle) {
 /// pause due notifications while the vault remains unlocked.
 fn spawn_reminder_scheduler(handle: tauri::AppHandle) {
     const INTERVAL: std::time::Duration = std::time::Duration::from_secs(15);
-    const DEDUPE_WINDOW: std::time::Duration = std::time::Duration::from_secs(5 * 60);
 
     std::thread::spawn(move || {
-        let mut last_notified = std::collections::HashMap::<String, std::time::Instant>::new();
+        // Once-per-due-occurrence: reminder keys include the due instant, so a new due date (or the
+        // next subscription invoice) can notify again without a timed cooldown re-firing the same one.
+        let mut notified = std::collections::HashSet::<String>::new();
         loop {
-            let tick_started = std::time::Instant::now();
-            let reminders = {
-                let state = handle.state::<commands::SharedSession>();
-                let session = state.lock().unwrap();
-                session.collect_due_reminders(chrono::Utc::now())
+            let path = match handle.path().app_data_dir() {
+                Ok(dir) => dir.join(crate::storage::VAULT_FILE),
+                Err(_) => {
+                    std::thread::sleep(INTERVAL);
+                    continue;
+                }
             };
 
+            let (reminders, vault_changed) = {
+                let state = handle.state::<commands::SharedSession>();
+                let mut session = state.lock().unwrap();
+                match session.process_due_reminders(&path, chrono::Utc::now()) {
+                    Ok(result) => result,
+                    Err(_) => (Vec::new(), false),
+                }
+            };
+
+            if vault_changed {
+                let _ = handle.emit("vault-updated", ());
+            }
+
             for reminder in reminders {
-                let recently_sent = last_notified
-                    .get(&reminder.key)
-                    .map(|sent_at| tick_started.saturating_duration_since(*sent_at) < DEDUPE_WINDOW)
-                    .unwrap_or(false);
-                if recently_sent {
+                if notified.contains(&reminder.key) {
                     continue;
                 }
                 let app = handle.clone();
@@ -484,7 +495,7 @@ fn spawn_reminder_scheduler(handle: tauri::AppHandle) {
                 )
                 .is_ok()
                 {
-                    last_notified.insert(reminder.key, tick_started);
+                    notified.insert(reminder.key);
                 }
             }
 
