@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect } from "react";
+import { listen } from "@tauri-apps/api/event";
 
 import { CommandBar } from "@/features/CommandBar";
 import { EmergencyKitScreen } from "@/features/auth/EmergencyKitScreen";
@@ -44,6 +45,17 @@ function App() {
     const onFocus = () => void init();
     window.addEventListener("focus", onFocus);
     return () => window.removeEventListener("focus", onFocus);
+  }, [init]);
+
+  // Rust reminder loop may roll auto-renew invoice dates while the UI is open.
+  useEffect(() => {
+    let unlisten: (() => void) | undefined;
+    void listen("vault-updated", () => {
+      void init();
+    }).then((fn) => {
+      unlisten = fn;
+    });
+    return () => unlisten?.();
   }, [init]);
 
   useEffect(() => {

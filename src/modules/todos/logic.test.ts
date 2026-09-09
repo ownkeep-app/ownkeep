@@ -156,7 +156,7 @@ describe("todo module logic", () => {
 
     expect(collectTodoReminders([todo()], new Date(NOW), settings)).toEqual([
       expect.objectContaining({
-        id: "todo-1:due",
+        id: "todo-1:due:2026-07-08T12:30:00.000Z",
         title: "Todo due: Renew passport",
       }),
     ]);
@@ -269,7 +269,7 @@ describe("todo module logic", () => {
     });
 
     expect(first.sent.map((reminder) => reminder.key)).toEqual([
-      "todos:todo-1:due",
+      "todos:todo-1:due:2026-07-08T12:30:00.000Z",
     ]);
     expect(second.sent).toEqual([]);
     expect(notify).toHaveBeenCalledTimes(1);

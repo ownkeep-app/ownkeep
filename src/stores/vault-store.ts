@@ -28,6 +28,8 @@ import { financeSnapshots } from "@/modules/finance/logic";
 import { FINANCE_MODULE_ID, type Snapshot } from "@/modules/finance/types";
 import { todoEntries, toggleTodoDoneState } from "@/modules/todos/logic";
 import { TODOS_MODULE_ID, type TodoEntry } from "@/modules/todos/types";
+import { noteEntries } from "@/modules/notes/logic";
+import { NOTES_MODULE_ID, type NoteEntry } from "@/modules/notes/types";
 import { type BiometricStatus, type EmergencyKit, vaultApi } from "@/vault/api";
 import {
   abandonedVaultBackupName,
@@ -106,6 +108,8 @@ interface VaultState {
   saveTodo: (entry: TodoEntry) => Promise<void>;
   deleteTodo: (id: string) => Promise<void>;
   toggleTodoDone: (id: string) => Promise<void>;
+  saveNote: (entry: NoteEntry) => Promise<void>;
+  deleteNote: (id: string) => Promise<void>;
   saveSubscription: (entry: SubscriptionEntry) => Promise<void>;
   deleteSubscription: (id: string) => Promise<void>;
   saveSnapshot: (entry: Snapshot) => Promise<void>;
@@ -767,6 +771,43 @@ export const useVaultStore = create<VaultState>((set, get) => ({
     await get().save({
       ...model,
       modules: { ...model.modules, [TODOS_MODULE_ID]: nextItems },
+    });
+  },
+
+  saveNote: async (entry) => {
+    const model = get().model;
+    if (!model) return;
+    const current = noteEntries(
+      Array.isArray(model.modules[NOTES_MODULE_ID])
+        ? model.modules[NOTES_MODULE_ID]
+        : [],
+    );
+    const exists = current.some((item) => item.id === entry.id);
+    const nextItems = exists
+      ? current.map((item) => (item.id === entry.id ? entry : item))
+      : [...current, entry];
+    // Notes have no secret fields — persist the slice directly so Markdown body is kept
+    // exactly as edited (no getVault projection round-trip).
+    await get().save({
+      ...model,
+      modules: { ...model.modules, [NOTES_MODULE_ID]: nextItems },
+    });
+  },
+
+  deleteNote: async (id) => {
+    const model = get().model;
+    if (!model) return;
+    const current = noteEntries(
+      Array.isArray(model.modules[NOTES_MODULE_ID])
+        ? model.modules[NOTES_MODULE_ID]
+        : [],
+    );
+    await get().save({
+      ...model,
+      modules: {
+        ...model.modules,
+        [NOTES_MODULE_ID]: current.filter((item) => item.id !== id),
+      },
     });
   },
 

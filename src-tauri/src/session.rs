@@ -292,13 +292,23 @@ impl Session {
         secrets::redact_projection(&unlocked.vault)
     }
 
-    /// Collect due reminder metadata without counting it as user activity. The scheduler runs in
-    /// the Rust core while the vault is unlocked; locking still drops all decrypted state.
-    pub fn collect_due_reminders(&self, now: chrono::DateTime<chrono::Utc>) -> Vec<Reminder> {
-        self.unlocked
-            .as_ref()
-            .map(|unlocked| reminders::collect_due_reminders(&unlocked.vault, now))
-            .unwrap_or_default()
+    /// Collect due reminders and persist auto-renew invoice roll-forward. Does not count as user
+    /// activity (background scheduler). Returns reminders from the pre-roll snapshot.
+    pub fn process_due_reminders(
+        &mut self,
+        path: &Path,
+        now: chrono::DateTime<chrono::Utc>,
+    ) -> Result<(Vec<Reminder>, bool)> {
+        let unlocked = self.unlocked.as_mut().ok_or(Error::Locked)?;
+        let tick = reminders::process_reminders(&unlocked.vault, now);
+        let mut vault_changed = false;
+        if let Some(updated) = tick.vault {
+            envelope::reseal_vault(&mut unlocked.container, &unlocked.dek, &updated)?;
+            storage::write_container(path, &unlocked.container)?;
+            unlocked.vault = Zeroizing::new(updated);
+            vault_changed = true;
+        }
+        Ok((tick.reminders, vault_changed))
     }
 
     /// Replace the vault model with `json`, re-seal it under the DEK, and persist. Requires unlocked.

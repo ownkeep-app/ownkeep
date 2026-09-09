@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { vaultApi } from "@/vault/api";
 import { APP_VERSION, createDefaultModel, SCHEMA_VERSION } from "@/vault/model";
 import { useVaultStore } from "./vault-store";
+import type { NoteEntry } from "@/modules/notes/types";
 import type { SubscriptionEntry } from "@/modules/subscriptions/types";
 import type { TodoEntry } from "@/modules/todos/types";
 
@@ -1037,6 +1038,81 @@ describe("vault store", () => {
     expect(useVaultStore.getState().model?.modules.todos).toEqual([
       expect.objectContaining({ id: "todo-1", done: true }),
     ]);
+  });
+
+  const noteFixture: NoteEntry = {
+    id: "note-1",
+    name: "Shipping checklist",
+    createdAt: "2026-07-01T10:00:00.000Z",
+    updatedAt: "2026-07-07T00:00:00.000Z",
+    category: "Work",
+    content: "# Ship",
+  };
+
+  it("saveNote adds and updates notes", async () => {
+    api.getVault.mockResolvedValue("{}");
+    useVaultStore.setState({
+      model: createDefaultModel("2026-07-07T00:00:00.000Z"),
+    });
+
+    await useVaultStore.getState().saveNote(noteFixture);
+    let saved = JSON.parse(api.saveVault.mock.calls[0][0] as string);
+    expect(saved.modules.notes[0].name).toBe("Shipping checklist");
+    expect(saved.modules.notes[0].content).toBe("# Ship");
+    expect(useVaultStore.getState().model?.modules.notes).toEqual([
+      noteFixture,
+    ]);
+
+    useVaultStore.setState({
+      model: {
+        ...createDefaultModel("2026-07-07T00:00:00.000Z"),
+        modules: { notes: [noteFixture] },
+      },
+    });
+    await useVaultStore.getState().saveNote({
+      ...noteFixture,
+      name: "Release checklist",
+      content: "## Release\n\n**bold**",
+    });
+    saved = JSON.parse(api.saveVault.mock.calls[1][0] as string);
+    expect(saved.modules.notes).toHaveLength(1);
+    expect(saved.modules.notes[0].name).toBe("Release checklist");
+    expect(saved.modules.notes[0].content).toBe("## Release\n\n**bold**");
+    expect(
+      (useVaultStore.getState().model?.modules.notes as NoteEntry[])[0].content,
+    ).toBe("## Release\n\n**bold**");
+  });
+
+  it("deleteNote removes a note", async () => {
+    api.getVault.mockResolvedValue("{}");
+    useVaultStore.setState({
+      model: {
+        ...createDefaultModel("2026-07-07T00:00:00.000Z"),
+        modules: { notes: [noteFixture] },
+      },
+    });
+
+    await useVaultStore.getState().deleteNote("note-1");
+    const saved = JSON.parse(api.saveVault.mock.calls[0][0] as string);
+    expect(saved.modules.notes).toEqual([]);
+  });
+
+  it("note actions tolerate non-array slices and missing models", async () => {
+    api.getVault.mockResolvedValue("{}");
+    useVaultStore.setState({
+      model: {
+        ...createDefaultModel("2026-07-07T00:00:00.000Z"),
+        modules: { notes: { not: "an array" } },
+      },
+    });
+    await useVaultStore.getState().saveNote(noteFixture);
+    expect(
+      JSON.parse(api.saveVault.mock.calls[0][0] as string).modules.notes,
+    ).toEqual([noteFixture]);
+
+    useVaultStore.setState({ model: null });
+    await useVaultStore.getState().saveNote(noteFixture);
+    await useVaultStore.getState().deleteNote("note-1");
   });
 
   it("todo actions are no-ops without a model", async () => {

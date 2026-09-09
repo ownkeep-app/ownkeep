@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
@@ -52,5 +52,26 @@ describe("ItemFormShell", () => {
     screen.getByRole("dialog", { name: "Edit item" }).focus();
     await user.keyboard("{Escape}");
     expect(onCancel).toHaveBeenCalled();
+  });
+
+  it("keeps Cancel and Save in a floating actions group", () => {
+    render(
+      <ItemFormShell
+        cancelLabel="Cancel"
+        mode="create"
+        onCancel={() => {}}
+        onSubmit={(event) => event.preventDefault()}
+        title="New item"
+      >
+        <div className="col-span-2 h-[120vh]">tall body</div>
+      </ItemFormShell>,
+    );
+
+    const actions = screen.getByRole("group", { name: "Form actions" });
+    expect(actions).toBeVisible();
+    expect(
+      within(actions).getByRole("button", { name: "Cancel" }),
+    ).toBeVisible();
+    expect(within(actions).getByRole("button", { name: "Save" })).toBeVisible();
   });
 });

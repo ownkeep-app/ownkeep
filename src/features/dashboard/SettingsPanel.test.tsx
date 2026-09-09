@@ -120,7 +120,7 @@ describe("SettingsPanel auto-lock", () => {
     await user.selectOptions(screen.getByLabelText("Clipboard clear seconds"), [
       "120",
     ]);
-    await user.selectOptions(screen.getByLabelText("Theme"), ["dark"]);
+    await user.click(screen.getByRole("radio", { name: "Dark" }));
     fireEvent.change(screen.getByLabelText("Accent color"), {
       target: { value: "#00aa88" },
     });

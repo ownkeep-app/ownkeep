@@ -297,6 +297,19 @@ export function CommandsListView({ items }: ListViewProps<CommandEntry>) {
             viewing && (
               <>
                 <Button
+                  onClick={() =>
+                    setPendingDelete({
+                      id: viewing.id,
+                      name: viewing.title,
+                    })
+                  }
+                  type="button"
+                  variant="destructive"
+                >
+                  <Trash2 className="h-4 w-4" />
+                  Delete
+                </Button>
+                <Button
                   onClick={() => startCopy(viewing)}
                   type="button"
                   variant="outline"
@@ -305,6 +318,7 @@ export function CommandsListView({ items }: ListViewProps<CommandEntry>) {
                   Copy
                 </Button>
                 <Button
+                  className="ml-auto"
                   onClick={() => {
                     setViewing(null);
                     setEditing(viewing);
@@ -314,19 +328,6 @@ export function CommandsListView({ items }: ListViewProps<CommandEntry>) {
                 >
                   <Pencil className="h-4 w-4" />
                   Edit
-                </Button>
-                <Button
-                  onClick={() =>
-                    setPendingDelete({
-                      id: viewing.id,
-                      name: viewing.title,
-                    })
-                  }
-                  type="button"
-                  variant="outline"
-                >
-                  <Trash2 className="h-4 w-4" />
-                  Delete
                 </Button>
               </>
             )

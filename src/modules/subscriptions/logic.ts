@@ -29,8 +29,9 @@ export function subscriptionNextDateLabel(autoRenew: boolean): string {
 }
 
 /**
- * Auto subscriptions are never overdue: walk the billing cycle forward until
- * the next invoice is today or later. Manual dues are left unchanged.
+ * Auto subscriptions are never overdue: once the invoice day is reached (today
+ * or past), walk the billing cycle forward until the next invoice is after today.
+ * Manual dues are left unchanged.
  */
 export function nextAutoInvoiceDate(
   item: Pick<
@@ -40,7 +41,9 @@ export function nextAutoInvoiceDate(
   now: Date = new Date(),
 ): string {
   if (!item.autoRenew) return item.nextDueDate;
-  if (calendarDueStatus(item.nextDueDate, now, "invoice")?.kind !== "overdue") {
+  const kind = calendarDueStatus(item.nextDueDate, now, "invoice")?.kind;
+  // Roll on due day and past so Auto never stays on "Invoice today" / Overdue.
+  if (kind !== "overdue" && kind !== "today") {
     return item.nextDueDate;
   }
 
@@ -54,7 +57,8 @@ export function nextAutoInvoiceDate(
     if (!advanced || !advanced.isValid() || !advanced.isAfter(start, "day")) {
       return item.nextDueDate;
     }
-    if (!advanced.startOf("day").isBefore(today)) {
+    // Strictly after today: renewing on the invoice day advances to the next cycle.
+    if (advanced.startOf("day").isAfter(today)) {
       return dateInputToIso(advanced.format("YYYY-MM-DD")) ?? item.nextDueDate;
     }
   }
@@ -346,18 +350,30 @@ export function collectSubscriptionReminders(
   now: Date,
   settings: VaultSettings,
 ): ReminderEvent[] {
-  return subscriptionEntries(items).flatMap((raw) => {
-    const item = resolveSubscription(raw, now);
+  return subscriptionEntries(items).flatMap((item) => {
     const dueTime = Date.parse(item.nextDueDate);
     if (Number.isNaN(dueTime)) return [];
+
+    if (item.autoRenew) {
+      // Notify once when the invoice day is reached, then the date rolls forward.
+      const kind = calendarDueStatus(item.nextDueDate, now, "invoice")?.kind;
+      if (kind !== "overdue" && kind !== "today") return [];
+      return [
+        {
+          id: `${item.id}:due:${item.nextDueDate}`,
+          title: `Your subscription on ${item.service} has been automatically renewed. Expect invoice to come`,
+          body: formatReminderBody(item),
+        },
+      ];
+    }
+
     const lead = effectiveLeadDays(item, settings);
     if (now.getTime() < dueTime - lead * DAY_MS) return [];
     return [
       {
-        id: `${item.id}:due`,
-        title: item.autoRenew
-          ? `Subscription invoice: ${item.service}`
-          : `Subscription due: ${item.service}`,
+        // Include nextDueDate so reschedule / next cycle can notify again once.
+        id: `${item.id}:due:${item.nextDueDate}`,
+        title: `Subscription due: ${item.service}`,
         body: formatReminderBody(item),
       },
     ];

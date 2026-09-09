@@ -8,6 +8,9 @@ import { cn } from "@/lib/utils";
 /**
  * Shared create/edit chrome: dimmed pane + elevated dialog card so the form reads as a
  * special mode, not just another list screen.
+ *
+ * The field body scrolls independently; Cancel/Save stay pinned in a floating action cluster
+ * at the bottom-right so long forms (e.g. notes Markdown) never hide the primary actions.
  */
 export function ItemFormShell({
   title,
@@ -38,13 +41,13 @@ export function ItemFormShell({
         onClick={onCancel}
         type="button"
       />
-      <div className="relative z-10 flex min-h-0 flex-1 justify-center overflow-auto p-4 sm:p-6">
+      <div className="relative z-10 flex min-h-0 flex-1 justify-center overflow-hidden p-4 sm:p-6">
         <form
           aria-label={title}
           aria-modal="true"
           className={cn(
             modalPanelClassName,
-            "my-auto flex w-full max-w-3xl flex-col",
+            "relative my-auto flex max-h-full w-full max-w-3xl flex-col overflow-hidden",
           )}
           onKeyDown={(event) => {
             if (event.key === "Escape") {
@@ -89,11 +92,22 @@ export function ItemFormShell({
             ) : null}
           </div>
 
-          <footer className="flex shrink-0 justify-end gap-2 border-t border-border px-6 py-4">
-            <Button onClick={onCancel} type="button" variant="outline">
-              Cancel
-            </Button>
-            <Button type="submit">Save</Button>
+          <footer className="flex shrink-0 justify-end px-4 py-3 sm:px-5">
+            <div
+              aria-label="Form actions"
+              className="flex gap-2 rounded-lg border border-orange-200/80 bg-orange-50/80 p-2 shadow-sm dark:border-orange-400/20 dark:bg-orange-400/10"
+              role="group"
+            >
+              <Button
+                className="border-border bg-card text-foreground hover:bg-accent hover:text-accent-foreground"
+                onClick={onCancel}
+                type="button"
+                variant="outline"
+              >
+                Cancel
+              </Button>
+              <Button type="submit">Save</Button>
+            </div>
           </footer>
         </form>
       </div>

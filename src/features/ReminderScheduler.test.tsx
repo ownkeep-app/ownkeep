@@ -59,7 +59,7 @@ describe("ReminderScheduler", () => {
     vi.useRealTimers();
   });
 
-  it("requests permission and sends a dummy reminder once per de-dupe window", async () => {
+  it("requests permission and sends a dummy reminder only once while it stays due", async () => {
     const requestPermission = vi.fn(async () => "granted");
     const sendNotification = vi.fn(async () => {});
 
@@ -84,11 +84,11 @@ describe("ReminderScheduler", () => {
     });
     expect(sendNotification).toHaveBeenCalledTimes(1);
 
-    vi.setSystemTime(new Date("2026-07-08T12:05:00.000Z"));
+    vi.setSystemTime(new Date("2026-07-08T12:30:00.000Z"));
     await act(async () => {
       await vi.advanceTimersByTimeAsync(1_000);
     });
-    expect(sendNotification).toHaveBeenCalledTimes(2);
+    expect(sendNotification).toHaveBeenCalledTimes(1);
     expect(requestPermission).toHaveBeenCalledTimes(1);
   });
 

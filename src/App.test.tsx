@@ -8,6 +8,10 @@ import { createDefaultModel, APP_VERSION } from "@/vault/model";
 import type { MigrationPlan } from "@/vault/migrations";
 import App from "./App";
 
+vi.mock("@tauri-apps/api/event", () => ({
+  listen: vi.fn(async () => () => {}),
+}));
+
 vi.mock("@/lib/window", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/window")>();
   return {

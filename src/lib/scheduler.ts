@@ -2,7 +2,6 @@ import { isModuleEnabled, type VaultModel } from "@/vault/model";
 import type { FeatureModule, ReminderEvent } from "@/modules/types";
 
 export const SCHEDULER_INTERVAL_MS = 60_000;
-export const REMINDER_DEDUPE_WINDOW_MS = 5 * 60_000;
 
 export type LastNotified = Record<string, string>;
 
@@ -37,16 +36,12 @@ export function collectScheduledReminders(
   });
 }
 
+/** Spec §8: each due occurrence notifies once (no timed re-fire while it stays due). */
 export function shouldNotifyReminder(
   reminder: ScheduledReminder,
   lastNotified: LastNotified,
-  now: Date,
-  windowMs = REMINDER_DEDUPE_WINDOW_MS,
 ): boolean {
-  const last = lastNotified[reminder.key];
-  if (!last) return true;
-  const lastTime = Date.parse(last);
-  return Number.isNaN(lastTime) || now.getTime() - lastTime >= windowMs;
+  return !(reminder.key in lastNotified);
 }
 
 export async function runSchedulerTick({
@@ -55,20 +50,17 @@ export async function runSchedulerTick({
   lastNotified,
   now,
   notify,
-  windowMs = REMINDER_DEDUPE_WINDOW_MS,
 }: {
   model: VaultModel;
   modules: FeatureModule[];
   lastNotified: LastNotified;
   now: Date;
   notify: ReminderNotifier;
-  windowMs?: number;
 }): Promise<SchedulerTickResult> {
   const nextLastNotified = { ...lastNotified };
   const sent: ScheduledReminder[] = [];
   const due = collectScheduledReminders(model, modules, now).filter(
-    (reminder) =>
-      shouldNotifyReminder(reminder, nextLastNotified, now, windowMs),
+    (reminder) => shouldNotifyReminder(reminder, nextLastNotified),
   );
 
   for (const reminder of due) {

@@ -354,6 +354,20 @@ export function FinanceListView({ items }: ListViewProps<Snapshot>) {
             viewing && (
               <>
                 <Button
+                  onClick={() =>
+                    setPendingDelete({
+                      id: viewing.id,
+                      name: formatSnapshotDate(viewing.date),
+                    })
+                  }
+                  type="button"
+                  variant="destructive"
+                >
+                  <Trash2 className="h-4 w-4" />
+                  Delete
+                </Button>
+                <Button
+                  className="ml-auto"
                   onClick={() => {
                     setViewing(null);
                     setEditing(viewing);
@@ -363,19 +377,6 @@ export function FinanceListView({ items }: ListViewProps<Snapshot>) {
                 >
                   <Pencil className="h-4 w-4" />
                   Edit
-                </Button>
-                <Button
-                  onClick={() =>
-                    setPendingDelete({
-                      id: viewing.id,
-                      name: formatSnapshotDate(viewing.date),
-                    })
-                  }
-                  type="button"
-                  variant="outline"
-                >
-                  <Trash2 className="h-4 w-4" />
-                  Delete
                 </Button>
               </>
             )

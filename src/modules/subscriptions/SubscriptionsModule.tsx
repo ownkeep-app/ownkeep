@@ -481,6 +481,20 @@ export function SubscriptionsListView({
             viewing && (
               <>
                 <Button
+                  onClick={() =>
+                    setPendingDelete({
+                      id: viewing.id,
+                      name: viewing.service,
+                    })
+                  }
+                  type="button"
+                  variant="destructive"
+                >
+                  <Trash2 className="h-4 w-4" />
+                  Delete
+                </Button>
+                <Button
+                  className="ml-auto"
                   onClick={() => {
                     setViewing(null);
                     setEditing(viewing);
@@ -490,19 +504,6 @@ export function SubscriptionsListView({
                 >
                   <Pencil className="h-4 w-4" />
                   Edit
-                </Button>
-                <Button
-                  onClick={() =>
-                    setPendingDelete({
-                      id: viewing.id,
-                      name: viewing.service,
-                    })
-                  }
-                  type="button"
-                  variant="outline"
-                >
-                  <Trash2 className="h-4 w-4" />
-                  Delete
                 </Button>
               </>
             )

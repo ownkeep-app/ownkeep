@@ -365,14 +365,14 @@ describe("SubscriptionsListView", () => {
       screen.getByLabelText("Subscription cycle"),
       "yearly",
     );
-    await pickDate(user, "Subscription next invoice date", "2026-09-01");
+    await pickDate(user, "Subscription next invoice date", "2027-03-01");
     await user.click(screen.getByRole("button", { name: "Save" }));
     expect(saveSubscription).toHaveBeenCalledWith(
       expect.objectContaining({
         id: "sub-1",
         service: "Linode Pro",
         cycle: "yearly",
-        nextDueDate: new Date(2026, 8, 1, 23, 59, 59, 0).toISOString(),
+        nextDueDate: new Date(2027, 2, 1, 23, 59, 59, 0).toISOString(),
       }),
     );
 
@@ -452,8 +452,10 @@ describe("SubscriptionsListView", () => {
     );
 
     expect(screen.getByText("Overdue")).toBeVisible();
-    expect(screen.getByText("Invoice today")).toBeVisible();
+    // Auto due today rolls forward immediately — never Overdue, never stuck on Invoice today.
+    expect(screen.queryByText("Invoice today")).not.toBeInTheDocument();
     expect(screen.getByText("Invoice in 2 days")).toBeVisible();
+    expect(screen.getAllByText(/^Invoice in \d+ days$/)).toHaveLength(2);
     expect(screen.getByText("Due in 3 days")).toBeVisible();
   });
 
