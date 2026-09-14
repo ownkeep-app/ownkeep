@@ -18,9 +18,7 @@ const note: NoteEntry = {
 
 describe("notesModule surface", () => {
   it("returns null for non-note items in the DetailView", () => {
-    const { container } = render(
-      <DetailView item={{ not: "a note" }} />,
-    );
+    const { container } = render(<DetailView item={{ not: "a note" }} />);
     expect(container).toBeEmptyDOMElement();
   });
 
@@ -28,9 +26,7 @@ describe("notesModule surface", () => {
     render(
       <EditView item={{ bad: true }} onCancel={() => {}} onSave={() => {}} />,
     );
-    expect(
-      screen.getByRole("heading", { name: /new note/i }),
-    ).toBeVisible();
+    expect(screen.getByRole("heading", { name: /new note/i })).toBeVisible();
   });
 
   it("builds index entries and renders list/detail/edit surfaces", () => {
@@ -43,9 +39,7 @@ describe("notesModule surface", () => {
     const { unmount: unmountList } = render(
       <notesModule.ListView items={[note]} />,
     );
-    expect(
-      screen.getByRole("heading", { name: "Notes" }),
-    ).toBeVisible();
+    expect(screen.getByRole("heading", { name: "Notes" })).toBeVisible();
     unmountList();
 
     const detail = render(<DetailView item={note} />);
@@ -53,8 +47,6 @@ describe("notesModule surface", () => {
     detail.unmount();
 
     render(<EditView item={note} onCancel={() => {}} onSave={() => {}} />);
-    expect(
-      screen.getByRole("heading", { name: /edit note/i }),
-    ).toBeVisible();
+    expect(screen.getByRole("heading", { name: /edit note/i })).toBeVisible();
   });
 });

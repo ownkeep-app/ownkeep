@@ -1,9 +1,6 @@
 import { formatDate } from "@/lib/date";
 import type { IndexEntry } from "@/modules/types";
-import {
-  defaultCategory,
-  type TaxonomySettings,
-} from "@/vault/taxonomy";
+import { defaultCategory, type TaxonomySettings } from "@/vault/taxonomy";
 import { NOTES_MODULE_ID, type NoteEntry, type NoteFormInput } from "./types";
 
 export { formatDate };
@@ -35,9 +32,7 @@ export function buildNoteIndex(items: NoteEntry[]): IndexEntry[] {
     searchString: [item.name, item.category, item.content]
       .filter(Boolean)
       .join(" "),
-    displayLine: item.category
-      ? `${item.name} — ${item.category}`
-      : item.name,
+    displayLine: item.category ? `${item.name} — ${item.category}` : item.name,
   }));
 }
 

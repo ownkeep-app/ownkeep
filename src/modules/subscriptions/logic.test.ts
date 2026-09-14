@@ -587,4 +587,50 @@ describe("subscription module logic", () => {
     expect(second.sent).toEqual([]);
     expect(notify).toHaveBeenCalledTimes(1);
   });
+
+  it("leaves an auto subscription alone when its custom cycle has no interval", () => {
+    const stuck = subscription({
+      autoRenew: true,
+      cycle: "custom",
+      customIntervalDays: null,
+      nextDueDate: "2026-06-01T00:00:00.000Z",
+    });
+
+    expect(nextAutoInvoiceDate(stuck, new Date(NOW))).toBe(
+      "2026-06-01T00:00:00.000Z",
+    );
+    expect(resolveSubscription(stuck, new Date(NOW)).nextDueDate).toBe(
+      "2026-06-01T00:00:00.000Z",
+    );
+  });
+
+  it("stays silent for a manual subscription outside its lead window", () => {
+    const settings = {
+      ...createDefaultModel(NOW).settings,
+      modules: { subscriptions: { enabled: true, defaultLeadDays: 1 } },
+    };
+
+    expect(
+      collectSubscriptionReminders(
+        [
+          subscription({
+            autoRenew: false,
+            nextDueDate: "2026-08-20T00:00:00.000Z",
+          }),
+        ],
+        new Date(NOW),
+        settings,
+      ),
+    ).toEqual([]);
+  });
+
+  it("rejects an amount that is not a number at all", () => {
+    expect(
+      validateSubscriptionInput({
+        ...emptySubscriptionForm(),
+        service: "Linode",
+        amount: "not a number",
+      }),
+    ).toMatch(/amount/i);
+  });
 });

@@ -62,17 +62,19 @@ to manage.
 
 ## Modules you can switch off
 
-Passwords and commands are the core. Todos, subscriptions, and finance are modules — each toggles
-from Settings with its data preserved, and each shows up in the same bar and the same Dashboard
-sidebar.
+Passwords and commands are the core. Todos, notes, subscriptions, and finance are modules — each
+toggles from Settings with its data preserved, and each shows up in the same bar and the same
+Dashboard sidebar.
 
 | | |
 |:--|:--|
 | <img src="docs/media/shots/passwords.webp" alt="The Passwords module: logins in a sortable table with categories"><br>**Passwords** — logins with categories, sortable columns, and one-click concealed copy for usernames and passwords. | <img src="docs/media/shots/todos.webp" alt="The Todos module showing tasks with due dates and priorities"><br>**Todos** — due dates, priorities, recurrence, and notifications that fire once per window. |
 | <img src="docs/media/shots/subscriptions.webp" alt="The Subscriptions module showing recurring services with renewal dates"><br>**Subscriptions** — what renews, when, and what it costs, with lead-time reminders before you're charged. | <img src="docs/media/shots/finance.webp" alt="The Finance module showing a net-worth trend chart and category breakdown"><br>**Finance** — periodic snapshots, per-category stats, a net-worth trend, and a manual FX table. |
+| <img src="docs/media/shots/notes.webp" alt="The Notes module showing a Markdown note with its formatting toolbar and preview"><br>**Notes** — Markdown with a formatting toolbar, preview and full-screen mode, grouped by category and sorted by last edited. Code blocks copy a line at a time. | |
 
-Calendar, notes, and bookmarks are candidates for later — the module registry is what makes adding
-one a self-contained job rather than surgery on the core.
+Calendar and bookmarks are candidates for later — the module registry is what makes adding one a
+self-contained job rather than surgery on the core. Notes was the first module added after v1.0, and
+it took one folder and one line in the registry.
 
 ## One door in
 
@@ -114,7 +116,7 @@ Apple — so Gatekeeper opens it without a warning. Confirm that yourself rather
 for it:
 
 ```bash
-spctl -a -vvv -t open --context context:primary-signature OwnKeep_1.2.0_universal.dmg
+spctl -a -vvv -t open --context context:primary-signature OwnKeep_1.3.0_universal.dmg
 # accepted
 # source=Notarized Developer ID
 ```
@@ -146,9 +148,10 @@ Found a vulnerability? [Report it privately](https://github.com/ownkeep-app/ownk
 - **Signing & Touch ID on macOS:** [`code-signing.md`](code-signing.md)
 - **Rules for humans & AI agents:** [`AGENTS.md`](AGENTS.md), [`.cursor/rules/`](.cursor/rules/)
 
-> **Status:** v1.2 shipped — signed, notarized, Touch ID live. The encrypted vault core, every
-> feature module, the command bar, Dashboard, backup/restore, scheduler, and migration framework are
-> all in place (see [`plan.md`](plan.md)).
+> **Status:** v1.3 shipped — adds the Notes module and auto-renewing subscriptions that roll
+> themselves forward, on top of the signed, notarized, Touch ID-enabled v1.2. The encrypted vault
+> core, every feature module, the command bar, Dashboard, backup/restore, scheduler, and migration
+> framework are all in place (see [`plan.md`](plan.md)).
 
 ---
 
@@ -232,9 +235,11 @@ Light / dark / system and the accent color are set in **Settings → Appearance*
 OwnKeep upgrades by **manual replacement** — download a new `.dmg` and drag the new app over the old
 OwnKeep app. Your data is untouched because the vault lives outside the app bundle.
 
-Existing `.dat` backups remain restorable regardless of their filename prefix. After upgrading to
-v1.2, regenerate the Emergency Kit once from Settings to move its recovery wrap to the current
-OwnKeep derivation context; the v1.2 reader still accepts the existing code until you do.
+Existing `.dat` backups remain restorable regardless of their filename prefix. If you are coming
+from a build older than v1.2, regenerate the Emergency Kit once from Settings to move its recovery
+wrap to the current OwnKeep derivation context; the reader still accepts the existing code until you
+do. v1.3 changes no data shape — it adds an empty `notes` slice on first open and nothing else, so
+upgrading from v1.2 runs no migration.
 
 When a new build introduces a data-shape change, opening your existing vault shows a **migration
 guide** before anything is written: it summarizes added fields, shows renamed paths (`old → new`), and

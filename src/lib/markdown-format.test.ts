@@ -40,9 +40,7 @@ describe("markdown-format", () => {
       "~~text~~",
     );
     expect(applyMarkdownAction("text", 0, 4, "code").value).toBe("`text`");
-    expect(applyMarkdownAction("text", 0, 4, "link").value).toBe(
-      "[text](url)",
-    );
+    expect(applyMarkdownAction("text", 0, 4, "link").value).toBe("[text](url)");
     expect(applyMarkdownAction("line", 0, 4, "heading1").value).toBe("# line");
     expect(applyMarkdownAction("line", 0, 4, "heading2").value).toBe("## line");
     expect(applyMarkdownAction("line", 0, 4, "heading3").value).toBe(

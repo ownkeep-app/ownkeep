@@ -2,7 +2,7 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
-import { MarkdownEditor } from "./MarkdownEditor";
+import { CopyableMarkdownPreview, MarkdownEditor } from "./MarkdownEditor";
 
 describe("MarkdownEditor", () => {
   it("applies bold wrapping to the current selection from the toolbar", async () => {
@@ -55,5 +55,20 @@ describe("MarkdownEditor", () => {
     ).toBeVisible();
     await user.keyboard("{Escape}");
     expect(screen.getByRole("button", { name: "Full screen" })).toBeVisible();
+  });
+
+  it("says there is nothing to preview when the note is blank", async () => {
+    const user = userEvent.setup();
+    render(<MarkdownEditor onChange={() => {}} value="   " />);
+
+    await user.click(screen.getByRole("radio", { name: "Preview" }));
+    expect(screen.getByText("Nothing to preview.")).toBeVisible();
+    expect(screen.queryByLabelText("Note content preview")).toBeInTheDocument();
+  });
+
+  it("renders an empty label for a blank copyable preview", () => {
+    render(<CopyableMarkdownPreview content="" />);
+    expect(screen.getByText("Empty")).toBeVisible();
+    expect(screen.queryByRole("button", { name: /Copy line/ })).toBeNull();
   });
 });

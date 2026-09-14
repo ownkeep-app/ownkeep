@@ -37,7 +37,9 @@ export function CopyableLines({
     ? splitCopyableLines(text).filter((line) => line.trim().length > 0)
     : splitCopyableLines(text);
   const visible =
-    typeof maxLines === "number" ? lines.slice(0, Math.max(0, maxLines)) : lines;
+    typeof maxLines === "number"
+      ? lines.slice(0, Math.max(0, maxLines))
+      : lines;
   const truncated =
     typeof maxLines === "number" && lines.length > maxLines
       ? lines.length - maxLines
