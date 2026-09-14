@@ -7,11 +7,12 @@ places.
 ```
 docs/media/
 ├── icon.png              app icon, 256×256
-└── shots/                1500×936 WebP, dark theme, default #5B6CFF accent
+└── shots/                WebP, dark theme, default #5B6CFF accent
     ├── command-bar.webp        README hero — "git re" ranked results with placeholders
     ├── commands.webp           Commands module, git snippets by category
-    ├── passwords.webp          Passwords module
+    ├── passwords.webp          Passwords module (hero on ownkeep.app)
     ├── todos.webp              Todos module
+    ├── notes.webp              Notes module (v1.3)
     ├── subscriptions.webp      Subscriptions module
     ├── finance.webp            Finance module
     ├── lock-screen.webp        Lock screen: master password + Touch ID
@@ -28,8 +29,9 @@ your real vault stays untouched. Never publish a screenshot of a real vault: eve
 leak site names, usernames, and your actual subscriptions.
 
 Keep the set consistent — same theme, same accent, same window size — so the README tables read as
-one set rather than a pile. `⌘⇧4` then `Space` captures a window with its shadow; export to WebP at
-1500×936.
+one set rather than a pile. `⌘⇧4` then `Space` captures a window with its shadow. Encode to WebP
+the same way the website does (max width 1880 for the passwords hero, 1500 for module shots, quality
+78) and copy the result here and to the site's `/shots/` directory.
 
 ## Worth adding later
 

@@ -45,7 +45,7 @@ Save a snippet once with `{{placeholder}}` markers. When you pick it, OwnKeep pr
 and copies the finished command — so a template with a placeholder in the middle works exactly as
 well as one with a placeholder at the end.
 
-<img src="docs/media/shots/commands.webp" alt="The Commands module: git snippets grouped by category, syntax-highlighted, showing git tag, git reset and git rebase with placeholder markers">
+<img src="docs/media/shots/commands.webp" alt="The Commands module: Git snippets filtered by category, syntax-highlighted, showing git tag, git reset and git rebase with placeholder markers">
 
 Snippets are syntax-highlighted, grouped into categories you define, and searchable by full text —
 not just by title. `⌥⌘1`–`⌥⌘9` copies the raw template instead if you'd rather fill it in yourself.
@@ -54,7 +54,8 @@ not just by title. `⌥⌘1`–`⌥⌘9` copies the raw template instead if you'
 
 The bar is the home screen. Results rank by **fuzzy match × frecency**, so the things you actually
 use surface first instead of whatever happens to match alphabetically. Scope prefixes narrow to one
-module when you already know where you're going.
+module when you already know where you're going — `n` for notes, for example. Notes stay out of the
+bar by default so a long body never drowns a login; turn searchability on per module in Settings.
 
 Nothing needs the mouse: `⌥⇧1`–`⌥⇧9` runs a result's primary action — copy the password, fill in the
 command — and `Esc` makes the bar disappear. It hides on blur too, so it never becomes another window
@@ -64,17 +65,17 @@ to manage.
 
 Passwords and commands are the core. Todos, notes, subscriptions, and finance are modules — each
 toggles from Settings with its data preserved, and each shows up in the same bar and the same
-Dashboard sidebar.
+Dashboard sidebar. v1.3 added Notes at `⌥⇧4`, so Subscriptions is `⌥⇧5` and Finance is `⌥⇧6`.
 
 | | |
 |:--|:--|
-| <img src="docs/media/shots/passwords.webp" alt="The Passwords module: logins in a sortable table with categories"><br>**Passwords** — logins with categories, sortable columns, and one-click concealed copy for usernames and passwords. | <img src="docs/media/shots/todos.webp" alt="The Todos module showing tasks with due dates and priorities"><br>**Todos** — due dates, priorities, recurrence, and notifications that fire once per window. |
-| <img src="docs/media/shots/subscriptions.webp" alt="The Subscriptions module showing recurring services with renewal dates"><br>**Subscriptions** — what renews, when, and what it costs, with lead-time reminders before you're charged. | <img src="docs/media/shots/finance.webp" alt="The Finance module showing a net-worth trend chart and category breakdown"><br>**Finance** — periodic snapshots, per-category stats, a net-worth trend, and a manual FX table. |
-| <img src="docs/media/shots/notes.webp" alt="The Notes module showing a Markdown note with its formatting toolbar and preview"><br>**Notes** — Markdown with a formatting toolbar, preview and full-screen mode, grouped by category and sorted by last edited. Code blocks copy a line at a time. | |
+| <img src="docs/media/shots/passwords.webp" alt="The Passwords module: logins in a sortable table with categories, usernames, and concealed passwords"><br>**Passwords** — logins with categories, sortable columns, and one-click concealed copy for usernames and passwords. | <img src="docs/media/shots/todos.webp" alt="The Todos module showing open and done tasks with due dates, priorities, and categories"><br>**Todos** — due dates, priorities, recurrence, and notifications that fire once per window. |
+| <img src="docs/media/shots/notes.webp" alt="The Notes module showing Markdown notes grouped by category, sorted by last edited"><br>**Notes** — Markdown with a formatting toolbar, preview and full-screen mode, grouped by category and sorted by last edited. Code blocks copy a line at a time. Kept out of the command bar by default so long prose never buries a login. | <img src="docs/media/shots/subscriptions.webp" alt="The Subscriptions module showing monthly and yearly totals plus upcoming and overdue renewals"><br>**Subscriptions** — what renews, when, and what it costs, with lead-time reminders before you're charged. Auto-renewing services roll themselves forward on the invoice day. |
+| <img src="docs/media/shots/finance.webp" alt="The Finance module showing a net-worth trend chart and snapshot list"><br>**Finance** — periodic snapshots, per-category stats, a net-worth trend, and a manual FX table. | |
 
-Calendar and bookmarks are candidates for later — the module registry is what makes adding one a
-self-contained job rather than surgery on the core. Notes was the first module added after v1.0, and
-it took one folder and one line in the registry.
+Calendar, lists, and bookmarks are candidates for later — the module registry is what makes adding
+one a self-contained job rather than surgery on the core. Notes shipped in v1.3 as the first module
+added after v1.0: one folder and one line in the registry.
 
 ## One door in
 
@@ -148,10 +149,11 @@ Found a vulnerability? [Report it privately](https://github.com/ownkeep-app/ownk
 - **Signing & Touch ID on macOS:** [`code-signing.md`](code-signing.md)
 - **Rules for humans & AI agents:** [`AGENTS.md`](AGENTS.md), [`.cursor/rules/`](.cursor/rules/)
 
-> **Status:** v1.3 shipped — adds the Notes module and auto-renewing subscriptions that roll
-> themselves forward, on top of the signed, notarized, Touch ID-enabled v1.2. The encrypted vault
-> core, every feature module, the command bar, Dashboard, backup/restore, scheduler, and migration
-> framework are all in place (see [`plan.md`](plan.md)).
+> **Status:** v1.3 shipped — Notes module (`⌥⇧4`), auto-renewing subscriptions that roll themselves
+> forward, and reminder dedupe per due occurrence, on top of the signed, notarized, Touch ID-enabled
+> v1.2. The vault schema is unchanged. The encrypted vault core, every feature module, the command
+> bar, Dashboard, backup/restore, scheduler, and migration framework are all in place (see
+> [`plan.md`](plan.md)).
 
 ---
 
@@ -238,8 +240,12 @@ OwnKeep app. Your data is untouched because the vault lives outside the app bund
 Existing `.dat` backups remain restorable regardless of their filename prefix. If you are coming
 from a build older than v1.2, regenerate the Emergency Kit once from Settings to move its recovery
 wrap to the current OwnKeep derivation context; the reader still accepts the existing code until you
-do. v1.3 changes no data shape — it adds an empty `notes` slice on first open and nothing else, so
-upgrading from v1.2 runs no migration.
+do.
+
+v1.3 changes no data shape — it adds an empty `notes` slice on first open and nothing else, so
+upgrading from v1.2 runs no migration and does not re-issue the Emergency Kit. **One thing will
+surprise your fingers:** Notes takes `⌥⇧4`, so Subscriptions moves to `⌥⇧5` and Finance to `⌥⇧6`.
+Modules are numbered by their position in the sidebar, so inserting one shifts everything below it.
 
 When a new build introduces a data-shape change, opening your existing vault shows a **migration
 guide** before anything is written: it summarizes added fields, shows renamed paths (`old → new`), and
