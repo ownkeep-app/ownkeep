@@ -8,14 +8,15 @@ export const APP_LICENSE_URL =
   "https://github.com/ownkeep-app/ownkeep/blob/main/LICENSE";
 
 /** Human-readable release date for the current `package.json` version. Update on each ship. */
-export const APP_RELEASE_DATE = "July 15, 2026";
+export const APP_RELEASE_DATE = "September 13, 2026";
 
 export const APP_FEATURES = [
   "Offline-first password vault with a master password and Emergency Kit recovery code",
   "Spotlight-style command bar for fast search and copy",
   "Command-line snippet library with fill-in placeholders",
   "Dashboard to browse and manage passwords, commands, todos, notes, subscriptions, and finance",
-  // "Optional Touch ID unlock on supported Macs", // Settings UI deferred until after v1.0
+  "Optional Touch ID unlock on supported Macs",
+  "Markdown notes with a formatting toolbar, live preview, and copyable code blocks",
   "Encrypted single-file vault with backup and restore",
 ] as const;
 

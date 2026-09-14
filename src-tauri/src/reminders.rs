@@ -520,4 +520,185 @@ mod tests {
         assert!(tick.reminders.is_empty());
         assert!(tick.vault.is_none());
     }
+
+    #[test]
+    fn ignores_a_vault_that_is_not_valid_json() {
+        let tick = process_reminders(b"{ not json", now());
+        assert!(tick.reminders.is_empty());
+        assert!(tick.vault.is_none());
+    }
+
+    #[test]
+    fn skips_done_todos_and_inherits_the_module_lead_setting() {
+        let due = Utc.with_ymd_and_hms(2026, 7, 12, 11, 13, 0).unwrap();
+        let vault = format!(
+            r#"{{
+              "settings":{{"modules":{{"todos":{{"enabled":true,"defaultLeadMinutes":10}}}}}},
+              "modules":{{"todos":[
+                {{"id":"done-1","title":"Already done","done":true,"dueAt":"{due_raw}","priority":"normal","category":"Personal"}},
+                {{"id":"todo-2","title":"Inherits lead","done":false,"dueAt":"{due_raw}","priority":"high","category":"  Work  "}},
+                {{"id":"todo-3","title":"Bare","done":false,"dueAt":"{due_raw}"}}
+              ]}}
+            }}"#,
+            due_raw = due.to_rfc3339()
+        );
+
+        let tick = process_reminders(vault.as_bytes(), now());
+
+        // The done todo is skipped; the other two inherit defaultLeadMinutes (10).
+        assert_eq!(tick.reminders.len(), 2);
+        assert_eq!(tick.reminders[0].item_id, "todo-2");
+        assert_eq!(tick.reminders[1].item_id, "todo-3");
+
+        let high = tick.reminders[0].body.as_deref().unwrap();
+        assert!(high.contains("high priority"), "{high}");
+        assert!(high.ends_with("Work"), "{high}");
+
+        let bare = tick.reminders[1].body.as_deref().unwrap();
+        assert!(bare.starts_with("Due "), "{bare}");
+        assert!(!bare.contains("priority"), "{bare}");
+    }
+
+    #[test]
+    fn stays_quiet_for_a_manual_subscription_outside_its_lead_window() {
+        let due = Utc.with_ymd_and_hms(2026, 7, 30, 11, 8, 0).unwrap();
+        let vault = format!(
+            r#"{{
+              "settings":{{"modules":{{"subscriptions":{{"enabled":true}}}}}},
+              "modules":{{"subscriptions":[{{
+                "id":"sub-1",
+                "service":"Hosting",
+                "nextDueDate":"{}",
+                "notifyLeadDays":3,
+                "amount":9.5,
+                "currency":"usd",
+                "autoRenew":false
+              }}]}}
+            }}"#,
+            due.to_rfc3339()
+        );
+
+        let tick = process_reminders(vault.as_bytes(), now());
+        assert!(tick.reminders.is_empty());
+        assert!(tick.vault.is_none());
+    }
+
+    #[test]
+    fn skips_subscriptions_entirely_when_the_module_is_disabled() {
+        let due = Local
+            .with_ymd_and_hms(2026, 7, 12, 23, 59, 59)
+            .single()
+            .unwrap()
+            .with_timezone(&Utc);
+        let vault = format!(
+            r#"{{
+              "settings":{{"modules":{{"subscriptions":{{"enabled":false}}}}}},
+              "modules":{{"subscriptions":[{{
+                "id":"sub-1",
+                "service":"YouTube",
+                "nextDueDate":"{}",
+                "autoRenew":true,
+                "cycle":"monthly",
+                "customIntervalDays":null
+              }}]}}
+            }}"#,
+            due.to_rfc3339_opts(SecondsFormat::Millis, true)
+        );
+
+        let tick = process_reminders(vault.as_bytes(), now());
+        assert!(tick.reminders.is_empty());
+        assert!(tick.vault.is_none());
+    }
+
+    #[test]
+    fn skips_auto_subscriptions_missing_an_id_or_a_usable_due_date() {
+        let due_raw = Local
+            .with_ymd_and_hms(2026, 7, 6, 23, 59, 59)
+            .single()
+            .unwrap()
+            .with_timezone(&Utc)
+            .to_rfc3339_opts(SecondsFormat::Millis, true);
+        let vault = format!(
+            r#"{{
+              "settings":{{"modules":{{"subscriptions":{{"enabled":true}}}}}},
+              "modules":{{"subscriptions":[
+                {{"id":"no-date","service":"A","autoRenew":true,"cycle":"monthly"}},
+                {{"id":"bad-date","service":"B","nextDueDate":"whenever","autoRenew":true,"cycle":"monthly"}},
+                {{"service":"C","nextDueDate":"{due_raw}","autoRenew":true,"cycle":"monthly"}}
+              ]}}
+            }}"#
+        );
+
+        let tick = process_reminders(vault.as_bytes(), now());
+        assert!(tick.reminders.is_empty());
+        assert!(tick.vault.is_none());
+    }
+
+    #[test]
+    fn notifies_without_rolling_when_the_cycle_cannot_advance() {
+        let due_raw = Local
+            .with_ymd_and_hms(2026, 7, 6, 23, 59, 59)
+            .single()
+            .unwrap()
+            .with_timezone(&Utc)
+            .to_rfc3339_opts(SecondsFormat::Millis, true);
+        let vault = format!(
+            r#"{{
+              "settings":{{"modules":{{"subscriptions":{{"enabled":true}}}}}},
+              "modules":{{"subscriptions":[
+                {{"id":"custom-none","service":"A","nextDueDate":"{due_raw}","autoRenew":true,"cycle":"custom","customIntervalDays":null}},
+                {{"id":"unknown","service":"B","nextDueDate":"{due_raw}","autoRenew":true,"cycle":"fortnightly"}}
+              ]}}
+            }}"#
+        );
+
+        let tick = process_reminders(vault.as_bytes(), now());
+
+        // Both are due, so both notify — but neither cycle can compute a next date,
+        // so the vault must not be rewritten.
+        assert_eq!(tick.reminders.len(), 2);
+        assert!(tick.vault.is_none());
+    }
+
+    #[test]
+    fn rolls_yearly_custom_and_multi_period_weekly_cycles() {
+        let old = Local
+            .with_ymd_and_hms(2026, 6, 14, 23, 59, 59)
+            .single()
+            .unwrap()
+            .with_timezone(&Utc)
+            .to_rfc3339_opts(SecondsFormat::Millis, true);
+        let recent = Local
+            .with_ymd_and_hms(2026, 7, 6, 23, 59, 59)
+            .single()
+            .unwrap()
+            .with_timezone(&Utc)
+            .to_rfc3339_opts(SecondsFormat::Millis, true);
+        let vault = format!(
+            r#"{{
+              "settings":{{"modules":{{"subscriptions":{{"enabled":true}}}}}},
+              "modules":{{"subscriptions":[
+                {{"id":"yearly","service":"Domain","nextDueDate":"{recent}","autoRenew":true,"cycle":"yearly","customIntervalDays":null}},
+                {{"id":"custom","service":"Box","nextDueDate":"{recent}","autoRenew":true,"cycle":"custom","customIntervalDays":10}},
+                {{"id":"weekly","service":"Wash","nextDueDate":"{old}","autoRenew":true,"cycle":"weekly","customIntervalDays":null}}
+              ]}}
+            }}"#
+        );
+
+        let tick = process_reminders(vault.as_bytes(), now());
+        assert_eq!(tick.reminders.len(), 3);
+
+        let updated = serde_json::from_slice::<Value>(tick.vault.as_ref().unwrap()).unwrap();
+        let day_of = |index: usize| {
+            let raw = updated["modules"]["subscriptions"][index]["nextDueDate"]
+                .as_str()
+                .unwrap();
+            local_calendar_day(parse_rfc3339(raw).unwrap())
+        };
+
+        assert_eq!(day_of(0), NaiveDate::from_ymd_opt(2027, 7, 6).unwrap());
+        assert_eq!(day_of(1), NaiveDate::from_ymd_opt(2026, 7, 16).unwrap());
+        // Weekly from 06-14 needs five hops to clear today (07-12).
+        assert_eq!(day_of(2), NaiveDate::from_ymd_opt(2026, 7, 19).unwrap());
+    }
 }

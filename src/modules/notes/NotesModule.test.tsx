@@ -142,4 +142,127 @@ describe("NotesListView", () => {
       "Ship",
     );
   });
+
+  it("shows a no-matches empty state when the filter excludes everything", async () => {
+    const user = userEvent.setup();
+    render(<NotesListView items={[item]} />);
+
+    await user.type(screen.getByLabelText("Filter notes"), "zzzz");
+    expect(screen.getByText("No matches")).toBeVisible();
+    expect(screen.getByText(/Nothing matches/)).toBeVisible();
+  });
+
+  it("blocks saving a note with no name and explains why", async () => {
+    const user = userEvent.setup();
+    render(<NotesListView items={[]} />);
+
+    await user.click(screen.getByRole("button", { name: "New" }));
+    await user.click(screen.getByRole("button", { name: "Save" }));
+
+    expect(screen.getByText("Name is required.")).toBeVisible();
+    expect(saveNote).not.toHaveBeenCalled();
+  });
+
+  it("shows a placeholder in the detail view when a note has no body", async () => {
+    const user = userEvent.setup();
+    render(<NotesListView items={[{ ...item, content: "   " }]} />);
+
+    await chooseRowAction(user, "Shipping checklist", "View");
+    expect(
+      within(screen.getByRole("dialog")).getByText("Empty note."),
+    ).toBeVisible();
+  });
+
+  it("omits the category chip for an uncategorized note", async () => {
+    const user = userEvent.setup();
+    render(<NotesListView items={[{ ...item, category: "" }]} />);
+
+    await chooseRowAction(user, "Shipping checklist", "View");
+    const dialog = screen.getByRole("dialog");
+    expect(dialog).toHaveAccessibleName("Shipping checklist");
+    expect(within(dialog).queryByText("[Work]")).not.toBeInTheDocument();
+  });
+
+  it("opens the focused note and reports the focus as handled", async () => {
+    const onFocusItemHandled = vi.fn();
+    render(
+      <NotesListView
+        focusItemId="note-1"
+        items={[item]}
+        onFocusItemHandled={onFocusItemHandled}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByRole("dialog")).toHaveAccessibleName(
+        "Shipping checklist",
+      );
+    });
+    expect(onFocusItemHandled).toHaveBeenCalled();
+  });
+
+  it("opens a focused note even without a focus-handled callback", async () => {
+    render(<NotesListView focusItemId="note-1" items={[item]} />);
+
+    await waitFor(() => {
+      expect(screen.getByRole("dialog")).toHaveAccessibleName(
+        "Shipping checklist",
+      );
+    });
+  });
+
+  it("ignores a focus id that matches no note", () => {
+    const onFocusItemHandled = vi.fn();
+    render(
+      <NotesListView
+        focusItemId="does-not-exist"
+        items={[item]}
+        onFocusItemHandled={onFocusItemHandled}
+      />,
+    );
+
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(onFocusItemHandled).not.toHaveBeenCalled();
+  });
+
+  it("filters by category and clears both filters at once", async () => {
+    const user = userEvent.setup();
+    render(
+      <NotesListView
+        items={[
+          item,
+          {
+            ...item,
+            id: "note-2",
+            name: "Grocery list",
+            category: "Personal",
+            content: "Milk",
+          },
+        ]}
+      />,
+    );
+
+    await user.selectOptions(
+      screen.getByLabelText("Filter by category"),
+      "Personal",
+    );
+    expect(screen.getByText("Grocery list")).toBeVisible();
+    expect(screen.queryByText("Shipping checklist")).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Clear Filters" }));
+    expect(screen.getByText("Shipping checklist")).toBeVisible();
+    expect(screen.getByText("Grocery list")).toBeVisible();
+  });
+
+  it("explains an empty category rather than showing a bare no-matches", async () => {
+    const user = userEvent.setup();
+    render(<NotesListView items={[item]} />);
+
+    await user.selectOptions(
+      screen.getByLabelText("Filter by category"),
+      "Dev",
+    );
+    expect(screen.getByText("No matches")).toBeVisible();
+    expect(screen.getByText("Nothing in this category.")).toBeVisible();
+  });
 });

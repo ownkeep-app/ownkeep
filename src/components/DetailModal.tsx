@@ -33,8 +33,7 @@ export function DetailModal({
 }) {
   const closeRef = useRef<HTMLButtonElement>(null);
   const reduce = useReducedMotion();
-  const label =
-    ariaLabel ?? (typeof title === "string" ? title : "Details");
+  const label = ariaLabel ?? (typeof title === "string" ? title : "Details");
 
   useEffect(() => {
     if (open) closeRef.current?.focus();

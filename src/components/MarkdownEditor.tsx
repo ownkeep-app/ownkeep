@@ -233,7 +233,10 @@ export function MarkdownEditor({
         <>
           <div
             aria-hidden
-            className={cn("rounded-md border border-dashed border-input", minHeightClass)}
+            className={cn(
+              "rounded-md border border-dashed border-input",
+              minHeightClass,
+            )}
           />
           {createPortal(surface, paneHost)}
         </>

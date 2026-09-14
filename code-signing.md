@@ -340,11 +340,11 @@ entitlements, and notarization credentials configured, Tauri should:
 The log must report successful signing, notarization acceptance, and app stapling. Do not release an
 artifact if the log says signing or app notarization was skipped.
 
-Expected output paths for OwnKeep 1.2.0:
+Expected output paths for OwnKeep 1.3.0:
 
 ```text
 src-tauri/target/universal-apple-darwin/release/bundle/macos/OwnKeep.app
-src-tauri/target/universal-apple-darwin/release/bundle/dmg/OwnKeep_1.2.0_universal.dmg
+src-tauri/target/universal-apple-darwin/release/bundle/dmg/OwnKeep_1.3.0_universal.dmg
 ```
 
 Tauri's DMG is a standard drag-to-Applications installer. See the
@@ -362,7 +362,7 @@ pnpm tauri build \
 ```
 
 The remaining commands must then use the `aarch64-apple-darwin` target directory and the
-`OwnKeep_1.2.0_aarch64.dmg` filename.
+`OwnKeep_1.3.0_aarch64.dmg` filename.
 
 ## 6. Verify entitlements, profile, and app signature
 
@@ -370,7 +370,7 @@ Set the Universal 2 artifact paths:
 
 ```bash
 APP="$PWD/src-tauri/target/universal-apple-darwin/release/bundle/macos/OwnKeep.app"
-DMG="$PWD/src-tauri/target/universal-apple-darwin/release/bundle/dmg/OwnKeep_1.2.0_universal.dmg"
+DMG="$PWD/src-tauri/target/universal-apple-darwin/release/bundle/dmg/OwnKeep_1.3.0_universal.dmg"
 ```
 
 Verify the embedded profile exists and decode it:
@@ -474,7 +474,7 @@ spctl --assess \
   "$DMG"
 
 hdiutil verify "$DMG"
-lipo -archs "$APP/Contents/MacOS/ownkeep"
+lipo -archs "$APP/Contents/MacOS/OwnKeep"
 ```
 
 For a Universal 2 build, `lipo` should report both architectures:

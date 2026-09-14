@@ -274,4 +274,31 @@ describe("todo module logic", () => {
     expect(second.sent).toEqual([]);
     expect(notify).toHaveBeenCalledTimes(1);
   });
+
+  it("falls back to the built-in lead when module settings supply none", () => {
+    const due = "2026-07-08T12:29:00.000Z";
+
+    // Module entry present but its default is not a usable number.
+    const unusable = {
+      ...createDefaultModel(NOW).settings,
+      modules: { todos: { enabled: true, defaultLeadMinutes: "soon" } },
+    };
+    expect(
+      collectTodoReminders(
+        [todo({ dueAt: due, notifyLeadMinutes: -1 })],
+        new Date(NOW),
+        unusable,
+      ),
+    ).toHaveLength(1);
+
+    // No module entry at all.
+    const bare = { ...createDefaultModel(NOW).settings, modules: {} };
+    expect(
+      collectTodoReminders(
+        [todo({ dueAt: due, notifyLeadMinutes: -1 })],
+        new Date(NOW),
+        bare,
+      ),
+    ).toHaveLength(1);
+  });
 });

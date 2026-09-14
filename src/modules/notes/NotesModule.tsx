@@ -13,7 +13,10 @@ import { EmptyState } from "@/components/EmptyState";
 import { ItemFormShell } from "@/components/ItemFormShell";
 import { ClearFiltersButton } from "@/components/ClearFiltersButton";
 import { ListItemTitle } from "@/components/ListItemTitle";
-import { MarkdownEditor, CopyableMarkdownPreview } from "@/components/MarkdownEditor";
+import {
+  MarkdownEditor,
+  CopyableMarkdownPreview,
+} from "@/components/MarkdownEditor";
 import { CopyableLines } from "@/components/CopyableLines";
 import { RowActionsMenu } from "@/components/RowActionsMenu";
 import { Button } from "@/components/ui/button";
@@ -80,10 +83,7 @@ export function NotesListView({
     );
   }, [notes, query, categoryFilter]);
 
-  const groups = useMemo(
-    () => groupNotesByCategory(filtered),
-    [filtered],
-  );
+  const groups = useMemo(() => groupNotesByCategory(filtered), [filtered]);
 
   useEffect(() => {
     if (!focusItemId) return;

@@ -9,7 +9,7 @@
 **Target platform:** macOS 13+ (Apple Silicon + Intel)
 **Author:** Shaojiang
 **Status:** Draft v2.6 (OwnKeep identity finalization + container v3)
-**Last updated:** 2026-07-15
+**Last updated:** 2026-09-13
 
 ---
 
@@ -97,8 +97,10 @@ the Rust core, never entering the WebView (see §4.5).
 > complexity a sole dev doesn't need; the `argon2` + `chacha20poly1305` crates are simpler and give
 > full control.
 
-**Dropped from v1's stack** (re-add only if a Notes module lands): CodeMirror/Milkdown,
-react-markdown, remark-gfm, rehype-sanitize.
+**Re-added in v1.3 with the Notes module (M4):** `react-markdown`, `remark-gfm`, `remark-breaks`,
+`rehype-sanitize`. **Still dropped:** CodeMirror/Milkdown — the Notes editor is a plain `textarea`
+with a formatting toolbar, which keeps the editing surface free of a third-party input that could
+hold note text in its own internal state.
 
 ### Why not the alternatives
 
@@ -208,9 +210,10 @@ export const MODULES: FeatureModule[] = [
   passwordsModule, // core-ish, ships first
   commandsModule, // core-ish, ships first
   todosModule, // optional
+  notesModule, // optional, v1.3
   subscriptionsModule, // optional
   financeModule, // optional
-  // future: calendarModule, notesModule
+  // future: calendarModule
 ];
 ```
 
@@ -321,7 +324,7 @@ backup and is re-enabled per device after restore. See §11.
 ### 4.5 Frontend exposure hardening
 
 - **Never load secret fields into the WebView by default.** The Rust core holds the decrypted model; it serves the frontend a projection with each module's `secretFields` redacted. A secret is returned **only** on an explicit copy action — Rust writes it straight to the concealed pasteboard and discards it; the value never enters JS.
-- **Sanitize any future rendered markdown** (when a Notes module lands) with `rehype-sanitize`; disable raw HTML. _(No markdown rendering in v1.)_
+- **Sanitize rendered markdown** with `rehype-sanitize`; raw HTML stays disabled. _(Live since v1.3 — the Notes module (M4) renders Markdown in both its preview pane and its detail view, and both run the sanitizer.)_
 - **Disable WebView devtools in production**; set a strict Content-Security-Policy.
 
 ### 4.6 Emergency Kit (recovery)
@@ -452,6 +455,11 @@ never migrates another module's slice.
         "scopePrefix": "t",
         "defaultLeadMinutes": 30,
       },
+      "notes": {
+        "enabled": true,
+        "searchable": false, // long-form prose would bury logins in the bar
+        "scopePrefix": "n",
+      },
       "subscriptions": {
         "enabled": true,
         "searchable": false,
@@ -528,6 +536,17 @@ never migrates another module's slice.
       },
     ],
 
+    "notes": [
+      {
+        "id": "uuid",
+        "name": "Router recovery steps",
+        "category": "Home",
+        "content": "## Reset\n\n1. Hold the pin 10s\n2. Re-run the setup wizard\n\n> Static lease is pinned in the router UI.",
+        "createdAt": "ISO",
+        "updatedAt": "ISO",
+      },
+    ],
+
     "subscriptions": [
       {
         "id": "uuid",
@@ -584,8 +603,11 @@ never migrates another module's slice.
 ```
 
 _(The finance slice is a bare `Snapshot[]`, like every other module. FX rates, baseCurrency, holderOptions, and finance categoryOptions live under `settings.modules.finance`; totals + by-category are **derived on the fly** from the FX table,
-so editing a rate re-totals every snapshot. Future calendar/notes modules add their own slice under
-`modules` with no impact on the above.)_
+so editing a rate re-totals every snapshot. The `notes` slice added in v1.3 is likewise a bare
+`NoteEntry[]`; a future calendar module adds its own slice under `modules` with no impact on the
+above. Adding a module slice is **not** a schema change — `ensureModuleDefaults` creates the empty
+slice on first open and preserves slices it does not recognise, so v1.3 reads a v1.2 vault and v1.2
+reads a v1.3 vault without data loss.)_
 
 ---
 
@@ -660,7 +682,8 @@ so editing a rate re-totals every snapshot. Future calendar/notes modules add th
 
 - Track: **service, URL, amount + currency, cycle (weekly/monthly/yearly/custom), next date (`nextDueDate`), auto-renew, per-item notify-lead-days, notes.** Info-only (no payment integration).
 - **Next date wording** depends on renewal: **Auto** → **Next invoice date** (badges: Invoice today / Invoice in N days — never Overdue); **Manual** → **Due date** (badges: Overdue / Due today / Due in N days). The list column header is the neutral **Next date**; absolute date still shows only in detail.
-- **Auto invoice roll-forward:** an Auto row is never overdue. If `nextDueDate` is in the past, OwnKeep advances it by the billing cycle (`weekly` +7d, `monthly` +1 month, `yearly` +1 year, `custom` +`customIntervalDays`) until the date is today or later, then persists the new invoice date. Manual dues are left as-is.
+- **Auto invoice roll-forward:** an Auto row is never overdue, and never sits on “Invoice today” either. Once the invoice day is **reached or past**, OwnKeep advances `nextDueDate` by the billing cycle (`weekly` +7d, `monthly` +1 month, `yearly` +1 year, `custom` +`customIntervalDays`) until the date is **strictly after** today, then persists the new invoice date. Manual dues are left as-is.
+- **Roll-forward runs in the Rust core** (v1.3): the reminder tick advances due Auto rows and writes the vault back while it is unlocked, then emits `vault-updated` so the Dashboard re-reads. This is the only path that mutates vault data without a user action; it touches `nextDueDate` and nothing else, and it is inert while locked.
 - **Due status badges** (same calendar-day chip pattern as todos): the list Next date column shows only the relative chip — not the absolute date. Detail shows the formatted date plus the chip.
 - **List:** a headerless billing-URL column (left of the ⋮ menu) shows a **Link** icon when `url` is http(s); empty or non-http URLs show nothing. Click opens in the system browser (§4 / passwords login-URL pattern).
 - **Notifications** when within the lead window; lead configurable globally + per item. Auto reminders say “invoice”; manual say “due”.
@@ -679,10 +702,20 @@ so editing a rate re-totals every snapshot. Future calendar/notes modules add th
 - Header **Settings** edits holder/category option lists; **FX rates** edits the rate table.
 - **Acceptance:** add snapshot → total + by-category recompute; the curve updates; notes persist; editing a rate re-totals all snapshots; holder/category options changed in Finance settings drive new holding rows; optional per-holding due dates persist.
 
+#### M4 — Notes (module `notes`) — _new in v1.3_
+
+- **Markdown notes**: **name** (title), **category**, **content** (Markdown body), plus `createdAt` / `updatedAt` ISO timestamps. No secret fields — the whole slice is non-secret, so the store persists it directly rather than round-tripping through the redacted projection, and a note body is never altered on save.
+- **Editor:** a plain `textarea` (mono, no third-party editor) with a **formatting toolbar** (bold, italic, headings, lists, quote, inline code, link) driven by `src/lib/markdown-format.ts`, a **Write / Preview** toggle, and a **full-screen** mode for long notes.
+- **Rendering:** `react-markdown` with `remark-gfm` (tables, task lists, strikethrough) and `remark-breaks` (single newline → line break, matching how people actually type notes), sanitized by `rehype-sanitize` with raw HTML disabled (§4.5).
+- **Code blocks** reuse the Commands per-line copy affordance (`CopyableLines`) — hover a line, copy just that line. Notes deliberately do **not** run Shiki: highlighting a note body means shipping language grammars for arbitrary prose, and the value is in copying the line, not colouring it.
+- **List:** grouped by **category** (uncategorised last), and within a group sorted by **`updatedAt` descending** — the note you touched last is the one you want.
+- Command-bar search is **off by default** (`searchableByDefault: false`) — a note body is long-form prose and would bury logins and commands in the results. Turn it on per module in Settings; scope `n `. An indexed note matches on name, category and full body.
+- **Acceptance:** create/edit/delete a note; Markdown renders sanitized in preview and detail; the toolbar applies formatting to the selection; notes group by category and sort by last edited; a code block copies one line at a time; with searchability off the command bar returns no note hits, and with it on the `n ` scope returns them.
+
 #### Future candidates (architecture ready, not spec'd here)
 
 - **Calendar** (RRULE subset, DST/timezone care) — reuses the scheduler.
-- **Notes** (markdown, CodeMirror editor + sanitized react-markdown viewer) — re-adds the dropped deps.
+- **Bookmarks** — the third of the “…soon” set on the site.
 
 ---
 
@@ -956,9 +989,9 @@ modules round-trip their data to JS freely.
 
 - **Tauri plugins:** `global-shortcut`, `notification`, `fs`, `dialog`, `single-instance` (official, v2). Plus a small custom Rust command for concealed-clipboard writes.
 - **Rust crates:** `argon2`, `chacha20poly1305`, `hkdf`, `sha2`, `getrandom`, `zeroize`, `bip39` (12-word recovery), `base64`, `serde` / `serde_json`; `objc2` (clipboard shim, Phase 3); `security-framework` + `objc2-local-authentication` (Touch ID biometric unlock — Keychain `SecAccessControl` + `LAContext`, macOS-only, Phase 13, §4.7). _(`getrandom` is used directly for keys/nonces/salts instead of `rand`; auto-lock uses a std background thread, so no direct `tokio`.)_
-- **Frontend:** `react`, `typescript`, `tailwindcss`, `zustand`, `fuse.js`, `shiki`, `lucide-react`, **shadcn/ui** (`cmdk`, `@radix-ui/*`, `class-variance-authority`, `clsx`, `tailwind-merge`, `tailwindcss-animate`, `sonner`); **`motion`** (Motion/React — calm press/presence animations, respects `prefers-reduced-motion`); `uplot` (Finance module only).
+- **Frontend:** `react`, `typescript`, `tailwindcss`, `zustand`, `fuse.js`, `shiki`, `react-markdown` + `remark-gfm` + `remark-breaks` + `rehype-sanitize` (Notes module only), `lucide-react`, **shadcn/ui** (`cmdk`, `@radix-ui/*`, `class-variance-authority`, `clsx`, `tailwind-merge`, `tailwindcss-animate`, `sonner`); **`motion`** (Motion/React — calm press/presence animations, respects `prefers-reduced-motion`); `uplot` (Finance module only).
 - **Testing:** `vitest`, `@testing-library/react`, `@testing-library/user-event`, `jsdom` (frontend); `cargo test` + `proptest` (Rust). _(Future E2E: `tauri-driver` + `webdriverio`.)_
-- **Dropped from v1 (re-add with a Notes module):** `codemirror`/`milkdown`, `react-markdown`, `remark-gfm`, `rehype-sanitize`.
+- **Still dropped:** `codemirror`/`milkdown` — the Notes module (v1.3) uses a plain `textarea` plus a formatting toolbar instead.
 
 ---
 

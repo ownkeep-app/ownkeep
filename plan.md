@@ -4,7 +4,7 @@ Companion to [spec.md](spec.md). A phased, dependency-ordered build for a **solo
 optimized for getting a genuinely useful app **running on macOS as early as possible**, then
 layering optional modules on the stable core.
 
-**Author:** Shaojiang · **Start:** 2026-07-06 · **Status:** **v1.2 shipped** (2026-08-12) — signed, notarized, Touch ID live. Phases 0–13 complete.
+**Author:** Shaojiang · **Start:** 2026-07-06 · **Status:** **v1.3 shipped** (2026-09-13) — Notes module + auto-renew roll-forward, on the signed, notarized, Touch ID-enabled v1.2 base. Phases 0–14 complete.
 
 ---
 
@@ -40,6 +40,8 @@ layering optional modules on the stable core.
 | **━━ v1.0 ━━** | **Signed, notarized release** | — | — | **~W10 · 2026-09-07** |
 | **13** | 🔐 Touch ID unlock (optional) | Enroll while unlocked → Touch ID = unlock path C; master password + recovery are the authoritative auth; device-local Keychain key excluded from backups (re-enroll after restore); enable/disable/re-enroll in Settings; no model-schema migration | 2–3 d | W11+ · 2026-09 |
 | **━━ v1.2 ━━** | **Shipped — signed, notarized, Touch ID live** | Universal 2 DMG, `source=Notarized Developer ID`, ticket stapled | — | **2026-08-12** |
+| **14** | 📝 Notes module (M4) | Markdown notes (toolbar, preview, full screen, per-line code copy); auto-renew subscriptions roll forward in the Rust core; per-due-occurrence reminder dedupe | 1–2 d | 2026-09 |
+| **━━ v1.3 ━━** | **Shipped — Notes module** | No schema change (`SCHEMA_VERSION` 11); Universal 2 DMG, notarized and stapled | — | **2026-09-13** |
 
 ---
 
@@ -342,6 +344,34 @@ v1.1 builds refuse the resulting file. Document both facts and keep `$verify` ho
 
 ---
 
+### Phase 14 — 📝 Notes module (M4) + auto-renew roll-forward · shipped v1.3
+*The module the registry was built for: `notesModule` is one folder plus one line in
+`src/modules/registry.tsx`, and no core file changed to make room for it. Markdown notes with a
+`textarea` + formatting toolbar, a Write/Preview toggle and a full-screen mode; rendered through
+`react-markdown` with `remark-gfm` / `remark-breaks` and sanitized by `rehype-sanitize` with raw HTML
+off (spec §4.5). CodeMirror stays dropped. Code blocks reuse the Commands per-line copy affordance;
+Shiki is deliberately not applied to note bodies. Notes are non-secret, so the slice persists
+directly without the redacted-projection round-trip that would reshape a Markdown body.*
+
+- [x] `notesModule`: name/category/content + `createdAt`/`updatedAt`; grouped by category, sorted by
+  `updatedAt` desc; `scopePrefix: "n"`; `searchableByDefault: false` so prose never buries a login.
+- [x] `MarkdownEditor` + `markdown-format.ts` (toolbar actions over the selection) + `CopyableLines`
+  for per-line code copy.
+- [x] **Auto-renew subscriptions roll forward in the Rust core**: the reminder tick advances a due
+  Auto row's `nextDueDate` and persists the vault while unlocked, then emits `vault-updated`. Also
+  replaces the five-minute notification cooldown with per-due-occurrence dedupe, so a rescheduled
+  item can notify again and nothing double-fires for one due date.
+- [x] Settings panel keeps a sticky header over a scrolling body; theme is a button group.
+- **No schema change.** `SCHEMA_VERSION` stays 11 — a new module slice is created by
+  `ensureModuleDefaults` and unknown slices are preserved, so v1.2 and v1.3 read each other's vaults
+  without loss. No migration registry entry is required.
+- **Exit criteria:** `pnpm check` + `pnpm coverage:all` green (>95% both surfaces); notes create /
+  edit / delete round-trip through the vault; Markdown renders sanitized in preview and detail; an
+  Auto subscription rolls on its invoice day and notifies exactly once.
+- **Deps:** Phase 2 (registry), Phase 7 (scheduler), Phase 9 (subscriptions).
+
+---
+
 ## Definition of Done — v1.0
 
 - Unlock via master password **and** recovery code; auto-lock + zeroize verified.
@@ -371,6 +401,8 @@ v1.1 builds refuse the resulting file. Document both facts and keep `$verify` ho
 ## Backlog / future (architecture already supports)
 
 - **Calendar module** (RRULE subset; DST/timezone care) — reuses the scheduler.
-- **Notes module** (markdown; re-adds CodeMirror + sanitized react-markdown).
+- **Bookmarks module.**
+- ~~Notes module~~ — **shipped in v1.3** (Phase 14); re-added sanitized `react-markdown`, not CodeMirror.
+- **Notes revision history** — an edit currently replaces the body; backups are the only undo.
 - **E2E smoke tests** (`tauri-driver` + WebdriverIO) once the app surface grows — unit tests cover the MVP.
 - TOTP/2FA generation · import from other managers · optional encrypted sync · auto-update (opt-in, network).

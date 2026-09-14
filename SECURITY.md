@@ -75,7 +75,7 @@ off and must be re-enrolled.
 and notarized and stapled by Apple. Verify any download yourself before opening it:
 
 ```bash
-spctl -a -vvv -t open --context context:primary-signature OwnKeep_1.2.0_universal.dmg
+spctl -a -vvv -t open --context context:primary-signature OwnKeep_1.3.0_universal.dmg
 ```
 
 Expect `accepted` and `source=Notarized Developer ID`.
