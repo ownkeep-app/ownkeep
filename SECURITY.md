@@ -32,8 +32,8 @@ auto-update, so please check the [releases page](https://github.com/ownkeep-app/
 
 | Version | Supported |
 |---|---|
-| 1.2.x | ✅ |
-| < 1.2 | ❌ |
+| 1.3.x | ✅ |
+| < 1.3 | ❌ |
 
 ## What OwnKeep actually does
 
