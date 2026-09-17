@@ -26,6 +26,22 @@ in one encrypted file on your own Mac. No cloud, no account, no telemetry.
 
 ---
 
+## The security model, up front
+
+A password manager should show its construction before it asks you for anything.
+
+| | |
+|---|---|
+| **Encryption** | The whole vault is one file sealed with **XChaCha20-Poly1305**, under a key derived from your master password by **Argon2id** (256 MiB, t=3, p=4). Fresh nonce on every write. |
+| **No custom crypto** | The primitives come from the audited `argon2` and `chacha20poly1305` crates. Nothing here is hand-rolled. |
+| **Secrets never enter the WebView** | Decrypted values stay in the Rust core. A copy goes straight from Rust to the pasteboard as *concealed*, so clipboard-history tools skip it, and it auto-clears. |
+| **Signed and notarized** | Developer ID signature, hardened runtime, notarized and stapled by Apple — so Gatekeeper opens it without a warning. [Verify it yourself](#install) before you open the DMG. |
+| **No third-party audit** | Said here rather than waiting to be asked: no outside firm has reviewed this. Standard primitives, conventional parameters, a property-tested crypto core, and >95% coverage on both surfaces — none of which is an audit, and I won't call it one. |
+
+The exact construction, the limitations, and five commands that check these claims are in
+[**SECURITY.md**](SECURITY.md). The design rationale behind it is
+[`spec.md` §4](spec.md#4-security--cryptography-critical).
+
 ## The problem
 
 You already have somewhere to put passwords. You probably don't have anywhere good to put
@@ -86,10 +102,6 @@ added after v1.0: one folder and one line in the registry.
 </tr>
 </table>
 
-The whole vault is a single file encrypted with **XChaCha20-Poly1305** under a key derived by
-**Argon2id**. Secret values live in the Rust core and never enter the WebView; copying a password
-writes it to the pasteboard as *concealed*, so clipboard-history tools skip it, and it auto-clears.
-
 Your **master password** is never stored and cannot be recovered. The **recovery code** from your
 Emergency Kit is the only other way in, and both always work.
 
@@ -129,16 +141,16 @@ Prefer to build it? See [Development](#development).
 Stated plainly, because it should save some people a download:
 
 - **Not a 1Password or KeePassXC replacement.** No sync, no browser autofill, no TOTP generation, no import from other managers. If those are what you need, use KeePassXC or Bitwarden — genuinely good tools that OwnKeep isn't competing with.
-- **Not audited.** Standard primitives, conventional parameters, property-tested crypto core, >95% coverage on both surfaces — but no third-party review. [SECURITY.md](SECURITY.md) is blunt about this and about everything else OwnKeep doesn't do.
+- **Not audited.** No third-party review, as said above. [SECURITY.md](SECURITY.md) is blunt about this and about everything else OwnKeep doesn't do.
 - **Not cross-platform.** macOS 13+ only. Touch ID, the concealed clipboard, and the menu-bar behavior are macOS-native.
 - **Not a team tool.** One person, one Mac, one file.
 
 ## Security
 
-The exact construction — Argon2id parameters, the three-way envelope wrap, the Touch ID key's
-Keychain attributes — is documented in [**SECURITY.md**](SECURITY.md), along with the limitations and
-five commands you can run to verify the claims yourself. Read it before you put anything important in
-here.
+[**SECURITY.md**](SECURITY.md) carries the parts the summary at the top leaves out: the three-way
+envelope wrap, the Touch ID key's Keychain attributes, and the threat model — including what a
+compromised Mac defeats no matter how the vault is built. Read it before you put anything important
+in here.
 
 Found a vulnerability? [Report it privately](https://github.com/ownkeep-app/ownkeep/security/advisories/new) — please don't open a public issue.
 
