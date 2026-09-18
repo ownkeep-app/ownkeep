@@ -32,8 +32,8 @@ auto-update, so please check the [releases page](https://github.com/ownkeep-app/
 
 | Version | Supported |
 |---|---|
-| 1.3.x | ✅ |
-| < 1.3 | ❌ |
+| 1.4.x | ✅ |
+| < 1.4 | ❌ |
 
 ## What OwnKeep actually does
 
@@ -75,7 +75,7 @@ off and must be re-enrolled.
 and notarized and stapled by Apple. Verify any download yourself before opening it:
 
 ```bash
-spctl -a -vvv -t open --context context:primary-signature OwnKeep_1.3.0_universal.dmg
+spctl -a -vvv -t open --context context:primary-signature OwnKeep_1.4.0_universal.dmg
 ```
 
 Expect `accepted` and `source=Notarized Developer ID`.
