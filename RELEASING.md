@@ -103,8 +103,6 @@ Check it yourself rather than taking my word for it:
 
 ## Ready to paste — v1.4
 
-Fill in `<sha256>` from the verification step above against the exact DMG you upload.
-
 ```markdown
 ## OwnKeep v1.4
 
