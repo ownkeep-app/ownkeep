@@ -18,7 +18,10 @@ in one encrypted file on your own Mac. No cloud, no account, no telemetry.
 [![Coverage](https://img.shields.io/badge/coverage-%3E95%25-brightgreen)](#test--quality)
 [![Website](https://img.shields.io/badge/ownkeep.app-4A5AE8)](https://ownkeep.app)
 
-<img src="docs/media/shots/command-bar.webp" width="760" alt="The OwnKeep command bar: typing 'git re' surfaces three saved git commands with placeholder markers, each with a numbered hotkey">
+<picture>
+<source srcset="docs/media/shots/command-bar.avif" type="image/avif">
+<img src="docs/media/shots/command-bar.gif" width="760" alt="OwnKeep in use: pressing Cmd-Shift-Space summons the command bar over the desktop, a few letters filter the saved entries, and the secret lands on the clipboard">
+</picture>
 
 <sub><code>⌘⇧Space</code> from anywhere · type a few letters · <code>⌥⇧1</code> to copy</sub>
 
