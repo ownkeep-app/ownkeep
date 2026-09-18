@@ -132,7 +132,7 @@ Apple — so Gatekeeper opens it without a warning. Confirm that yourself rather
 for it:
 
 ```bash
-spctl -a -vvv -t open --context context:primary-signature OwnKeep_1.3.0_universal.dmg
+spctl -a -vvv -t open --context context:primary-signature OwnKeep_1.4.0_universal.dmg
 # accepted
 # source=Notarized Developer ID
 ```
@@ -164,10 +164,10 @@ Found a vulnerability? [Report it privately](https://github.com/ownkeep-app/ownk
 - **Signing & Touch ID on macOS:** [`code-signing.md`](code-signing.md)
 - **Rules for humans & AI agents:** [`AGENTS.md`](AGENTS.md), [`.cursor/rules/`](.cursor/rules/)
 
-> **Status:** v1.3 shipped — Notes module (`⌥⇧4`), auto-renewing subscriptions that roll themselves
-> forward, and reminder dedupe per due occurrence, on top of the signed, notarized, Touch ID-enabled
-> v1.2. The vault schema is unchanged. The encrypted vault core, every feature module, the command
-> bar, Dashboard, backup/restore, scheduler, and migration framework are all in place (see
+> **Status:** v1.4 shipping — refreshed app icon and tray icon on top of the signed, notarized,
+> Touch ID-enabled v1.3 base (Notes module, auto-renewing subscriptions). The vault schema is
+> unchanged. The encrypted vault core, every feature module, the command bar, Dashboard,
+> backup/restore, scheduler, and migration framework are all in place (see
 > [`plan.md`](plan.md)).
 
 ---

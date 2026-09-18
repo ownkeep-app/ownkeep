@@ -101,9 +101,51 @@ Check it yourself rather than taking my word for it:
 **Full changelog:** https://github.com/ownkeep-app/ownkeep/compare/v<prev>...v<version>
 ```
 
-## Ready to paste — v1.3
+## Ready to paste — v1.4
 
 Fill in `<sha256>` from the verification step above against the exact DMG you upload.
+
+```markdown
+## OwnKeep v1.4
+
+A refreshed app icon and tray icon — same vault, same hotkey, new face.
+
+### Requirements
+- macOS 13 or later
+- Universal 2 — Apple Silicon and Intel
+
+### Install
+Download the `.dmg`, open it, drag OwnKeep to Applications. On first launch macOS asks for
+**Accessibility** permission so the `⌘⇧Space` global hotkey works system-wide; OwnKeep runs in the
+menu bar with no Dock icon.
+
+Upgrading from v1.3? Drag the new app over the old one. Your vault lives outside the app bundle and
+is untouched. No schema change, no migration, no Emergency Kit re-issue.
+
+### Verify this download
+Signed with a Developer ID certificate, built with hardened runtime, notarized and stapled by Apple.
+Check it yourself rather than taking my word for it:
+
+    spctl -a -vvv -t open --context context:primary-signature OwnKeep_1.4.0_universal.dmg
+    # expect: accepted / source=Notarized Developer ID
+
+    shasum -a 256 OwnKeep_1.4.0_universal.dmg
+    # <sha256>
+
+### Changes
+- **New app icon** across the Dock, Finder, About dialog, and the release DMG.
+- **Updated menu-bar tray icon** for light and dark appearance.
+- README hero now shows a silent hotkey recording (AVIF with GIF fallback) instead of a still.
+
+### Known issues
+- No sync, no browser autofill, no TOTP generation — all deliberate non-goals.
+- macOS only.
+- OwnKeep has not had a third-party security audit. See [SECURITY.md](https://github.com/ownkeep-app/ownkeep/blob/main/SECURITY.md).
+
+**Full changelog:** https://github.com/ownkeep-app/ownkeep/compare/v1.3...v1.4
+```
+
+## Previously shipped — v1.3
 
 ```markdown
 ## OwnKeep v1.3
@@ -136,7 +178,6 @@ Check it yourself rather than taking my word for it:
     # expect: accepted / source=Notarized Developer ID
 
     shasum -a 256 OwnKeep_1.3.0_universal.dmg
-    # <sha256>
 
 ### Changes
 - **Notes module (`⌥⇧4`).** Markdown notes with a formatting toolbar, a Write/Preview toggle, and a full-screen editing mode. Notes group by category and sort by last edited. Code blocks get the same per-line copy affordance as the Commands module. Rendered Markdown is sanitised before display, so a note pasted in from elsewhere cannot inject markup.
