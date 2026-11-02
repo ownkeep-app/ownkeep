@@ -22,6 +22,7 @@ export function ItemFormShell({
   children,
   error,
   bodyClassName,
+  secondaryAction,
 }: {
   title: string;
   description?: string;
@@ -32,6 +33,8 @@ export function ItemFormShell({
   children: ReactNode;
   error?: string | null;
   bodyClassName?: string;
+  /** Optional action pinned bottom-left, apart from Cancel/Save (e.g. a destructive Delete). */
+  secondaryAction?: ReactNode;
 }) {
   return (
     <div className="relative flex h-full flex-col overflow-hidden">
@@ -92,7 +95,10 @@ export function ItemFormShell({
             ) : null}
           </div>
 
-          <footer className="flex shrink-0 justify-end px-4 py-3 sm:px-5">
+          <footer className="flex shrink-0 items-center justify-end gap-2 px-4 py-3 sm:px-5">
+            {secondaryAction ? (
+              <div className="mr-auto">{secondaryAction}</div>
+            ) : null}
             <div
               aria-label="Form actions"
               className="flex gap-2 rounded-lg border border-orange-200/80 bg-orange-50/80 p-2 shadow-sm dark:border-orange-400/20 dark:bg-orange-400/10"

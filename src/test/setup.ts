@@ -11,6 +11,28 @@ class ResizeObserverStub {
 globalThis.ResizeObserver ??= ResizeObserverStub;
 Element.prototype.scrollIntoView ??= () => {};
 
+// jsdom has no PointerEvent, so fireEvent.pointer* would drop clientX / pointerId.
+if (typeof window.PointerEvent === "undefined") {
+  class PointerEventPolyfill extends MouseEvent {
+    pointerId: number;
+    constructor(type: string, init: PointerEventInit = {}) {
+      super(type, init);
+      this.pointerId = init.pointerId ?? 0;
+    }
+  }
+  window.PointerEvent = PointerEventPolyfill as typeof PointerEvent;
+}
+
+// jsdom's Blob has no text(); real WebViews do (used by the CSV import).
+Blob.prototype.text ??= function text(this: Blob) {
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result));
+    reader.onerror = () => reject(reader.error);
+    reader.readAsText(this);
+  });
+};
+
 // uPlot (finance trend) reads `matchMedia` at import time to watch device-pixel-ratio; stub it.
 window.matchMedia ??= (query: string) =>
   ({

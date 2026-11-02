@@ -372,6 +372,25 @@ directly without the redacted-projection round-trip that would reshape a Markdow
 
 ---
 
+### Phase 15 — 📅 Event Tracker module (M5) · working release 1.5
+*Second module added purely through the registry: `eventsModule` is one folder plus one line in
+`src/modules/registry.tsx`, with two store actions (`saveEvent` / `deleteEvent`) mirroring Notes.
+Photos live inline in the encrypted vault, so backup/restore covers them with no new code path.*
+
+- [x] `eventsModule`: title / Markdown description / status / typed tags with icons / tracked days;
+  `scopePrefix: "e"`; `searchableByDefault: false`.
+- [x] Calendar view (Monday-first month grid, quick per-day tag entry, items, note, photos).
+- [x] Timeline view (drag / wheel pan, pinch / button zoom, tag-or-item filter, Fit / Today).
+- [x] Photo compression (2000 px JPEG) + zoomable, pannable viewer; CSP `img-src` gains `data:`.
+- **No schema change.** `SCHEMA_VERSION` stays 11 — the `events` slice is created by
+  `ensureModuleDefaults`, and older builds preserve the unknown slice, so v1.4 and v1.5 read each
+  other's vaults without loss. No migration registry entry is required.
+- **Exit criteria:** `pnpm check` + `pnpm coverage` green (>95%); create / track / delete round-trips
+  through the vault; photos survive backup → restore; module toggles cleanly from Settings.
+- **Deps:** Phase 2 (registry), Phase 6 (backup/restore), Phase 14 (Markdown editor).
+
+---
+
 ## Definition of Done — v1.0
 
 - Unlock via master password **and** recovery code; auto-lock + zeroize verified.

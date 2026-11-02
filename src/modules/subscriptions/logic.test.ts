@@ -269,26 +269,47 @@ describe("subscription module logic", () => {
 
   it("handles raw summaries and disabled or incomplete finance settings", () => {
     expect(
+      summarizeSubscriptions([], createDefaultModel(NOW).settings),
+    ).toEqual({ rawTotals: [], converted: null });
+    // No FX settings: base defaults to CNY and USD has no rate yet.
+    expect(
       summarizeSubscriptions(
         [subscription()],
         createDefaultModel(NOW).settings,
       ),
     ).toEqual({
       rawTotals: [{ currency: "USD", monthly: 20, annual: 240 }],
-      converted: null,
+      converted: {
+        currency: "CNY",
+        monthly: 0,
+        annual: 0,
+        missingCurrencies: ["USD"],
+      },
     });
+    // FX rates apply even when the Finance module itself is disabled.
     expect(
-      summarizeSubscriptions([subscription()], {
-        ...createDefaultModel(NOW).settings,
-        modules: { finance: { enabled: false, baseCurrency: "USD" } },
-      }).converted,
-    ).toBeNull();
-    expect(
-      summarizeSubscriptions([subscription()], {
-        ...createDefaultModel(NOW).settings,
-        modules: { finance: { enabled: true } },
-      }).converted,
-    ).toBeNull();
+      summarizeSubscriptions(
+        [
+          subscription(),
+          subscription({ id: "cny", currency: "CNY", amount: 30 }),
+        ],
+        {
+          ...createDefaultModel(NOW).settings,
+          modules: {
+            finance: {
+              enabled: false,
+              baseCurrency: "CNY",
+              fxRates: { USD: 7 },
+            },
+          },
+        },
+      ).converted,
+    ).toEqual({
+      currency: "CNY",
+      monthly: 170,
+      annual: 2040,
+      missingCurrencies: [],
+    });
     expect(
       summarizeSubscriptions([subscription({ currency: "SGD" })], {
         ...createDefaultModel(NOW).settings,

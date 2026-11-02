@@ -30,6 +30,8 @@ import { todoEntries, toggleTodoDoneState } from "@/modules/todos/logic";
 import { TODOS_MODULE_ID, type TodoEntry } from "@/modules/todos/types";
 import { noteEntries } from "@/modules/notes/logic";
 import { NOTES_MODULE_ID, type NoteEntry } from "@/modules/notes/types";
+import { trackedEvents } from "@/modules/events/logic";
+import { EVENTS_MODULE_ID, type TrackedEvent } from "@/modules/events/types";
 import { type BiometricStatus, type EmergencyKit, vaultApi } from "@/vault/api";
 import {
   abandonedVaultBackupName,
@@ -110,6 +112,8 @@ interface VaultState {
   toggleTodoDone: (id: string) => Promise<void>;
   saveNote: (entry: NoteEntry) => Promise<void>;
   deleteNote: (id: string) => Promise<void>;
+  saveEvent: (entry: TrackedEvent) => Promise<void>;
+  deleteEvent: (id: string) => Promise<void>;
   saveSubscription: (entry: SubscriptionEntry) => Promise<void>;
   deleteSubscription: (id: string) => Promise<void>;
   saveSnapshot: (entry: Snapshot) => Promise<void>;
@@ -807,6 +811,43 @@ export const useVaultStore = create<VaultState>((set, get) => ({
       modules: {
         ...model.modules,
         [NOTES_MODULE_ID]: current.filter((item) => item.id !== id),
+      },
+    });
+  },
+
+  saveEvent: async (entry) => {
+    const model = get().model;
+    if (!model) return;
+    const current = trackedEvents(
+      Array.isArray(model.modules[EVENTS_MODULE_ID])
+        ? model.modules[EVENTS_MODULE_ID]
+        : [],
+    );
+    const exists = current.some((item) => item.id === entry.id);
+    const nextItems = exists
+      ? current.map((item) => (item.id === entry.id ? entry : item))
+      : [...current, entry];
+    // Events have no secret fields — persist the slice directly (images included) rather than
+    // re-reading the whole projection after every tracked day.
+    await get().save({
+      ...model,
+      modules: { ...model.modules, [EVENTS_MODULE_ID]: nextItems },
+    });
+  },
+
+  deleteEvent: async (id) => {
+    const model = get().model;
+    if (!model) return;
+    const current = trackedEvents(
+      Array.isArray(model.modules[EVENTS_MODULE_ID])
+        ? model.modules[EVENTS_MODULE_ID]
+        : [],
+    );
+    await get().save({
+      ...model,
+      modules: {
+        ...model.modules,
+        [EVENTS_MODULE_ID]: current.filter((item) => item.id !== id),
       },
     });
   },

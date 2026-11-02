@@ -4,6 +4,7 @@ import { vaultApi } from "@/vault/api";
 import { APP_VERSION, createDefaultModel, SCHEMA_VERSION } from "@/vault/model";
 import { useVaultStore } from "./vault-store";
 import type { NoteEntry } from "@/modules/notes/types";
+import type { TrackedEvent } from "@/modules/events/types";
 import type { SubscriptionEntry } from "@/modules/subscriptions/types";
 import type { TodoEntry } from "@/modules/todos/types";
 
@@ -1113,6 +1114,98 @@ describe("vault store", () => {
     useVaultStore.setState({ model: null });
     await useVaultStore.getState().saveNote(noteFixture);
     await useVaultStore.getState().deleteNote("note-1");
+  });
+
+  const eventFixture: TrackedEvent = {
+    id: "event-1",
+    title: "Height",
+    description: "",
+    status: "open",
+    tags: [],
+    days: [
+      {
+        date: "2026-07-01",
+        tagValues: {},
+        items: [
+          {
+            id: "item-1",
+            label: "Report",
+            value: "",
+            images: [
+              {
+                id: "img-1",
+                name: "a.jpg",
+                dataUrl: "data:image/jpeg;base64,AA",
+              },
+            ],
+          },
+        ],
+        note: "",
+      },
+    ],
+    createdAt: "2026-07-01T10:00:00.000Z",
+    updatedAt: "2026-07-07T00:00:00.000Z",
+  };
+
+  it("saveEvent adds and updates events, keeping images inline", async () => {
+    useVaultStore.setState({
+      model: createDefaultModel("2026-07-07T00:00:00.000Z"),
+    });
+    await useVaultStore.getState().saveEvent(eventFixture);
+    let saved = JSON.parse(api.saveVault.mock.calls[0][0] as string);
+    expect(saved.modules.events[0].days[0].items[0].images[0].dataUrl).toBe(
+      "data:image/jpeg;base64,AA",
+    );
+    expect(api.getVault).not.toHaveBeenCalled();
+
+    await useVaultStore
+      .getState()
+      .saveEvent({ ...eventFixture, title: "Growth" });
+    saved = JSON.parse(api.saveVault.mock.calls[1][0] as string);
+    expect(saved.modules.events).toHaveLength(1);
+    expect(saved.modules.events[0].title).toBe("Growth");
+  });
+
+  it("deleteEvent removes an event", async () => {
+    useVaultStore.setState({
+      model: {
+        ...createDefaultModel("2026-07-07T00:00:00.000Z"),
+        modules: { events: [eventFixture] },
+      },
+    });
+    await useVaultStore.getState().deleteEvent("event-1");
+    expect(
+      JSON.parse(api.saveVault.mock.calls[0][0] as string).modules.events,
+    ).toEqual([]);
+  });
+
+  it("event actions tolerate non-array slices and missing models", async () => {
+    useVaultStore.setState({
+      model: {
+        ...createDefaultModel("2026-07-07T00:00:00.000Z"),
+        modules: { events: { not: "an array" } },
+      },
+    });
+    await useVaultStore.getState().saveEvent(eventFixture);
+    expect(
+      JSON.parse(api.saveVault.mock.calls[0][0] as string).modules.events,
+    ).toEqual([eventFixture]);
+
+    useVaultStore.setState({
+      model: {
+        ...createDefaultModel("2026-07-07T00:00:00.000Z"),
+        modules: { events: { not: "an array" } },
+      },
+    });
+    await useVaultStore.getState().deleteEvent("event-1");
+    expect(
+      JSON.parse(api.saveVault.mock.calls[1][0] as string).modules.events,
+    ).toEqual([]);
+
+    useVaultStore.setState({ model: null });
+    await useVaultStore.getState().saveEvent(eventFixture);
+    await useVaultStore.getState().deleteEvent("event-1");
+    expect(api.saveVault).toHaveBeenCalledTimes(2);
   });
 
   it("todo actions are no-ops without a model", async () => {

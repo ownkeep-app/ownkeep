@@ -2,6 +2,7 @@ import dayjs from "dayjs";
 
 import { dateInputToIso, formatDate, isoToDateInput } from "@/lib/date";
 import { calendarDueStatus } from "@/lib/due-status";
+import { readFinanceFx } from "@/modules/finance/logic";
 import type { IndexEntry, ReminderEvent } from "@/modules/types";
 import type { VaultSettings } from "@/vault/model";
 import {
@@ -304,7 +305,9 @@ export function summarizeSubscriptions(
   const byCurrency = new Map<string, { monthly: number; annual: number }>();
   let convertedAnnual = 0;
   const missing = new Set<string>();
-  const fx = readFinanceSettings(settings);
+  // FX rates are shared vault settings, editable from Subscriptions even when
+  // the Finance module is disabled.
+  const fx = readFinanceFx(settings);
 
   for (const item of items) {
     const currency = normalizeCurrency(item.currency);
@@ -314,13 +317,11 @@ export function summarizeSubscriptions(
     current.monthly += annual / 12;
     byCurrency.set(currency, current);
 
-    if (fx) {
-      const rate = currency === fx.baseCurrency ? 1 : fx.rates[currency];
-      if (typeof rate === "number" && Number.isFinite(rate) && rate >= 0) {
-        convertedAnnual += annual * rate;
-      } else {
-        missing.add(currency);
-      }
+    const rate = currency === fx.baseCurrency ? 1 : fx.rates[currency];
+    if (typeof rate === "number") {
+      convertedAnnual += annual * rate;
+    } else {
+      missing.add(currency);
     }
   }
 
@@ -334,7 +335,7 @@ export function summarizeSubscriptions(
 
   return {
     rawTotals,
-    converted: fx
+    converted: items.length
       ? {
           currency: fx.baseCurrency,
           monthly: roundMoney(convertedAnnual / 12),
@@ -463,21 +464,6 @@ function effectiveLeadDays(
   return typeof setting === "number" && Number.isFinite(setting) && setting >= 0
     ? setting
     : DEFAULT_SUBSCRIPTION_LEAD_DAYS;
-}
-
-function readFinanceSettings(
-  settings: VaultSettings,
-): { baseCurrency: string; rates: Record<string, number> } | null {
-  const finance = settings.modules.finance;
-  if (!finance?.enabled || typeof finance.baseCurrency !== "string") {
-    return null;
-  }
-  const baseCurrency = normalizeCurrency(finance.baseCurrency);
-  const rates = finance.fxRates;
-  if (!rates || typeof rates !== "object" || Array.isArray(rates)) {
-    return { baseCurrency, rates: {} };
-  }
-  return { baseCurrency, rates: rates as Record<string, number> };
 }
 
 function addBillingCycles(

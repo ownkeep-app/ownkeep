@@ -279,14 +279,34 @@ describe("SubscriptionsListView", () => {
     });
     expect(within(monthlyTotals).getByText("CNY 30.00")).toBeVisible();
     expect(within(monthlyTotals).getByText("USD 20.00")).toBeVisible();
-    expect(within(monthlyTotals).getByText("Base CNY 170.00")).toBeVisible();
+    expect(within(monthlyTotals).getByText("Total CNY 170.00")).toBeVisible();
 
     const yearlyTotals = screen.getByRole("region", {
       name: "Yearly subscription totals",
     });
     expect(within(yearlyTotals).getByText("CNY 360.00")).toBeVisible();
     expect(within(yearlyTotals).getByText("USD 240.00")).toBeVisible();
-    expect(within(yearlyTotals).getByText("Base CNY 2040.00")).toBeVisible();
+    expect(within(yearlyTotals).getByText("Total CNY 2040.00")).toBeVisible();
+  });
+
+  it("asks for a missing FX rate instead of showing a partial total", () => {
+    useVaultStore.setState({
+      model: createDefaultModel("2026-07-08T12:00:00.000Z"),
+    });
+
+    render(
+      <SubscriptionsListView
+        items={[item, { ...item, id: "sub-2", currency: "CNY", amount: 30 }]}
+      />,
+    );
+
+    const monthlyTotals = screen.getByRole("region", {
+      name: "Monthly subscription totals",
+    });
+    expect(
+      within(monthlyTotals).getByText("Set FX rate for USD"),
+    ).toBeVisible();
+    expect(within(monthlyTotals).queryByText(/^Total /)).toBeNull();
   });
 
   it("creates a subscription entry from the edit form", async () => {

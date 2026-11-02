@@ -794,18 +794,27 @@ function SummaryStrip({
     monthly: formatCurrencyAmount(total.monthly, total.currency),
     yearly: formatCurrencyAmount(total.annual, total.currency),
   }));
+  const source = summary.converted;
+  // A single row already in the base currency is its own total.
+  const showTotal =
+    source !== null &&
+    (summary.rawTotals.length > 1 ||
+      summary.rawTotals[0]?.currency !== source.currency);
+  const missingHint =
+    source && source.missingCurrencies.length > 0
+      ? `Set FX rate for ${source.missingCurrencies.join(", ")}`
+      : null;
   const converted =
-    summary.converted && summary.converted.missingCurrencies.length === 0
+    source && showTotal
       ? {
-          currency: summary.converted.currency,
-          monthly: formatCurrencyAmount(
-            summary.converted.monthly,
-            summary.converted.currency,
-          ),
-          yearly: formatCurrencyAmount(
-            summary.converted.annual,
-            summary.converted.currency,
-          ),
+          monthly: {
+            value: formatCurrencyAmount(source.monthly, source.currency),
+            missingHint,
+          },
+          yearly: {
+            value: formatCurrencyAmount(source.annual, source.currency),
+            missingHint,
+          },
         }
       : null;
   const periods = [
@@ -817,7 +826,7 @@ function SummaryStrip({
         currency,
         value: monthly,
       })),
-      convertedTotal: converted ? { value: converted.monthly } : null,
+      convertedTotal: converted?.monthly ?? null,
     },
     {
       label: "Yearly",
@@ -827,7 +836,7 @@ function SummaryStrip({
         currency,
         value: yearly,
       })),
-      convertedTotal: converted ? { value: converted.yearly } : null,
+      convertedTotal: converted?.yearly ?? null,
     },
   ];
 
@@ -868,7 +877,7 @@ function SummaryPeriodCard({
   icon: LucideIcon;
   tone: SummaryTone;
   totals: { currency: string; value: string }[];
-  convertedTotal: { value: string } | null;
+  convertedTotal: { value: string; missingHint: string | null } | null;
 }) {
   const classes = summaryToneClasses[tone];
 
@@ -899,9 +908,17 @@ function SummaryPeriodCard({
           ))
         )}
         {convertedTotal ? (
-          <p className="truncate text-xs text-muted-foreground">
-            Base {convertedTotal.value}
-          </p>
+          <div className="mt-1 border-t border-border/60 pt-1">
+            {convertedTotal.missingHint ? (
+              <p className="truncate text-xs text-muted-foreground">
+                {convertedTotal.missingHint}
+              </p>
+            ) : (
+              <p className="truncate text-sm font-semibold text-foreground">
+                Total {convertedTotal.value}
+              </p>
+            )}
+          </div>
         ) : null}
       </div>
     </section>

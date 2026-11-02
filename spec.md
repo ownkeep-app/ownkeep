@@ -213,6 +213,7 @@ export const MODULES: FeatureModule[] = [
   notesModule, // optional, v1.3
   subscriptionsModule, // optional
   financeModule, // optional
+  eventsModule, // optional, v1.5 — Event Tracker
   // future: calendarModule
 ];
 ```
@@ -325,7 +326,7 @@ backup and is re-enabled per device after restore. See §11.
 
 - **Never load secret fields into the WebView by default.** The Rust core holds the decrypted model; it serves the frontend a projection with each module's `secretFields` redacted. A secret is returned **only** on an explicit copy action — Rust writes it straight to the concealed pasteboard and discards it; the value never enters JS.
 - **Sanitize rendered markdown** with `rehype-sanitize`; raw HTML stays disabled. _(Live since v1.3 — the Notes module (M4) renders Markdown in both its preview pane and its detail view, and both run the sanitizer.)_
-- **Disable WebView devtools in production**; set a strict Content-Security-Policy.
+- **Disable WebView devtools in production**; set a strict Content-Security-Policy. _(v1.5: `img-src` also allows `data:` so Event Tracker photos stored in the vault can render, and `frame-src blob:` lets a stored PDF open in the WebView's built-in reader from an in-memory blob URL; no remote image, frame or script origin is allowed.)_
 
 ### 4.6 Emergency Kit (recovery)
 
@@ -598,6 +599,48 @@ never migrates another module's slice.
         "updatedAt": "ISO",
       },
     ],
+
+    "events": [
+      {
+        "id": "uuid",
+        "title": "Sleeping of My Wife",
+        "description": "Markdown body",
+        "status": "open", // open|paused|closed
+        "tags": [
+          {
+            "id": "uuid",
+            "name": "睡眠时长",
+            "type": "number",
+            "icon": "moon",
+            "unit": "h",
+          }, // type: number|boolean|text
+        ],
+        "days": [
+          {
+            "date": "2026-11-01", // local calendar day key, not an instant
+            "tagValues": { "<tagId>": 8 }, // number | boolean | string by tag type
+            "items": [
+              {
+                "id": "uuid",
+                "label": "检查报告-血常规",
+                "value": "",
+                "images": [
+                  {
+                    "id": "uuid",
+                    "name": "血常规.jpg",
+                    "dataUrl": "data:image/jpeg;base64,…",
+                  },
+                ],
+              },
+            ],
+            "note": "",
+            "milestone": true, // optional, stored only when true; highlighted on the calendar
+          },
+        ],
+        "createdAt": "ISO",
+        "updatedAt": "ISO",
+      },
+    ],
   },
 }
 ```
@@ -607,7 +650,8 @@ so editing a rate re-totals every snapshot. The `notes` slice added in v1.3 is l
 `NoteEntry[]`; a future calendar module adds its own slice under `modules` with no impact on the
 above. Adding a module slice is **not** a schema change — `ensureModuleDefaults` creates the empty
 slice on first open and preserves slices it does not recognise, so v1.3 reads a v1.2 vault and v1.2
-reads a v1.3 vault without data loss.)_
+reads a v1.3 vault without data loss. The v1.5 `events` slice follows the same rule — a bare
+`TrackedEvent[]`, created empty on first open, with no schema bump.)_
 
 ---
 
@@ -711,6 +755,20 @@ reads a v1.3 vault without data loss.)_
 - **List:** grouped by **category** (uncategorised last), and within a group sorted by **`updatedAt` descending** — the note you touched last is the one you want.
 - Command-bar search is **off by default** (`searchableByDefault: false`) — a note body is long-form prose and would bury logins and commands in the results. Turn it on per module in Settings; scope `n `. An indexed note matches on name, category and full body.
 - **Acceptance:** create/edit/delete a note; Markdown renders sanitized in preview and detail; the toolbar applies formatting to the selection; notes group by category and sort by last edited; a code block copies one line at a time; with searchability off the command bar returns no note hits, and with it on the `n ` scope returns them.
+
+#### M5 — Event Tracker (module `events`) — _new in v1.5_
+
+- **What it is:** a time-spanning event (e.g. _Height of My Son_, _Sleeping of My Wife_) with a **title**, a Markdown **description**, a **status** (`open` / `paused` / `closed`), a set of **tags**, and a list of **tracked days**.
+- **Tags** are quick-entry fields defined per event: a **name**, a **type** — `number` (with an optional unit suffix, e.g. `h`), `boolean` (shown `Y` / `N`) or `text` — and an **icon** picked from a curated Lucide set (the vault stores the icon key). Removing or retyping a tag prunes the values that no longer fit, so a day never shows data for a field the event no longer defines.
+- **A tracked day** (keyed by local `YYYY-MM-DD`, so it never shifts with timezone) holds tag values, free-form **items** (`label` + `value`, e.g. `Height: 147.2 cm`, `骨龄: 12周岁`), a short **note**, and per-item **attachments** (photos and PDFs). A day with nothing left in it is removed, and an existing day can be deleted outright from its editor (**Delete day**, with confirmation) — tag values, items, attachments, note and milestone together.
+- **Milestones:** a **day** can be marked as a milestone (optional `milestone: true` on the day; absent = not a milestone, so no migration). A milestone day is outlined and tinted amber on the calendar with a flag beside the date. A day marked only as a milestone (nothing else tracked) is kept; un-marking an otherwise empty day removes it.
+- **Photos** are downscaled in the WebView (longest edge 2000 px) and re-encoded as JPEG (q 0.85), then stored **inline as data URLs** in the encrypted vault — so they are encrypted at rest and travel with every backup/restore with no extra files (§3.2, §11). Trade-off: the whole vault is re-encrypted and rewritten on each save, so a vault with many photos saves more slowly; compression keeps a typical report photo to a few hundred KB. The CSP adds `data:` to `img-src` so the WebView can render them (scripts remain `'self'` only). **PDFs** (e.g. a lab report) are stored as uploaded — no re-encoding — up to **10 MB** each, and shown as a file tile. Both kinds share the item's `images` array (key kept from before PDFs, so earlier records load unchanged); the data URL's MIME type tells them apart. Other file types are refused with a message, without dropping the valid files picked alongside. A full-screen **viewer** steps between an item's attachments: photos zoom (wheel/pinch, buttons, `+`/`-`/`0`, double-click) and pan by drag; a PDF opens in the WebView's own reader (its own zoom and paging) via a blob URL that is revoked when you move on.
+- **Calendar view:** Monday-first month grid; each cell shows tag chips (icon + value), the first item labels, and a photo count. Clicking a **recorded** day — in the calendar, a timeline card or a trend point — opens a read-only **View** (milestone badge, every tag value, items with their attachments, the full note) with **Edit** and **Delete**; Edit opens the day editor (tag inputs, items with photo/PDF upload, note). Clicking an **empty** day goes straight to the editor.
+- **Timeline view:** a horizontal, draggable / wheel-pannable timeline with pinch/⌘-scroll and button zoom (2–240 px per day), day or month ticks, a Today marker, Fit / Today buttons, and cards for tracked days in alternating lanes; a filter narrows it to **one tag or one item name** (e.g. only `Height`). Clicking a card opens that day.
+- **Trending view:** pick any **number** tag and chart its values over time as a **line** (y-axis fitted to the data), with dates spaced by real elapsed time. A **From – To date range** (default: the event's first tracked day → today, or its last day if later) limits the values and sets the x-axis span; the range can't invert, and Reset restores the default. Quick ranges **最近三个月 / 最近半年 / 最近一年** (today back 3 / 6 / 12 calendar months) and a **year** selector (event's first year → this year; a past year is Jan 1 – Dec 31, this year ends today) set From/To, and highlight when the range matches them. Stats: **Time Spanning** (whole calendar months between From and To, shown as `x年x个月`, zero parts dropped), Change, Min, Max for the range; plus a hover crosshair + tooltip, click-to-open the day, and a collapsible value table. Hand-drawn SVG in theme tokens, so it follows light/dark without a chart library.
+- **CSV import** (event ⋮ → Import CSV): a header row with a `date` column (`YYYY-MM-DD` or `YYYY/M/D`; `日期` also accepted), one column per **tag name** (matched case-insensitively), and optional `note` / `备注` and `milestone` / `里程碑` (`Y`/`N`, `是`/`否`, `1`/`0`) columns. UTF-8 with or without BOM (Excel's "CSV UTF-8"). A column with no matching tag creates one — Number if every filled cell is numeric, otherwise Text. Rows merge into existing days: a filled cell replaces that tag's value, notes are appended (not duplicated), and a milestone is only ever added. Bad dates or values are listed and skipped, never fatal. A preview shows new/updated day counts, new tags and problems; nothing is saved until **Import**. Items and photos are not part of the CSV format.
+- No secret fields — the slice persists directly (like Notes). Command-bar search is **off by default**; scope `e `. An indexed event matches on title, description, tag names, item labels/values and day notes; activating it opens the event in the Dashboard.
+- **Acceptance:** create/edit/delete an event and its tags; track today's tags in a few clicks from the calendar; add items with photos and inspect them zoomed; the timeline pans, zooms and filters; a number tag charts as a line trend over a chosen range; disabling the module hides it and keeps its data; a backup restored elsewhere carries the photos.
 
 #### Future candidates (architecture ready, not spec'd here)
 
