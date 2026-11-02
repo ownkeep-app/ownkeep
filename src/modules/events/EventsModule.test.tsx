@@ -331,6 +331,46 @@ describe("EventsListView", () => {
     expect(screen.getByRole("grid")).toBeVisible();
   });
 
+  it("jumps straight to a chosen year and month", async () => {
+    seed([
+      {
+        ...heightEvent,
+        days: [
+          { date: "2022-07-21", tagValues: {}, items: [], note: "first" },
+          ...heightEvent.days,
+        ],
+      },
+    ]);
+    const user = userEvent.setup();
+    render(<Harness />);
+    await user.click(screen.getByRole("button", { name: "Height of My Son" }));
+
+    const year = screen.getByLabelText("Jump to year");
+    const month = screen.getByLabelText("Jump to month");
+    expect(
+      within(year)
+        .getAllByRole("option")
+        .map((option) => option.textContent),
+    ).toEqual(["2026", "2025", "2024", "2023", "2022"]);
+    expect(year).toHaveValue("2026");
+    expect(month).toHaveValue("10");
+
+    await user.selectOptions(year, "2022");
+    await user.selectOptions(month, "6");
+    expect(
+      screen.getByRole("gridcell", { name: "2022-07-21, tracked" }),
+    ).toBeVisible();
+
+    // The pickers follow the arrows, and a year reached by arrows is still listed.
+    for (let step = 0; step < 7; step += 1) {
+      await user.click(screen.getByRole("button", { name: "Previous month" }));
+    }
+    expect(year).toHaveValue("2021");
+    expect(month).toHaveValue("11");
+    await user.click(screen.getByRole("button", { name: "Today" }));
+    expect(year).toHaveValue("2026");
+  });
+
   it("keeps the browsed month after saving or cancelling a day", async () => {
     const user = userEvent.setup();
     render(<Harness />);
@@ -646,6 +686,29 @@ describe("EventsListView", () => {
       await screen.findByRole("gridcell", { name: "2026-10-28" }),
     ).toBeVisible();
     expect(screen.queryByText("Editing")).not.toBeInTheDocument();
+  });
+
+  it("reports a save that the vault rejects", async () => {
+    const { vaultApi } = await import("@/vault/api");
+    const { toast } = await import("sonner");
+    const error = vi.spyOn(toast, "error");
+    vi.mocked(vaultApi.saveVault).mockRejectedValueOnce(new Error("disk full"));
+    vaultApi.getVault = vi.fn(async () =>
+      JSON.stringify({ modules: { events: [sleepEvent, heightEvent] } }),
+    );
+    const user = userEvent.setup();
+    render(<Harness />);
+    await user.click(
+      screen.getByRole("button", { name: "Sleeping of My Wife" }),
+    );
+    await user.selectOptions(screen.getByLabelText("Event status"), "closed");
+    await waitFor(() =>
+      expect(error).toHaveBeenCalledWith(
+        "Couldn't save. Showing the last saved version.",
+      ),
+    );
+    expect(screen.getByLabelText("Event status")).toHaveValue("open");
+    error.mockRestore();
   });
 
   it("reveals an event requested by the command bar", async () => {

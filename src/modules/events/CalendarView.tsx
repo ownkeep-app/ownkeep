@@ -3,11 +3,13 @@ import { useMemo, useState } from "react";
 import { ChevronLeft, ChevronRight, Flag, Paperclip } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { Select } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { TagIcon } from "./icons";
 import { ItemLine } from "./ItemLine";
 import {
   dayFor,
+  eventYears,
   formatTagValue,
   isInMonth,
   monthGrid,
@@ -20,6 +22,13 @@ import type { TrackedEvent } from "./types";
 
 const WEEKDAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 const MAX_ITEMS_PER_CELL = 3;
+const MONTH_INDEXES = Array.from({ length: 12 }, (_, month) => month);
+
+function monthName(month: number): string {
+  return new Date(2000, month, 1).toLocaleDateString(undefined, {
+    month: "short",
+  });
+}
 
 export function CalendarView({
   event,
@@ -31,6 +40,10 @@ export function CalendarView({
   const today = todayKey();
   const [cursor, setCursor] = useState(() => monthOf(today));
   const weeks = useMemo(() => monthGrid(cursor), [cursor]);
+  // Event's first year → this year; also the viewed year if arrows took it outside that span.
+  const years = [...new Set([...eventYears(event, today), cursor.year])].sort(
+    (left, right) => right - left,
+  );
   const monthLabel = new Date(cursor.year, cursor.month, 1).toLocaleDateString(
     undefined,
     { month: "long", year: "numeric" },
@@ -45,6 +58,40 @@ export function CalendarView({
         >
           {monthLabel}
         </h2>
+        <Select
+          aria-label="Jump to year"
+          className="w-24"
+          onChange={(change) =>
+            setCursor((current) => ({
+              ...current,
+              year: Number(change.target.value),
+            }))
+          }
+          value={cursor.year}
+        >
+          {years.map((year) => (
+            <option key={year} value={year}>
+              {year}
+            </option>
+          ))}
+        </Select>
+        <Select
+          aria-label="Jump to month"
+          className="w-24"
+          onChange={(change) =>
+            setCursor((current) => ({
+              ...current,
+              month: Number(change.target.value),
+            }))
+          }
+          value={cursor.month}
+        >
+          {MONTH_INDEXES.map((month) => (
+            <option key={month} value={month}>
+              {monthName(month)}
+            </option>
+          ))}
+        </Select>
         <Button
           onClick={() => setCursor(monthOf(today))}
           size="sm"

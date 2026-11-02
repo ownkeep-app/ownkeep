@@ -613,8 +613,17 @@ export const useVaultStore = create<VaultState>((set, get) => ({
 
   save: async (next) => {
     const stamped = withUpdatedAt(next, now());
-    await vaultApi.saveVault(JSON.stringify(stamped));
+    // Show the change at once: the encrypted write re-seals the whole vault (photos and PDFs
+    // included), so waiting for it made every edit feel slow. If the write fails, reload what the
+    // Rust core actually holds so the screen never shows unsaved data, then let the caller report.
     set({ model: stamped });
+    try {
+      await vaultApi.saveVault(JSON.stringify(stamped));
+    } catch (error) {
+      const loaded = await loadModel();
+      set({ model: loaded.model, migration: loaded.migration });
+      throw error;
+    }
   },
 
   toggleModule: async (id, enabled) => {

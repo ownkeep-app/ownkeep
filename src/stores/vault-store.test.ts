@@ -1147,6 +1147,32 @@ describe("vault store", () => {
     updatedAt: "2026-07-07T00:00:00.000Z",
   };
 
+  it("save shows the change before the write finishes and rolls back if it fails", async () => {
+    const before = {
+      ...createDefaultModel("2026-07-07T00:00:00.000Z"),
+      modules: { events: [] },
+    };
+    useVaultStore.setState({ model: before });
+    let finishWrite: () => void = () => {};
+    api.saveVault.mockImplementationOnce(
+      () => new Promise<void>((resolve) => (finishWrite = resolve)),
+    );
+    const pending = useVaultStore.getState().saveEvent(eventFixture);
+    // Visible immediately, while the encrypted write is still in flight.
+    expect(useVaultStore.getState().model?.modules.events).toEqual([
+      eventFixture,
+    ]);
+    finishWrite();
+    await pending;
+
+    api.saveVault.mockRejectedValueOnce(new Error("disk full"));
+    api.getVault.mockResolvedValueOnce(JSON.stringify(before));
+    await expect(
+      useVaultStore.getState().saveEvent({ ...eventFixture, title: "Lost" }),
+    ).rejects.toThrow("disk full");
+    expect(useVaultStore.getState().model?.modules.events).toEqual([]);
+  });
+
   it("saveEvent adds and updates events, keeping images inline", async () => {
     useVaultStore.setState({
       model: createDefaultModel("2026-07-07T00:00:00.000Z"),

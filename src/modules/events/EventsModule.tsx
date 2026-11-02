@@ -27,6 +27,7 @@ import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { dateInputToIso, formatDate } from "@/lib/date";
 import { useClearFiltersOnEscape } from "@/hooks/use-clear-filters-on-escape";
+import { toastError } from "@/lib/toast";
 import { cn } from "@/lib/utils";
 import type { ListViewProps } from "@/modules/types";
 import { useVaultStore } from "@/stores/vault-store";
@@ -135,10 +136,19 @@ export function EventsListView({
     onFocusItemHandled?.();
   }, [focusItemId, events, onFocusItemHandled]);
 
-  async function handleSave(entry: TrackedEvent) {
-    await saveEvent(entry);
+  // The store shows a save immediately and rolls back if the encrypted write fails; surface that.
+  async function persist(entry: TrackedEvent) {
+    try {
+      await saveEvent(entry);
+    } catch {
+      toastError("Couldn't save. Showing the last saved version.");
+    }
+  }
+
+  function handleSave(entry: TrackedEvent) {
     setEditing(undefined);
     setSelectedId(entry.id);
+    void persist(entry);
   }
 
   async function handleDelete(id: string) {
@@ -163,7 +173,7 @@ export function EventsListView({
       <EventEditView
         item={editing ?? undefined}
         onCancel={() => setEditing(undefined)}
-        onSave={(entry) => void handleSave(entry)}
+        onSave={handleSave}
       />
     );
   }
@@ -176,7 +186,7 @@ export function EventsListView({
           onBack={() => setSelectedId(null)}
           onDelete={() => setPendingDelete(selected)}
           onEdit={() => setEditing(selected)}
-          onSave={(entry) => void saveEvent(entry)}
+          onSave={(entry) => void persist(entry)}
         />
         {deleteDialog}
       </>
