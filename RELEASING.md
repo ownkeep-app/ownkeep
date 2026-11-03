@@ -101,6 +101,51 @@ Check it yourself rather than taking my word for it:
 **Full changelog:** https://github.com/ownkeep-app/ownkeep/compare/v<prev>...v<version>
 ```
 
+## Ready to paste — v1.5
+
+```markdown
+## OwnKeep v1.5
+
+A new Event Tracker module for things you follow day by day, and the whole app in English or Simplified Chinese.
+
+### Requirements
+- macOS 13 or later
+- Universal 2 — Apple Silicon and Intel
+
+### Install
+Download the `.dmg`, open it, drag OwnKeep to Applications. On first launch macOS asks for
+**Accessibility** permission so the `⌘⇧Space` global hotkey works system-wide; OwnKeep runs in the
+menu bar with no Dock icon.
+
+Upgrading from v1.4? Drag the new app over the old one. Your vault lives outside the app bundle and
+is untouched. No schema change, no migration, no Emergency Kit re-issue — v1.4 and v1.5 open each
+other's vaults.
+
+### Verify this download
+Signed with a Developer ID certificate, built with hardened runtime, notarized and stapled by Apple.
+Check it yourself rather than taking my word for it:
+
+    spctl -a -vvv -t open --context context:primary-signature OwnKeep_1.5.0_universal.dmg
+    # expect: accepted / source=Notarized Developer ID
+
+    shasum -a 256 OwnKeep_1.5.0_universal.dmg
+    # <sha256>
+
+### Changes
+- **Event Tracker module (`⌥⇧7`).** Track something over time — a child's height, sleep, a treatment — as an event with its own quick-entry tags (number with a unit, yes/no, or text, each with an icon; star a tag to highlight it). Fill in a day from a Monday-first calendar with year and month pickers, add free-form items, a note, and photos or PDFs, and mark milestone days. A pannable, zoomable timeline filters to one tag or item; a trending view charts any number tag over a date range with change / min / max. Days can be imported from a CSV, with a preview before anything is saved. Event Tracker is not in the command bar by default; scope a query with the `e` prefix.
+- **Photos and PDFs live inside the encrypted vault**, so they are encrypted at rest and travel with every backup and restore — no separate files. Photos are downscaled to 2000 px and re-encoded as JPEG; PDFs are kept as uploaded, up to 10 MB each. To display them, the app's content security policy now allows `data:` images and `blob:` frames (the PDF reader). Scripts are still restricted to the app itself.
+- **English and 简体中文.** Settings → System → Appearance → Language: Follow macOS (the default), English, or 简体中文. The switch applies immediately to the command bar, the Dashboard, the menu-bar menu, dialogs and reminder notifications. Translations ship inside the app; nothing is downloaded or machine-translated.
+- **Faster saves.** The Dashboard shows a change immediately while the vault is re-encrypted in the background; if the write fails, it reloads what is actually on disk and tells you.
+
+### Known issues
+- Your vault is one encrypted file that is rewritten in full on every save, so many large photos make every save in every module slower.
+- Some technical error messages (a failed restore or disk error) are still in English, and the default category, tag and finance option lists stay as they were — they are your data, edit them in Settings.
+- No sync, no browser autofill, no TOTP generation — all deliberate non-goals.
+- macOS only.
+
+**Full changelog:** https://github.com/ownkeep-app/ownkeep/compare/v1.4...v1.5
+```
+
 ## Ready to paste — v1.4
 
 ```markdown
