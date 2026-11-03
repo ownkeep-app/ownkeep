@@ -9,6 +9,7 @@ import {
   Pencil,
   Plus,
   Search,
+  Star,
   Trash2,
   TrendingUp,
   Upload,
@@ -740,6 +741,24 @@ function TagEditorRow({
         placeholder="Unit"
         value={tag.type === "number" ? tag.unit : ""}
       />
+      <Button
+        aria-label={`Tag ${position} important`}
+        aria-pressed={Boolean(tag.important)}
+        onClick={() => onChange({ important: !tag.important })}
+        size="icon"
+        title="Important: highlight on the calendar"
+        type="button"
+        variant="ghost"
+      >
+        <Star
+          className={cn(
+            "h-4 w-4",
+            tag.important
+              ? "fill-amber-400 text-amber-400"
+              : "text-muted-foreground",
+          )}
+        />
+      </Button>
       <Button
         aria-label={`Remove tag ${position}`}
         onClick={onRemove}

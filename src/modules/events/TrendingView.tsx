@@ -10,7 +10,6 @@ import { DatePicker } from "@/components/date-picker";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
 import { dateInputToIso, formatDate } from "@/lib/date";
-import { cn } from "@/lib/utils";
 import {
   dateTicks,
   daysBetween,
@@ -29,6 +28,7 @@ import {
   trendSeries,
   trendSummary,
   type DateRange,
+  type RangePresetId,
   type TrendPoint,
 } from "./logic";
 import type { EventTag, TrackedEvent } from "./types";
@@ -84,6 +84,9 @@ export function TrendingView({
   const points = pointsInRange(allPoints, range);
   const summary = trendSummary(points);
   const isDefaultRange = sameRange(range, defaultRange);
+  const activePreset = RANGE_PRESETS.find((preset) =>
+    sameRange(range, presetRange(preset.id, today)),
+  );
   const activeYear = years.find((year) =>
     sameRange(range, yearRange(year, today)),
   );
@@ -112,26 +115,25 @@ export function TrendingView({
             </option>
           ))}
         </Select>
-        <div aria-label="Quick ranges" className="flex gap-1" role="group">
-          {RANGE_PRESETS.map((preset) => {
-            const active = sameRange(range, presetRange(preset.id, today));
-            return (
-              <Button
-                aria-pressed={active}
-                className={cn(
-                  active && "border-primary bg-primary/10 text-foreground",
-                )}
-                key={preset.id}
-                onClick={() => setRange(presetRange(preset.id, today))}
-                size="sm"
-                type="button"
-                variant="outline"
-              >
-                {preset.label}
-              </Button>
-            );
-          })}
-        </div>
+        <Select
+          aria-label="Recent range"
+          className="w-28"
+          onChange={(change) => {
+            if (change.target.value) {
+              setRange(
+                presetRange(change.target.value as RangePresetId, today),
+              );
+            }
+          }}
+          value={activePreset?.id ?? ""}
+        >
+          <option value="">最近</option>
+          {RANGE_PRESETS.map((preset) => (
+            <option key={preset.id} value={preset.id}>
+              最近 {preset.label}
+            </option>
+          ))}
+        </Select>
         <Select
           aria-label="Year"
           className="w-28"

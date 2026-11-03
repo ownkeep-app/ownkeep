@@ -16,6 +16,8 @@ export interface EventTag {
   icon: string;
   /** Suffix for number tags, e.g. `h`, `mg`; empty for none. */
   unit: string;
+  /** Shown first and highlighted on the calendar; only stored when true. */
+  important?: boolean;
 }
 
 export type TagValue = number | boolean | string;

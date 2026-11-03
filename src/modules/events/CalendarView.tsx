@@ -11,6 +11,7 @@ import {
   dayFor,
   eventYears,
   formatTagValue,
+  importantFirst,
   isInMonth,
   monthGrid,
   monthOf,
@@ -210,11 +211,17 @@ function DayCell({
       </div>
       {tags.length > 0 ? (
         <div className="flex flex-wrap gap-1">
-          {tags.map(({ tag, value }) => (
+          {importantFirst(tags).map(({ tag, value }) => (
             <span
-              className="inline-flex max-w-full items-center gap-0.5 rounded bg-secondary px-1 py-0.5 text-secondary-foreground"
+              className={cn(
+                "inline-flex max-w-full items-center gap-0.5 rounded px-1 py-0.5",
+                tag.important
+                  ? "bg-primary font-semibold text-primary-foreground"
+                  : "bg-secondary text-secondary-foreground",
+              )}
+              data-important={tag.important ? "" : undefined}
               key={tag.id}
-              title={tag.name}
+              title={tag.important ? `${tag.name} (important)` : tag.name}
             >
               <TagIcon className="h-3 w-3" icon={tag.icon} />
               <span className="truncate">{formatTagValue(tag, value)}</span>

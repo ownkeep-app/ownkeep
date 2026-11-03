@@ -21,6 +21,7 @@ import {
   fitViewport,
   formatTagValue,
   formatTimeSpan,
+  importantFirst,
   formFromEvent,
   isDayEmpty,
   isInMonth,
@@ -651,6 +652,10 @@ describe("quick ranges and time span", () => {
   });
 
   it("builds preset and year ranges ending today", () => {
+    expect(presetRange("1m", "2026-11-02")).toEqual({
+      from: "2026-10-02",
+      to: "2026-11-02",
+    });
     expect(presetRange("3m", "2026-11-02")).toEqual({
       from: "2026-08-02",
       to: "2026-11-02",
@@ -724,5 +729,32 @@ describe("removeDay", () => {
     expect(removed.days.map((day) => day.date)).toEqual(["2026-11-01"]);
     expect(removed.updatedAt).toBe(NOW);
     expect(removeDay(event, "2020-01-01", NOW).days).toHaveLength(2);
+  });
+});
+
+describe("important tags", () => {
+  it("stores the flag only when set and lists important tags first", () => {
+    const created = createTrackedEvent(
+      {
+        ...emptyEventForm(),
+        title: "Sleep",
+        tags: [
+          { ...pills, important: false },
+          { ...sleep, important: true },
+          { ...dreams, important: true },
+        ],
+      },
+      NOW,
+    );
+    expect(created.tags[0]).toEqual(pills);
+    expect(created.tags[1]).toEqual({ ...sleep, important: true });
+
+    const event = makeEvent({ tags: created.tags });
+    const ordered = importantFirst(trackedTagValues(event, event.days[0]));
+    expect(ordered.map(({ tag }) => tag.id)).toEqual([
+      "sleep",
+      "dreams",
+      "pills",
+    ]);
   });
 });

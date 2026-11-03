@@ -6,10 +6,16 @@ import { ConfirmDeleteDialog } from "@/components/ConfirmDeleteDialog";
 import { DetailModal } from "@/components/DetailModal";
 import { Button } from "@/components/ui/button";
 import { dateInputToIso, formatDate } from "@/lib/date";
+import { cn } from "@/lib/utils";
 import { AttachmentTile } from "./AttachmentTile";
 import { AttachmentViewer } from "./AttachmentViewer";
 import { TagIcon } from "./icons";
-import { dayFor, formatTagValue, trackedTagValues } from "./logic";
+import {
+  dayFor,
+  formatTagValue,
+  importantFirst,
+  trackedTagValues,
+} from "./logic";
 import type { EventAttachment, TrackedEvent } from "./types";
 
 /** Read-only view of one tracked day, with Edit / Delete. */
@@ -89,9 +95,14 @@ export function DayView({
                   Tags
                 </h3>
                 <dl className="grid grid-cols-2 gap-2">
-                  {tags.map(({ tag, value }) => (
+                  {importantFirst(tags).map(({ tag, value }) => (
                     <div
-                      className="flex items-center gap-2 rounded-md border border-border bg-muted/30 px-3 py-2"
+                      className={cn(
+                        "flex items-center gap-2 rounded-md border px-3 py-2",
+                        tag.important
+                          ? "border-primary bg-primary/10"
+                          : "border-border bg-muted/30",
+                      )}
                       key={tag.id}
                     >
                       <TagIcon

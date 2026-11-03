@@ -137,9 +137,12 @@ export function validateEventInput(input: EventFormInput): string | null {
 
 function normalizeTag(tag: EventTag): EventTag {
   return {
-    ...tag,
+    id: tag.id,
     name: tag.name.trim(),
+    type: tag.type,
+    icon: tag.icon,
     unit: tag.type === "number" ? tag.unit.trim() : "",
+    ...(tag.important ? { important: true } : {}),
   };
 }
 
@@ -240,6 +243,15 @@ export function trackedTagValues(
     const value = day.tagValues[tag.id];
     return value === undefined ? [] : [{ tag, value }];
   });
+}
+
+/** Important tags first (stable), so a busy calendar cell leads with them. */
+export function importantFirst<T extends { tag: EventTag }>(values: T[]): T[] {
+  return [...values].sort(
+    (left, right) =>
+      Number(Boolean(right.tag.important)) -
+      Number(Boolean(left.tag.important)),
+  );
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -718,9 +730,10 @@ export function addMonths(key: string, amount: number): string {
 }
 
 export const RANGE_PRESETS = [
-  { id: "3m", label: "最近三个月", months: 3 },
-  { id: "6m", label: "最近半年", months: 6 },
-  { id: "12m", label: "最近一年", months: 12 },
+  { id: "1m", label: "1个月", months: 1 },
+  { id: "3m", label: "3个月", months: 3 },
+  { id: "6m", label: "6个月", months: 6 },
+  { id: "12m", label: "1年", months: 12 },
 ] as const;
 export type RangePresetId = (typeof RANGE_PRESETS)[number]["id"];
 

@@ -252,6 +252,36 @@ describe("EventsListView", () => {
     expect(screen.getByText("1 tracked event")).toBeVisible();
   });
 
+  it("highlights important tags first on the calendar", async () => {
+    const user = userEvent.setup();
+    render(<Harness />);
+    await chooseRowAction(user, "Sleeping of My Wife", "Edit");
+    const star = screen.getByRole("button", { name: "Tag 3 important" });
+    expect(star).toHaveAttribute("aria-pressed", "false");
+    await user.click(star);
+    expect(star).toHaveAttribute("aria-pressed", "true");
+    await user.click(screen.getByRole("button", { name: "Save" }));
+    await waitFor(() =>
+      expect(storedEvents()[0].tags[2]).toEqual(
+        expect.objectContaining({ name: "多梦", important: true }),
+      ),
+    );
+
+    const cell = await screen.findByRole("gridcell", {
+      name: "2026-10-30, tracked",
+    });
+    const chips = within(cell).getAllByTitle(/安眠药|睡眠时长|多梦/);
+    expect(chips[0]).toHaveAttribute("title", "多梦 (important)");
+    expect(chips[0]).toHaveAttribute("data-important");
+    expect(chips[1]).not.toHaveAttribute("data-important");
+
+    await user.click(cell);
+    const view = await screen.findByRole("dialog", { name: / · / });
+    expect(within(view).getByText("多梦").parentElement).toHaveClass(
+      "border-primary",
+    );
+  });
+
   it("tracks today's tags from the calendar", async () => {
     const user = userEvent.setup();
     render(<Harness />);

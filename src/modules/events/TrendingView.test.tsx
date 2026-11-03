@@ -140,24 +140,38 @@ describe("TrendingView", () => {
     ).toEqual(["年份", "2026", "2025", "2024"]);
     expect(stat("Time Spanning")).toBe("2年8个月");
 
-    const quarter = screen.getByRole("button", { name: "最近三个月" });
-    await user.click(quarter);
-    expect(quarter).toHaveAttribute("aria-pressed", "true");
+    const recent = screen.getByLabelText("Recent range");
+    expect(
+      within(recent)
+        .getAllByRole("option")
+        .map((option) => option.textContent),
+    ).toEqual(["最近", "最近 1个月", "最近 3个月", "最近 6个月", "最近 1年"]);
+    expect(recent).toHaveValue("");
+
+    await user.selectOptions(recent, "1m");
+    expect(from()).toMatch(/2026.*10.*2|Oct 2, 2026/);
+    expect(stat("Time Spanning")).toBe("1个月");
+
+    await user.selectOptions(recent, "3m");
+    expect(recent).toHaveValue("3m");
     expect(from()).toMatch(/2026.*8.*2|Aug 2, 2026/);
     expect(to()).toMatch(/2026.*11.*2|Nov 2, 2026/);
     expect(stat("Time Spanning")).toBe("3个月");
     // Sep 22 and Oct 31 fall in the last three months; Jul 5 does not.
     expect(screen.getByText("Values (2)")).toBeInTheDocument();
 
-    await user.click(screen.getByRole("button", { name: "最近半年" }));
-    expect(quarter).toHaveAttribute("aria-pressed", "false");
+    await user.selectOptions(recent, "6m");
     expect(stat("Time Spanning")).toBe("6个月");
-    await user.click(screen.getByRole("button", { name: "最近一年" }));
+    await user.selectOptions(recent, "12m");
     expect(stat("Time Spanning")).toBe("1年");
     expect(year).toHaveValue("");
+    // Choosing the placeholder changes nothing.
+    await user.selectOptions(recent, "");
+    expect(recent).toHaveValue("12m");
 
     await user.selectOptions(year, "2024");
     expect(year).toHaveValue("2024");
+    expect(recent).toHaveValue("");
     expect(from()).toMatch(/2024.*1.*1|Jan 1, 2024/);
     expect(to()).toMatch(/2024.*12.*31|Dec 31, 2024/);
     expect(stat("Time Spanning")).toBe("1年");
