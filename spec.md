@@ -113,6 +113,7 @@ hold note text in its own internal state.
 - **Runtime-offline:** the copied components pull only tiny local helpers (`class-variance-authority`, `clsx`, `tailwind-merge`, `tailwindcss-animate`) + Radix primitives. The CLI needs the network _once at dev time_; **nothing networked at runtime** — honors offline-first. Vendor `components/ui/` into git.
 - **Icons:** `lucide-react`, tree-shaken (import only the glyphs used), bundled into the app.
 - **Theming ties into settings:** shadcn tokens are CSS variables (HSL) in `src/styles.css`. `settings.theme` (system/light/dark) toggles the `.dark` class; `settings.accent` maps to the `--primary` token — so "theme + accent" (§9) is a token swap, no component edits. Defaults: light = Color Hunt periwinkle mist page (`#EEF2FF` family) with **white** cards/popovers/form controls/list rows, dark = Color Hunt midnight navy (`#1A1A2E` family) with elevated card-colored list rows, accent = `#5B6CFF`.
+- **Languages (v1.5):** the UI ships in **English** and **Simplified Chinese**. Every user-facing string lives in a bundled JSON catalog per locale — `src/i18n/locales/en.json` and `zh-CN.json` (flat dotted keys, `{name}` placeholders, `<key>_one` / `<key>_other` plural pairs). The catalogs are compiled into the app (the WebView imports them; Rust embeds the same files with `include_str!` for the tray menu, quit dialog, file pickers, and reminder notifications), so there is **no network fetch and no machine translation at runtime**. A tiny in-house helper (`src/i18n/index.ts`: `t` / `tp` / `useT`) replaces a third-party i18n library. Dates and month/weekday names use `Intl` (and react-day-picker / uPlot locale data) in the active locale. User data — item names, category/tag option lists, finance holder/category defaults — is stored text and is never translated.
 - **Where each is used:** `command` → the command bar (§7.2); `table` → dashboard `ListView`s (passwords, subscriptions, finance); `dialog` / modal chrome → detail view, create/edit `ItemFormShell`, restore warning, keyboard help; `select` / `switch` / `tabs` → settings + enum command arguments; `sonner` → "copied" / "clipboard cleared" / error toasts; `badge` → tags / priority / auto-renew; `calendar` + `popover` → shared DatePicker / DateTimePicker (todos due = date+time; subscriptions / finance = date-only).
 
 ### 2.2 Testing strategy
@@ -424,6 +425,7 @@ never migrates another module's slice.
     "lockOnBlur": false,
     "clipboardClearSeconds": 30,
     "theme": "system", // system | light | dark
+    "language": "system", // system (follow macOS) | en | zh-CN — UI language (§2.1, §9)
     "accent": "#5B6CFF",
     "resultLimit": 9,
     "categoryOptions": ["Work", "Personal", "Dev", "Finance", "Casual", "Misc"], // single-select labels; default Personal
@@ -867,7 +869,9 @@ Layout: **left sidebar + right content pane.**
 All user-editable, stored inside the encrypted vault:
 global hotkey; dashboard hotkey; numbered-copy hotkey; auto-lock timeout (preset minutes/hours or
 never) + lock-on-blur; clipboard auto-clear
-seconds; theme + accent; result limit; **category/tag option lists** (editable in Settings — one
+seconds; theme + accent; **UI language** (Follow macOS / English / 简体中文 — Settings → System →
+Appearance; applies instantly in both windows and the Rust shell; while locked the last unlocked
+choice stays active, and a cold start follows macOS until the vault is unlocked); result limit; **category/tag option lists** (editable in Settings — one
 label per line; used by item edit forms); **per-module enable + searchable toggles + scope prefixes + module
 settings** (command placeholder/copy mode; todo default lead; subscription default lead days;
 finance base currency + FX table + holder/category option lists); Emergency Kit regeneration; **Touch ID / biometric unlock**

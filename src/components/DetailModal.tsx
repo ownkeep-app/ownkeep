@@ -9,6 +9,7 @@ import {
 } from "@/components/modal-styles";
 import { Button } from "@/components/ui/button";
 import { fadeTransition, motionOrUndefined } from "@/lib/motion";
+import { useT } from "@/i18n";
 import { cn } from "@/lib/utils";
 
 export function DetailModal({
@@ -31,9 +32,11 @@ export function DetailModal({
   beforeClose?: ReactNode;
   titleClassName?: string;
 }) {
+  const { t } = useT();
   const closeRef = useRef<HTMLButtonElement>(null);
   const reduce = useReducedMotion();
-  const label = ariaLabel ?? (typeof title === "string" ? title : "Details");
+  const label =
+    ariaLabel ?? (typeof title === "string" ? title : t("detail.details"));
 
   useEffect(() => {
     if (open) closeRef.current?.focus();
@@ -57,7 +60,7 @@ export function DetailModal({
           role="presentation"
         >
           <button
-            aria-label="Dismiss details"
+            aria-label={t("detail.dismiss")}
             className="absolute inset-0 h-full w-full cursor-default"
             onClick={onClose}
             tabIndex={-1}
@@ -83,7 +86,7 @@ export function DetailModal({
               </h2>
               {beforeClose}
               <Button
-                aria-label="Close details"
+                aria-label={t("detail.close")}
                 onClick={onClose}
                 ref={closeRef}
                 size="icon"

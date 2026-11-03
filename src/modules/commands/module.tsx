@@ -11,7 +11,7 @@ import { COMMANDS_MODULE_ID } from "./types";
 
 export const commandsModule: FeatureModule = {
   id: COMMANDS_MODULE_ID,
-  title: "Commands",
+  titleKey: "module.commands",
   icon: <Terminal className="h-4 w-4" />,
   enabledByDefault: true,
   searchableByDefault: true,

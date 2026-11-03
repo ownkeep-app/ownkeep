@@ -25,6 +25,7 @@ import { formatDate } from "@/lib/date";
 import { useClearFiltersOnEscape } from "@/hooks/use-clear-filters-on-escape";
 import { useTaxonomySettings } from "@/hooks/use-taxonomy-settings";
 import type { ListViewProps } from "@/modules/types";
+import { useT } from "@/i18n";
 import { useVaultStore } from "@/stores/vault-store";
 import {
   createNoteEntry,
@@ -42,6 +43,7 @@ export function NotesListView({
   focusItemId,
   onFocusItemHandled,
 }: ListViewProps<NoteEntry>) {
+  const { t, tp } = useT();
   const saveNote = useVaultStore((s) => s.saveNote);
   const deleteNote = useVaultStore((s) => s.deleteNote);
   const { categoryOptions } = useTaxonomySettings();
@@ -121,14 +123,14 @@ export function NotesListView({
     <div className="flex h-full flex-col">
       <header className="flex items-center gap-3 border-b border-border px-6 py-4">
         <div className="min-w-0 flex-1">
-          <h1 className="text-lg font-semibold">Notes</h1>
+          <h1 className="text-lg font-semibold">{t("module.notes")}</h1>
           <p className="text-sm text-muted-foreground">
-            {notes.length} saved {notes.length === 1 ? "note" : "notes"}
+            {tp("notes.savedCount", notes.length)}
           </p>
         </div>
         <Button onClick={startCreate}>
           <Plus className="h-4 w-4" />
-          New
+          {t("common.new")}
         </Button>
       </header>
 
@@ -142,10 +144,10 @@ export function NotesListView({
           <div className="relative min-w-0 flex-1">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
-              aria-label="Filter notes"
+              aria-label={t("notes.filter")}
               className="pl-9"
               onChange={(event) => setQuery(event.target.value)}
-              placeholder="Filter notes"
+              placeholder={t("notes.filter")}
               value={query}
             />
           </div>
@@ -162,21 +164,21 @@ export function NotesListView({
         {groups.length === 0 ? (
           query.trim() || categoryFilter ? (
             <EmptyState
-              title="No matches"
+              title={t("common.noMatches")}
               description={
                 query.trim()
-                  ? `Nothing matches “${query.trim()}”.`
-                  : "Nothing in this category."
+                  ? t("common.nothingMatches", { query: query.trim() })
+                  : t("notes.nothingInCategory")
               }
             />
           ) : (
             <EmptyState
-              title="No notes yet"
-              description="Capture Markdown notes and browse them by category."
+              title={t("notes.emptyTitle")}
+              description={t("notes.emptyBody")}
               action={
                 <Button onClick={startCreate}>
                   <Plus className="h-4 w-4" />
-                  New note
+                  {t("notes.new")}
                 </Button>
               }
             />
@@ -204,24 +206,28 @@ export function NotesListView({
                               {note.name}
                             </ListItemTitle>
                             <p className="shrink-0 text-xs leading-5 text-muted-foreground">
-                              Updated {formatDate(note.updatedAt)}
+                              {t("notes.updatedOn", {
+                                date: formatDate(note.updatedAt),
+                              })}
                             </p>
                             <div className="-mr-1.5 -mt-0.5 shrink-0 [&_button]:h-7 [&_button]:w-7">
                               <RowActionsMenu
-                                label={`Actions for ${note.name}`}
+                                label={t("common.actionsFor", {
+                                  name: note.name,
+                                })}
                                 actions={[
                                   {
-                                    label: "View",
+                                    label: t("common.view"),
                                     icon: <Eye className="h-4 w-4" />,
                                     onSelect: () => setViewing(note),
                                   },
                                   {
-                                    label: "Edit",
+                                    label: t("common.edit"),
                                     icon: <Pencil className="h-4 w-4" />,
                                     onSelect: () => setEditing(note),
                                   },
                                   {
-                                    label: "Delete",
+                                    label: t("common.delete"),
                                     icon: <Trash2 className="h-4 w-4" />,
                                     destructive: true,
                                     onSelect: () =>
@@ -269,7 +275,7 @@ export function NotesListView({
                 variant="destructive"
               >
                 <Trash2 className="h-4 w-4" />
-                Delete
+                {t("common.delete")}
               </Button>
               <Button
                 className="ml-auto"
@@ -281,16 +287,16 @@ export function NotesListView({
                 variant="outline"
               >
                 <Pencil className="h-4 w-4" />
-                Edit
+                {t("common.edit")}
               </Button>
             </>
           )
         }
-        ariaLabel={viewing?.name ?? "Note"}
+        ariaLabel={viewing?.name ?? t("notes.note")}
         beforeClose={
           viewing ? (
             <p className="shrink-0 text-xs text-muted-foreground">
-              Updated {formatDate(viewing.updatedAt)}
+              {t("notes.updatedOn", { date: formatDate(viewing.updatedAt) })}
             </p>
           ) : null
         }
@@ -348,6 +354,7 @@ export function NoteEditView({
   onSave: (item: NoteEntry) => void;
   onCancel: () => void;
 }) {
+  const { t } = useT();
   const { categoryOptions, taxonomy } = useTaxonomySettings();
   const [form, setForm] = useState<NoteFormInput>(() =>
     item ? formFromNote(item) : emptyNoteForm(taxonomy),
@@ -376,27 +383,27 @@ export function NoteEditView({
 
   return (
     <ItemFormShell
-      cancelLabel="Cancel"
-      description="Write Markdown in Write mode, or switch to Preview to render it."
+      cancelLabel={t("common.cancel")}
+      description={t("notes.formHint")}
       error={error}
       mode={item ? "edit" : "create"}
       onCancel={onCancel}
       onSubmit={submit}
-      title={item ? "Edit note" : "New note"}
+      title={t(item ? "notes.edit" : "notes.new")}
     >
       <div className="col-span-2 grid grid-cols-4 gap-4">
         <label className="col-span-3 space-y-1 text-sm font-medium">
-          Name
+          {t("field.name")}
           <Input
-            aria-label="Note name"
+            aria-label={t("notes.nameLabel")}
             onChange={(event) => update("name", event.target.value)}
             value={form.name}
           />
         </label>
         <label className="col-span-1 space-y-1 text-sm font-medium">
-          Category
+          {t("field.category")}
           <CategorySelect
-            aria-label="Note category"
+            aria-label={t("notes.categoryLabel")}
             onChange={(event) => update("category", event.target.value)}
             options={categoryOptions}
             value={form.category}
@@ -404,9 +411,9 @@ export function NoteEditView({
         </label>
       </div>
       <div className="col-span-2 space-y-1 text-sm font-medium">
-        Content
+        {t("notes.content")}
         <MarkdownEditor
-          ariaLabel="Note content"
+          ariaLabel={t("markdown.noteContent")}
           onChange={(value) => update("content", value)}
           value={form.content}
         />

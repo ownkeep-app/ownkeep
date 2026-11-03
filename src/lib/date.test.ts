@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
+  localeDateNames,
   combineDateAndTime,
   dateInputToIso,
   dateTimeInputToIso,
@@ -68,5 +69,19 @@ describe("date helpers", () => {
 
   it("formats local Date values as YYYY-MM-DD", () => {
     expect(dateToDateInput(new Date(2026, 0, 5))).toBe("2026-01-05");
+  });
+});
+
+describe("localeDateNames", () => {
+  it("names months and Sunday-first weekdays in the requested locale", () => {
+    const english = localeDateNames("en");
+    expect(english.MMMM[0]).toBe("January");
+    expect(english.MMM[11]).toBe("Dec");
+    expect(english.WWWW[0]).toBe("Sunday");
+    expect(english.WWW).toHaveLength(7);
+
+    const chinese = localeDateNames("zh-CN");
+    expect(chinese.MMMM[0]).toBe("一月");
+    expect(chinese.WWWW[0]).toBe("星期日");
   });
 });

@@ -14,6 +14,7 @@ import {
   fadeTransition,
   motionOrUndefined,
 } from "@/lib/motion";
+import { isMessageKey, useT } from "@/i18n";
 import { cn } from "@/lib/utils";
 
 /**
@@ -33,6 +34,7 @@ export function KeyboardHelp({
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
 }) {
+  const { t } = useT();
   const [internalOpen, setInternalOpen] = useState(false);
   const open = controlledOpen ?? internalOpen;
   function setOpen(next: boolean) {
@@ -67,7 +69,7 @@ export function KeyboardHelp({
     <>
       {showTrigger && (
         <Button
-          aria-label="Keyboard shortcuts"
+          aria-label={t("shortcuts.title")}
           className="fixed bottom-3 right-3 z-40"
           onClick={() => setOpen(true)}
           size="icon"
@@ -94,14 +96,14 @@ export function KeyboardHelp({
             role="presentation"
           >
             <button
-              aria-label="Dismiss keyboard shortcuts"
+              aria-label={t("shortcuts.dismiss")}
               className="absolute inset-0 h-full w-full cursor-default"
               onClick={() => setOpen(false)}
               tabIndex={-1}
               type="button"
             />
             <motion.section
-              aria-label="Keyboard shortcuts"
+              aria-label={t("shortcuts.title")}
               aria-modal="true"
               className={cn(modalPanelClassName, "w-full max-w-md p-5")}
               role="dialog"
@@ -121,10 +123,10 @@ export function KeyboardHelp({
               <header className="mb-4 flex items-center gap-2">
                 <Keyboard className="h-4 w-4 text-primary" aria-hidden />
                 <h2 className="flex-1 text-sm font-semibold">
-                  Keyboard shortcuts
+                  {t("shortcuts.title")}
                 </h2>
                 <Button
-                  aria-label="Close keyboard shortcuts"
+                  aria-label={t("shortcuts.close")}
                   onClick={() => setOpen(false)}
                   ref={closeRef}
                   size="icon"
@@ -136,26 +138,26 @@ export function KeyboardHelp({
               </header>
               <div className="flex flex-col gap-4">
                 {groups.map((group) => (
-                  <div key={group.title}>
+                  <div key={group.titleKey}>
                     <h3 className="mb-2 text-xs font-medium uppercase text-muted-foreground">
-                      {group.title}
+                      {t(group.titleKey)}
                     </h3>
                     <ul className="flex flex-col gap-1.5">
                       {group.shortcuts.map((shortcut) => (
                         <li
                           className="flex items-center justify-between gap-4 text-sm"
-                          key={shortcut.label}
+                          key={shortcut.labelKey}
                         >
                           <span className="text-muted-foreground">
-                            {shortcut.label}
+                            {t(shortcut.labelKey)}
                           </span>
                           <span className="flex shrink-0 gap-1">
                             {shortcut.keys.map((key, index) => (
                               <kbd
                                 className="rounded border border-border bg-muted px-1.5 py-0.5 text-xs font-medium"
-                                key={`${shortcut.label}-${index}`}
+                                key={`${shortcut.labelKey}-${index}`}
                               >
-                                {key}
+                                {isMessageKey(key) ? t(key) : key}
                               </kbd>
                             ))}
                           </span>

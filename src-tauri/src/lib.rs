@@ -5,6 +5,7 @@ mod container;
 mod crypto;
 mod envelope;
 mod error;
+mod i18n;
 mod notifications;
 mod recovery;
 mod reminders;
@@ -45,6 +46,7 @@ use tauri::{
 struct TrayMenuItems {
     search: MenuItem<tauri::Wry>,
     dashboard: MenuItem<tauri::Wry>,
+    exit: MenuItem<tauri::Wry>,
 }
 
 #[cfg(desktop)]
@@ -150,12 +152,12 @@ fn confirm_close_window(window: &tauri::Window) {
     let app = window.app_handle().clone();
 
     app.dialog()
-        .message("This will quit OwnKeep completely (command bar and Dashboard). Reminder notifications will stop until you open it again.")
-        .title("Quit OwnKeep?")
+        .message(i18n::t("native.quit.message"))
+        .title(i18n::t("native.quit.title"))
         .kind(MessageDialogKind::Warning)
         .buttons(MessageDialogButtons::OkCancelCustom(
-            "Quit".into(),
-            "Cancel".into(),
+            i18n::t("native.quit.confirm"),
+            i18n::t("native.quit.cancel"),
         ))
         .parent(&webview)
         .show(move |confirmed| {
@@ -199,13 +201,13 @@ fn register_desktop_hotkeys(
 fn setup_desktop(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     // Build the tray *before* switching to Accessory so macOS registers the status item while the
     // process still looks like a normal app (helps on Tahoe / crowded menu bars).
-    let search = MenuItemBuilder::with_id("search", "Search ...")
+    let search = MenuItemBuilder::with_id("search", i18n::t("native.tray.search"))
         .accelerator(DEFAULT_GLOBAL_HOTKEY)
         .build(app)?;
-    let dashboard = MenuItemBuilder::with_id("dashboard", "Dashboard")
+    let dashboard = MenuItemBuilder::with_id("dashboard", i18n::t("native.tray.dashboard"))
         .accelerator(DEFAULT_DASHBOARD_HOTKEY)
         .build(app)?;
-    let exit = MenuItemBuilder::with_id("exit", "Exit").build(app)?;
+    let exit = MenuItemBuilder::with_id("exit", i18n::t("native.tray.exit")).build(app)?;
     let menu = MenuBuilder::new(app)
         .item(&search)
         .item(&dashboard)
@@ -237,7 +239,11 @@ fn setup_desktop(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>>
 
     // Must manage the TrayIcon — Tauri removes the status item when the last ref is dropped.
     app.manage(tray);
-    app.manage(TrayMenuItems { search, dashboard });
+    app.manage(TrayMenuItems {
+        search,
+        dashboard,
+        exit,
+    });
 
     // Menu-bar app with no Dock icon — OwnKeep is summoned by its hotkey, not clicked in the Dock.
     #[cfg(target_os = "macos")]
@@ -312,6 +318,7 @@ pub fn run() {
             commands::erase_vault,
             commands::quit_app,
             set_hotkeys,
+            set_locale,
             set_main_window_blur_dismiss,
             show_command_bar,
             show_dashboard,
@@ -432,6 +439,27 @@ fn set_hotkeys(
     }
 }
 
+/// Switch the shell's native strings (tray menu, dialogs, reminders) to the UI's resolved locale.
+#[tauri::command]
+fn set_locale(app: tauri::AppHandle, locale: String) -> Result<(), String> {
+    let locale =
+        i18n::Locale::parse(&locale).ok_or_else(|| format!("unsupported locale {locale}"))?;
+    i18n::set_current(locale);
+    #[cfg(desktop)]
+    if let Some(items) = app.try_state::<TrayMenuItems>() {
+        for (item, key) in [
+            (&items.search, "native.tray.search"),
+            (&items.dashboard, "native.tray.dashboard"),
+            (&items.exit, "native.tray.exit"),
+        ] {
+            item.set_text(i18n::t(key)).map_err(|e| e.to_string())?;
+        }
+    }
+    #[cfg(not(desktop))]
+    let _ = app;
+    Ok(())
+}
+
 /// Periodically wipe keys if the vault has been idle past its auto-lock timeout (spec §4.3).
 /// A dedicated background thread keeps this independent of window/UI activity.
 fn spawn_auto_lock(handle: tauri::AppHandle) {
@@ -466,7 +494,7 @@ fn spawn_reminder_scheduler(handle: tauri::AppHandle) {
             let (reminders, vault_changed) = {
                 let state = handle.state::<commands::SharedSession>();
                 let mut session = state.lock().unwrap();
-                match session.process_due_reminders(&path, chrono::Utc::now()) {
+                match session.process_due_reminders(&path, chrono::Utc::now(), i18n::current()) {
                     Ok(result) => result,
                     Err(_) => (Vec::new(), false),
                 }

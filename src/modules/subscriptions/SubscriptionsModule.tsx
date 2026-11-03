@@ -68,6 +68,7 @@ import { useClearFiltersOnEscape } from "@/hooks/use-clear-filters-on-escape";
 import { useTaxonomySettings } from "@/hooks/use-taxonomy-settings";
 import { FxRatesView } from "@/modules/finance/FinanceModule";
 import type { ListViewProps } from "@/modules/types";
+import { t, tp, useT } from "@/i18n";
 import { useVaultStore } from "@/stores/vault-store";
 import { defaultSettings } from "@/vault/model";
 import {
@@ -96,6 +97,7 @@ export function SubscriptionsListView({
   focusItemId,
   onFocusItemHandled,
 }: ListViewProps<SubscriptionEntry>) {
+  const { t, tp } = useT();
   const model = useVaultStore((s) => s.model);
   const saveSubscription = useVaultStore((s) => s.saveSubscription);
   const deleteSubscription = useVaultStore((s) => s.deleteSubscription);
@@ -258,10 +260,11 @@ export function SubscriptionsListView({
       <header className="border-b border-border px-6 py-4">
         <div className="flex items-center gap-3">
           <div className="min-w-0 flex-1">
-            <h1 className="text-lg font-semibold">Subscriptions</h1>
+            <h1 className="text-lg font-semibold">
+              {t("module.subscriptions")}
+            </h1>
             <p className="text-sm text-muted-foreground">
-              {subscriptions.length} tracked service
-              {subscriptions.length === 1 ? "" : "s"}
+              {tp("subscriptions.trackedCount", subscriptions.length)}
             </p>
           </div>
           <Button
@@ -270,11 +273,11 @@ export function SubscriptionsListView({
             variant="outline"
           >
             <Coins className="h-4 w-4" />
-            FX rates
+            {t("finance.fxRates")}
           </Button>
           <Button onClick={startCreate}>
             <Plus className="h-4 w-4" />
-            New
+            {t("common.new")}
           </Button>
         </div>
         <SummaryStrip summary={summary} />
@@ -290,10 +293,10 @@ export function SubscriptionsListView({
           <label className="relative block min-w-0 flex-1">
             <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input
-              aria-label="Filter subscriptions"
+              aria-label={t("subscriptions.filter")}
               className="pl-9"
               onChange={(event) => setQuery(event.target.value)}
-              placeholder="Filter subscriptions"
+              placeholder={t("subscriptions.filter")}
               value={query}
             />
           </label>
@@ -310,17 +313,17 @@ export function SubscriptionsListView({
         {filtered.length === 0 ? (
           query.trim() ? (
             <EmptyState
-              title="No matches"
-              description={`Nothing matches “${query.trim()}”.`}
+              title={t("common.noMatches")}
+              description={t("common.nothingMatches", { query: query.trim() })}
             />
           ) : (
             <EmptyState
-              title="No subscriptions yet"
-              description="Track a recurring service to get renewal reminders."
+              title={t("subscriptions.emptyTitle")}
+              description={t("subscriptions.emptyBody")}
               action={
                 <Button onClick={startCreate}>
                   <Plus className="h-4 w-4" />
-                  New subscription
+                  {t("subscriptions.new")}
                 </Button>
               }
             />
@@ -333,35 +336,35 @@ export function SubscriptionsListView({
                 <SortableTableHead
                   className="w-[16%] px-4"
                   column="service"
-                  label="Service"
+                  label={t("subscriptions.service")}
                   onSort={handleSort}
                   sort={sortState}
                 />
                 <SortableTableHead
                   className="w-[14%] px-4"
                   column="amount"
-                  label="Amount"
+                  label={t("field.amount")}
                   onSort={handleSort}
                   sort={sortState}
                 />
                 <SortableTableHead
                   className="w-[12%] px-4"
                   column="cycle"
-                  label="Cycle"
+                  label={t("subscriptions.cycle")}
                   onSort={handleSort}
                   sort={sortState}
                 />
                 <SortableTableHead
                   className="w-[22%] px-4"
                   column="nextDue"
-                  label="Next date"
+                  label={t("subscriptions.nextDate")}
                   onSort={handleSort}
                   sort={sortState}
                 />
                 <SortableTableHead
                   className="w-[10%] px-4"
                   column="renew"
-                  label="Renew"
+                  label={t("subscriptions.renew")}
                   onSort={handleSort}
                   sort={sortState}
                 />
@@ -391,7 +394,9 @@ export function SubscriptionsListView({
                   </TableCell>
                   <TableCell className="px-4 py-3">
                     <InlineSelect
-                      aria-label={`Cycle for ${item.service}`}
+                      aria-label={t("subscriptions.cycleFor", {
+                        name: item.service,
+                      })}
                       display={<CyclePill cycle={item.cycle} />}
                       onChange={(cycle) =>
                         void handleCycleChange(
@@ -401,7 +406,7 @@ export function SubscriptionsListView({
                       }
                       options={SUBSCRIPTION_CYCLES.map((cycle) => ({
                         value: cycle,
-                        label: cycle[0].toUpperCase() + cycle.slice(1),
+                        label: t(`subscriptions.cycle.${cycle}`),
                       }))}
                       value={item.cycle}
                     />
@@ -414,15 +419,21 @@ export function SubscriptionsListView({
                   </TableCell>
                   <TableCell className="px-4 py-3 text-muted-foreground">
                     <InlineSelect
-                      aria-label={`Renewal for ${item.service}`}
+                      aria-label={t("subscriptions.renewalFor", {
+                        name: item.service,
+                      })}
                       className="text-muted-foreground"
-                      display={item.autoRenew ? "Auto" : "Manual"}
+                      display={t(
+                        item.autoRenew
+                          ? "subscriptions.auto"
+                          : "subscriptions.manual",
+                      )}
                       onChange={(value) =>
                         void handleRenewChange(item, value === "auto")
                       }
                       options={[
-                        { value: "auto", label: "Auto" },
-                        { value: "manual", label: "Manual" },
+                        { value: "auto", label: t("subscriptions.auto") },
+                        { value: "manual", label: t("subscriptions.manual") },
                       ]}
                       value={item.autoRenew ? "auto" : "manual"}
                     />
@@ -431,7 +442,9 @@ export function SubscriptionsListView({
                     <div className="flex justify-end">
                       {isHttpUrl(item.url) ? (
                         <Button
-                          aria-label={`Open billing URL for ${item.service}`}
+                          aria-label={t("subscriptions.openBillingFor", {
+                            name: item.service,
+                          })}
                           onClick={() => void openExternalUrl(item.url)}
                           size="icon"
                           title={item.url}
@@ -445,20 +458,20 @@ export function SubscriptionsListView({
                   </TableCell>
                   <TableCell className="px-2 py-2">
                     <RowActionsMenu
-                      label={`Actions for ${item.service}`}
+                      label={t("common.actionsFor", { name: item.service })}
                       actions={[
                         {
-                          label: "View",
+                          label: t("common.view"),
                           icon: <Eye className="h-4 w-4" />,
                           onSelect: () => setViewing(item),
                         },
                         {
-                          label: "Edit",
+                          label: t("common.edit"),
                           icon: <Pencil className="h-4 w-4" />,
                           onSelect: () => setEditing(item),
                         },
                         {
-                          label: "Delete",
+                          label: t("common.delete"),
                           icon: <Trash2 className="h-4 w-4" />,
                           destructive: true,
                           onSelect: () =>
@@ -491,7 +504,7 @@ export function SubscriptionsListView({
                   variant="destructive"
                 >
                   <Trash2 className="h-4 w-4" />
-                  Delete
+                  {t("common.delete")}
                 </Button>
                 <Button
                   className="ml-auto"
@@ -503,7 +516,7 @@ export function SubscriptionsListView({
                   variant="outline"
                 >
                   <Pencil className="h-4 w-4" />
-                  Edit
+                  {t("common.edit")}
                 </Button>
               </>
             )
@@ -550,11 +563,14 @@ const subscriptionCycleRank: Record<SubscriptionEntry["cycle"], number> = {
 };
 
 export function SubscriptionDetailView({ item }: { item: SubscriptionEntry }) {
+  const { t, tp, locale } = useT();
   const resolved = resolveSubscription(item);
   return (
     <DetailModalBody>
       <DetailModalHero>
-        <p className="text-xs uppercase text-muted-foreground">Subscription</p>
+        <p className="text-xs uppercase text-muted-foreground">
+          {t("subscriptions.subscription")}
+        </p>
         <div className="mt-1 flex items-start gap-2">
           <CreditCard className="mt-1 h-4 w-4 text-primary" />
           <h2 className="min-w-0 flex-1 text-lg font-semibold">
@@ -564,10 +580,13 @@ export function SubscriptionDetailView({ item }: { item: SubscriptionEntry }) {
       </DetailModalHero>
       <DetailFields>
         <DetailField
-          label="Amount"
+          label={t("field.amount")}
           value={formatCurrencyAmount(resolved.amount, resolved.currency)}
         />
-        <DetailField label="Cycle" value={formatCycleDetail(resolved)} />
+        <DetailField
+          label={t("subscriptions.cycle")}
+          value={formatCycleDetail(resolved)}
+        />
         <DetailField label={subscriptionNextDateLabel(resolved.autoRenew)}>
           <div className="mt-1 flex flex-wrap items-center gap-2 text-sm">
             <span>{formatDate(resolved.nextDueDate)}</span>
@@ -578,25 +597,37 @@ export function SubscriptionDetailView({ item }: { item: SubscriptionEntry }) {
           </div>
         </DetailField>
         <DetailField
-          label="Reminder"
-          value={
+          label={t("todos.reminder")}
+          value={tp(
             resolved.autoRenew
-              ? `${resolved.notifyLeadDays} days before invoice`
-              : `${resolved.notifyLeadDays} days before due`
-          }
+              ? "subscriptions.daysBeforeInvoice"
+              : "subscriptions.daysBeforeDue",
+            resolved.notifyLeadDays,
+          )}
         />
         <DetailField
-          label="Renewal"
-          value={resolved.autoRenew ? "Auto" : "Manual"}
+          label={t("subscriptions.renewal")}
+          value={t(
+            resolved.autoRenew ? "subscriptions.auto" : "subscriptions.manual",
+          )}
         />
-        <DetailField label="Category" value={resolved.category} />
-        <DetailField label="Tags" value={resolved.tags.join(", ") || "-"} />
-        <DetailUrlField label="Billing URL" value={resolved.url} />
+        <DetailField label={t("field.category")} value={resolved.category} />
         <DetailField
-          label="Updated"
-          value={new Date(resolved.updatedAt).toLocaleString()}
+          label={t("field.tags")}
+          value={resolved.tags.join(", ") || "-"}
         />
-        <DetailFieldSpan label="Notes" value={resolved.notes || "-"} />
+        <DetailUrlField
+          label={t("subscriptions.billingUrl")}
+          value={resolved.url}
+        />
+        <DetailField
+          label={t("field.updated")}
+          value={new Date(resolved.updatedAt).toLocaleString(locale)}
+        />
+        <DetailFieldSpan
+          label={t("field.notes")}
+          value={resolved.notes || "-"}
+        />
       </DetailFields>
     </DetailModalBody>
   );
@@ -611,6 +642,7 @@ export function SubscriptionEditView({
   onSave: (item: SubscriptionEntry) => void;
   onCancel: () => void;
 }) {
+  const { t } = useT();
   const { categoryOptions, tagOptions, taxonomy } = useTaxonomySettings();
   const [form, setForm] = useState<SubscriptionFormInput>(() =>
     item
@@ -643,28 +675,28 @@ export function SubscriptionEditView({
 
   return (
     <ItemFormShell
-      cancelLabel="Cancel"
-      description="Track renewals, due reminders, and billing URLs."
+      cancelLabel={t("common.cancel")}
+      description={t("subscriptions.formHint")}
       error={error}
       mode={item ? "edit" : "create"}
       onCancel={onCancel}
       onSubmit={submit}
-      title={item ? "Edit subscription" : "New subscription"}
+      title={t(item ? "subscriptions.edit" : "subscriptions.new")}
     >
       <label className="space-y-1 text-sm font-medium">
-        Service
+        {t("subscriptions.service")}
         <Input
-          aria-label="Subscription service"
+          aria-label={t("subscriptions.serviceLabel")}
           onChange={(event) => update("service", event.target.value)}
           value={form.service}
         />
       </label>
       <label className="space-y-1 text-sm font-medium">
-        Billing URL
+        {t("subscriptions.billingUrl")}
         <div className="relative">
           <ExternalLink className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input
-            aria-label="Subscription billing URL"
+            aria-label={t("subscriptions.billingUrlLabel")}
             className="pl-9"
             onChange={(event) => update("url", event.target.value)}
             value={form.url}
@@ -672,9 +704,9 @@ export function SubscriptionEditView({
         </div>
       </label>
       <label className="space-y-1 text-sm font-medium">
-        Amount
+        {t("field.amount")}
         <Input
-          aria-label="Subscription amount"
+          aria-label={t("subscriptions.amountLabel")}
           min={0}
           onChange={(event) => update("amount", event.target.value)}
           step="0.01"
@@ -683,17 +715,17 @@ export function SubscriptionEditView({
         />
       </label>
       <label className="space-y-1 text-sm font-medium">
-        Currency
+        {t("field.currency")}
         <CurrencySelect
-          aria-label="Subscription currency"
+          aria-label={t("subscriptions.currencyLabel")}
           onChange={(event) => update("currency", event.target.value)}
           value={form.currency}
         />
       </label>
       <label className="space-y-1 text-sm font-medium">
-        Cycle
+        {t("subscriptions.cycle")}
         <Select
-          aria-label="Subscription cycle"
+          aria-label={t("subscriptions.cycleLabel")}
           onChange={(event) =>
             update(
               "cycle",
@@ -704,15 +736,15 @@ export function SubscriptionEditView({
         >
           {SUBSCRIPTION_CYCLES.map((cycle) => (
             <option key={cycle} value={cycle}>
-              {cycle}
+              {t(`subscriptions.cycle.${cycle}`)}
             </option>
           ))}
         </Select>
       </label>
       <label className="space-y-1 text-sm font-medium">
-        Custom days
+        {t("subscriptions.customDays")}
         <Input
-          aria-label="Subscription custom interval days"
+          aria-label={t("subscriptions.customDaysLabel")}
           disabled={form.cycle !== "custom"}
           min={1}
           onChange={(event) => update("customIntervalDays", event.target.value)}
@@ -722,31 +754,33 @@ export function SubscriptionEditView({
       </label>
       <label className="col-span-2 flex items-center gap-2 text-sm font-medium">
         <Checkbox
-          aria-label="Subscription auto renew"
+          aria-label={t("subscriptions.autoRenewLabel")}
           checked={form.autoRenew}
           onCheckedChange={(checked) => update("autoRenew", checked)}
         />
-        Auto renew
+        {t("subscriptions.autoRenew")}
       </label>
       <label className="space-y-1 text-sm font-medium">
         {subscriptionNextDateLabel(form.autoRenew)}
         <DatePicker
-          aria-label={
+          aria-label={t(
             form.autoRenew
-              ? "Subscription next invoice date"
-              : "Subscription due date"
-          }
+              ? "subscriptions.nextInvoiceDateLabel"
+              : "subscriptions.dueDateLabel",
+          )}
           onChange={(nextDueDate) => update("nextDueDate", nextDueDate)}
-          placeholder={
-            form.autoRenew ? "Pick next invoice date" : "Pick a due date"
-          }
+          placeholder={t(
+            form.autoRenew
+              ? "subscriptions.pickInvoiceDate"
+              : "subscriptions.pickDueDate",
+          )}
           value={form.nextDueDate}
         />
       </label>
       <label className="space-y-1 text-sm font-medium">
-        Reminder lead
+        {t("todos.reminderLead")}
         <Input
-          aria-label="Subscription reminder lead days"
+          aria-label={t("subscriptions.reminderLeadLabel")}
           min={0}
           onChange={(event) => update("notifyLeadDays", event.target.value)}
           type="number"
@@ -754,27 +788,27 @@ export function SubscriptionEditView({
         />
       </label>
       <label className="space-y-1 text-sm font-medium">
-        Category
+        {t("field.category")}
         <CategorySelect
-          aria-label="Subscription category"
+          aria-label={t("subscriptions.categoryLabel")}
           onChange={(event) => update("category", event.target.value)}
           options={categoryOptions}
           value={form.category}
         />
       </label>
       <label className="col-span-2 space-y-1 text-sm font-medium">
-        Tags
+        {t("field.tags")}
         <TagMultiSelect
-          aria-label="Subscription tags"
+          aria-label={t("subscriptions.tagsLabel")}
           onChange={(tags) => update("tags", tags)}
           options={tagOptions}
           value={form.tags}
         />
       </label>
       <label className="col-span-2 space-y-1 text-sm font-medium">
-        Notes
+        {t("field.notes")}
         <textarea
-          aria-label="Subscription notes"
+          aria-label={t("subscriptions.notesLabel")}
           className="min-h-24 w-full rounded-md border border-input bg-card px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
           onChange={(event) => update("notes", event.target.value)}
           value={form.notes}
@@ -789,6 +823,7 @@ function SummaryStrip({
 }: {
   summary: ReturnType<typeof summarizeSubscriptions>;
 }) {
+  const { t } = useT();
   const totals = summary.rawTotals.map((total) => ({
     currency: total.currency,
     monthly: formatCurrencyAmount(total.monthly, total.currency),
@@ -802,7 +837,9 @@ function SummaryStrip({
       summary.rawTotals[0]?.currency !== source.currency);
   const missingHint =
     source && source.missingCurrencies.length > 0
-      ? `Set FX rate for ${source.missingCurrencies.join(", ")}`
+      ? t("subscriptions.setFxFor", {
+          currencies: source.missingCurrencies.join(", "),
+        })
       : null;
   const converted =
     source && showTotal
@@ -819,7 +856,7 @@ function SummaryStrip({
       : null;
   const periods = [
     {
-      label: "Monthly",
+      label: t("subscriptions.monthly"),
       icon: CreditCard,
       tone: "blue" as const,
       totals: totals.map(({ currency, monthly }) => ({
@@ -829,7 +866,7 @@ function SummaryStrip({
       convertedTotal: converted?.monthly ?? null,
     },
     {
-      label: "Yearly",
+      label: t("subscriptions.yearly"),
       icon: TrendingUp,
       tone: "emerald" as const,
       totals: totals.map(({ currency, yearly }) => ({
@@ -842,7 +879,7 @@ function SummaryStrip({
 
   return (
     <div
-      aria-label="Subscription spend summary"
+      aria-label={t("subscriptions.spendSummary")}
       className="mt-3 grid gap-4 md:grid-cols-2"
     >
       {periods.map((period) => (
@@ -879,11 +916,12 @@ function SummaryPeriodCard({
   totals: { currency: string; value: string }[];
   convertedTotal: { value: string; missingHint: string | null } | null;
 }) {
+  const { t } = useT();
   const classes = summaryToneClasses[tone];
 
   return (
     <section
-      aria-label={`${label} subscription totals`}
+      aria-label={t("subscriptions.totalsFor", { period: label })}
       className={`flex min-w-0 items-center gap-3 rounded-lg border px-3 py-2 shadow-sm ${classes.card}`}
     >
       <div className="flex shrink-0 items-center gap-2">
@@ -915,7 +953,7 @@ function SummaryPeriodCard({
               </p>
             ) : (
               <p className="truncate text-sm font-semibold text-foreground">
-                Total {convertedTotal.value}
+                {t("subscriptions.total", { value: convertedTotal.value })}
               </p>
             )}
           </div>
@@ -926,7 +964,8 @@ function SummaryPeriodCard({
 }
 
 function CyclePill({ cycle }: { cycle: SubscriptionEntry["cycle"] }) {
-  const label = cycle[0].toUpperCase() + cycle.slice(1);
+  const { t } = useT();
+  const label = t(`subscriptions.cycle.${cycle}`);
   return (
     <span className="inline-flex rounded-sm border border-border px-2 py-0.5 text-xs text-muted-foreground">
       {label}
@@ -936,7 +975,7 @@ function CyclePill({ cycle }: { cycle: SubscriptionEntry["cycle"] }) {
 
 function formatCycleDetail(item: SubscriptionEntry): string {
   if (item.cycle === "custom" && item.customIntervalDays) {
-    return `Every ${item.customIntervalDays} days`;
+    return tp("subscriptions.everyDays", item.customIntervalDays);
   }
-  return item.cycle;
+  return t(`subscriptions.cycle.${item.cycle}`);
 }

@@ -16,7 +16,7 @@ import { SUBSCRIPTIONS_MODULE_ID } from "./types";
 
 export const subscriptionsModule: FeatureModule = {
   id: SUBSCRIPTIONS_MODULE_ID,
-  title: "Subscriptions",
+  titleKey: "module.subscriptions",
   icon: <CreditCard className="h-4 w-4" />,
   enabledByDefault: true,
   searchableByDefault: false,

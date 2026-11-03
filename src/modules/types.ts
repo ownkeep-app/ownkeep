@@ -11,6 +11,7 @@
  */
 
 import type { FC, ReactNode } from "react";
+import type { MessageKey } from "@/i18n";
 import type { VaultSettings } from "@/vault/model";
 
 /** One searchable entry a module contributes to the unified command-bar index (§7.2). */
@@ -43,7 +44,8 @@ export interface ReminderEvent {
 
 export interface FeatureModule<T = unknown> {
   id: string;
-  title: string;
+  /** Display name in settings/nav, as a key into the locale catalogs. */
+  titleKey: MessageKey;
   icon: ReactNode;
   enabledByDefault: boolean;
   /**

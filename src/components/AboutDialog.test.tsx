@@ -5,14 +5,14 @@ import { describe, expect, it, vi } from "vitest";
 
 import {
   APP_DEVELOPER_EMAIL,
-  APP_FEATURES,
+  APP_FEATURE_KEYS,
   APP_LICENSE,
   APP_LICENSE_URL,
-  APP_RELEASE_DATE,
   APP_WEBSITE,
   aboutVersionLabel,
 } from "./about";
 import { AboutDialog } from "./AboutDialog";
+import { t } from "@/i18n";
 import { openExternalUrl } from "@/lib/url";
 
 vi.mock("@/lib/url", async (importOriginal) => {
@@ -42,7 +42,7 @@ describe("AboutDialog", () => {
       screen.getByRole("dialog", { name: "About OwnKeep" }),
     ).toBeInTheDocument();
     expect(screen.getByText(aboutVersionLabel())).toBeInTheDocument();
-    expect(screen.getByText(APP_RELEASE_DATE)).toBeInTheDocument();
+    expect(screen.getByText("September 13, 2026")).toBeInTheDocument();
     expect(
       screen.getByRole("link", { name: APP_DEVELOPER_EMAIL }),
     ).toHaveAttribute("href", `mailto:${APP_DEVELOPER_EMAIL}`);
@@ -50,7 +50,7 @@ describe("AboutDialog", () => {
       "href",
       APP_WEBSITE,
     );
-    expect(screen.getByText(APP_FEATURES[0])).toBeInTheDocument();
+    expect(screen.getByText(t(APP_FEATURE_KEYS[0]))).toBeInTheDocument();
     expect(screen.getByRole("link", { name: APP_LICENSE })).toHaveAttribute(
       "href",
       APP_LICENSE_URL,

@@ -3,6 +3,7 @@ import {
   formatDateTime,
   isoToDateTimeInput,
 } from "@/lib/date";
+import { t } from "@/i18n";
 import { calendarDueStatus, type DueStatus } from "@/lib/due-status";
 import type { ReminderEvent, IndexEntry } from "@/modules/types";
 import type { VaultSettings } from "@/vault/model";
@@ -82,7 +83,7 @@ export function buildTodoIndex(items: TodoEntry[]): IndexEntry[] {
     ]
       .filter(Boolean)
       .join(" "),
-    displayLine: `${item.done ? "[x]" : "[ ]"} ${item.title}${item.dueAt ? ` - due ${formatDateTime(item.dueAt)}` : ""}`,
+    displayLine: `${item.done ? "[x]" : "[ ]"} ${item.title}${item.dueAt ? ` - ${t("todos.dueLower", { date: formatDateTime(item.dueAt) })}` : ""}`,
   }));
 }
 
@@ -154,16 +155,16 @@ export function updateTodoEntry(
 }
 
 export function validateTodoInput(input: TodoFormInput): string | null {
-  if (!input.title.trim()) return "Title is required.";
-  if (!input.category.trim()) return "Category is required.";
+  if (!input.title.trim()) return t("validation.titleRequired");
+  if (!input.category.trim()) return t("validation.categoryRequired");
   if (!Number.isInteger(Number(input.notifyLeadMinutes))) {
-    return "Reminder lead must be a whole number of minutes.";
+    return t("todos.leadNotWhole");
   }
   if (Number(input.notifyLeadMinutes) < 0) {
-    return "Reminder lead cannot be negative.";
+    return t("validation.leadNegative");
   }
   if (input.dueAt.trim() && !dateTimeInputToIso(input.dueAt)) {
-    return "Due date is invalid.";
+    return t("todos.dueInvalid");
   }
   return null;
 }
@@ -208,7 +209,7 @@ export function collectTodoReminders(
       {
         // Include dueAt so a reschedule can notify again once for the new due.
         id: `${item.id}:due:${item.dueAt}`,
-        title: `Todo due: ${item.title}`,
+        title: t("native.reminder.todoDue", { title: item.title }),
         body: formatReminderBody(item),
       },
     ];
@@ -246,8 +247,14 @@ function parseLeadMinutes(value: string): number {
 }
 
 function formatReminderBody(item: TodoEntry): string {
-  const parts = [`Due ${formatDateTime(item.dueAt)}`];
-  if (item.priority !== "normal") parts.push(`${item.priority} priority`);
+  const parts = [t("todos.due", { date: formatDateTime(item.dueAt) })];
+  if (item.priority !== "normal") {
+    parts.push(
+      t("todos.priorityLabel", {
+        priority: t(`todos.priority.${item.priority}`),
+      }),
+    );
+  }
   if (item.category) parts.push(item.category);
   return parts.join(" - ");
 }

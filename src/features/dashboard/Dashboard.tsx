@@ -29,6 +29,7 @@ import {
   motionOrUndefined,
   tapTransition,
 } from "@/lib/motion";
+import { useT } from "@/i18n";
 import { cn } from "@/lib/utils";
 import {
   openCommandBar,
@@ -49,6 +50,7 @@ const SIDEBAR_ACTIVE_LAYOUT_ID = "dashboard-sidebar-active";
 
 /** The persistent Dashboard window (spec §7.5): registry-driven sidebar + right content pane. */
 export function Dashboard() {
+  const { t } = useT();
   const status = useVaultStore((s) => s.status);
   const model = useVaultStore((s) => s.model);
   const lock = useVaultStore((s) => s.lock);
@@ -148,7 +150,7 @@ export function Dashboard() {
   if (status === "loading") {
     return (
       <main className="flex h-screen items-center justify-center bg-background text-sm text-muted-foreground">
-        <p>Loading…</p>
+        <p>{t("common.loading")}</p>
       </main>
     );
   }
@@ -176,7 +178,7 @@ export function Dashboard() {
   if (status !== "unlocked" || !model) {
     return (
       <main className="flex h-screen items-center justify-center bg-background p-6 text-center text-sm text-muted-foreground">
-        <p role="status">Unlock OwnKeep to use the Dashboard.</p>
+        <p role="status">{t("dashboard.unlockPrompt")}</p>
       </main>
     );
   }
@@ -194,23 +196,23 @@ export function Dashboard() {
   return (
     <div className="flex h-screen bg-background text-foreground">
       <nav
-        aria-label="Modules"
+        aria-label={t("dashboard.modules")}
         className="flex w-56 flex-col gap-1 border-r border-border p-2"
       >
         <SidebarRow
           icon={<Search className="h-4 w-4" />}
-          label="Search ..."
+          label={t("dashboard.search")}
           shortcut="⌘⇧Space"
           onClick={() => void openCommandBar()}
         />
         <p className="px-2 py-1 text-xs font-medium uppercase text-muted-foreground">
-          Modules
+          {t("dashboard.modules")}
         </p>
         {enabledModules.map((m, i) => (
           <SidebarRow
             key={m.id}
             icon={m.icon}
-            label={m.title}
+            label={t(m.titleKey)}
             shortcut={`⌥⇧${i + 1}`}
             active={paneKey === m.id}
             onClick={() => setSelected(m.id)}
@@ -219,25 +221,25 @@ export function Dashboard() {
         <div className="mt-auto flex flex-col gap-1 border-t border-border pt-1">
           <SidebarRow
             icon={<SettingsIcon className="h-4 w-4" />}
-            label="Settings"
+            label={t("dashboard.settings")}
             active={paneKey === SETTINGS_KEY}
             onClick={() => setSelected(SETTINGS_KEY)}
           />
           <SidebarRow
             icon={<Keyboard className="h-4 w-4" />}
-            label="Help"
+            label={t("dashboard.help")}
             shortcut="⌘H"
             onClick={() => setHelpOpen(true)}
           />
           <SidebarRow
             icon={<Info className="h-4 w-4" />}
-            label="About"
+            label={t("dashboard.about")}
             shortcut="⌘/"
             onClick={() => setAboutOpen(true)}
           />
           <SidebarRow
             icon={<Lock className="h-4 w-4" />}
-            label="Lock"
+            label={t("dashboard.lock")}
             onClick={() => void lock()}
           />
           <p className="px-2 pt-1 text-xs text-muted-foreground">

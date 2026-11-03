@@ -356,7 +356,7 @@ describe("CommandBar", () => {
   it("records use without copying for a module that declares no secret field", async () => {
     const notesModule: FeatureModule = {
       id: "notes",
-      title: "Notes",
+      titleKey: "module.notes",
       icon: null,
       enabledByDefault: true,
       searchableByDefault: true,

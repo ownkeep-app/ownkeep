@@ -11,7 +11,7 @@ import { PASSWORD_SECRET_FIELD, PASSWORDS_MODULE_ID } from "./types";
 
 export const passwordsModule: FeatureModule = {
   id: PASSWORDS_MODULE_ID,
-  title: "Passwords",
+  titleKey: "module.passwords",
   icon: <Key className="h-4 w-4" />,
   enabledByDefault: true,
   searchableByDefault: true,

@@ -16,13 +16,16 @@ import {
   mainWindowMode,
   setMainWindowMode,
 } from "@/lib/window";
+import { useI18nStore, useT } from "@/i18n";
 import { applyThemeSettings } from "@/lib/theme";
 import { useVaultStore } from "@/stores/vault-store";
+import { vaultApi } from "@/vault/api";
 
 function Loading() {
+  const { t } = useT();
   return (
     <main className="flex h-screen items-center justify-center bg-background text-sm text-muted-foreground">
-      <p>Loading…</p>
+      <p>{t("common.loading")}</p>
     </main>
   );
 }
@@ -37,6 +40,9 @@ function App() {
   const pendingKit = useVaultStore((s) => s.pendingKit);
   const theme = useVaultStore((s) => s.model?.settings.theme ?? "system");
   const accent = useVaultStore((s) => s.model?.settings.accent ?? "#5B6CFF");
+  const language = useVaultStore((s) => s.model?.settings.language);
+  const locale = useI18nStore((s) => s.locale);
+  const setLanguage = useI18nStore((s) => s.setLanguage);
   const init = useVaultStore((s) => s.init);
   const label = currentWindowLabel();
 
@@ -65,6 +71,16 @@ function App() {
     media?.addEventListener("change", apply);
     return () => media?.removeEventListener("change", apply);
   }, [theme, accent]);
+
+  // Only an unlocked vault carries the preference; while locked the last choice stays active.
+  useEffect(() => {
+    if (language) setLanguage(language);
+  }, [language, setLanguage]);
+
+  useEffect(() => {
+    document.documentElement.lang = locale;
+    void vaultApi.setLocale(locale).catch(() => {});
+  }, [locale]);
 
   // Resize before paint when the active surface changes. Do not re-run on window focus —
   // redundant setSize steals keyboard focus from auth inputs on macOS.

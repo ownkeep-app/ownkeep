@@ -1,4 +1,6 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, onTestFinished } from "vitest";
+
+import { useI18nStore } from "@/i18n";
 
 import {
   addDays,
@@ -689,7 +691,21 @@ describe("quick ranges and time span", () => {
     expect(eventYears(makeEvent({ days: [] }), "2026-11-02")).toEqual([2026]);
   });
 
+  it("formats a time span in English by default", () => {
+    expect(formatTimeSpan({ from: "2022-07-21", to: "2026-11-02" })).toBe(
+      "4 years 3 months",
+    );
+    expect(formatTimeSpan({ from: "2025-11-02", to: "2026-11-02" })).toBe(
+      "1 year",
+    );
+    expect(formatTimeSpan({ from: "2026-02-01", to: "2026-02-28" })).toBe(
+      "1 month",
+    );
+  });
+
   it("measures whole months between the range ends", () => {
+    useI18nStore.getState().setLanguage("zh-CN");
+    onTestFinished(() => useI18nStore.getState().setLanguage("system"));
     expect(timeSpan({ from: "2022-07-21", to: "2026-11-02" })).toEqual({
       years: 4,
       months: 3,

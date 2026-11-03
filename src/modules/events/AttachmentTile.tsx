@@ -1,5 +1,6 @@
 import { FileText } from "lucide-react";
 
+import { useT } from "@/i18n";
 import { isPdf } from "./attachment";
 import type { EventAttachment } from "./types";
 
@@ -11,9 +12,10 @@ export function AttachmentTile({
   attachment: EventAttachment;
   onOpen: () => void;
 }) {
+  const { t } = useT();
   return (
     <button
-      aria-label={`View ${attachment.name}`}
+      aria-label={t("events.viewAttachment", { name: attachment.name })}
       className="block h-16 w-16 overflow-hidden rounded-md border border-border"
       onClick={onOpen}
       title={attachment.name}

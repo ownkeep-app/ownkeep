@@ -5,9 +5,17 @@ import {
   ChevronRightIcon,
 } from "lucide-react";
 import { DayButton, DayPicker, getDefaultClassNames } from "react-day-picker";
+import { enUS } from "react-day-picker/locale/en-US";
+import { zhCN } from "react-day-picker/locale/zh-CN";
 
+import { type Locale, useT } from "@/i18n";
 import { cn } from "@/lib/utils";
 import { Button, buttonVariants } from "@/components/ui/button";
+
+const DAY_PICKER_LOCALES: Record<Locale, typeof enUS> = {
+  en: enUS,
+  "zh-CN": zhCN,
+};
 
 function Calendar({
   className,
@@ -21,10 +29,12 @@ function Calendar({
 }: React.ComponentProps<typeof DayPicker> & {
   buttonVariant?: React.ComponentProps<typeof Button>["variant"];
 }) {
+  const { locale } = useT();
   const defaultClassNames = getDefaultClassNames();
 
   return (
     <DayPicker
+      locale={DAY_PICKER_LOCALES[locale]}
       showOutsideDays={showOutsideDays}
       className={cn(
         "bg-card group/calendar p-3 [--cell-size:2rem] [[data-slot=card-content]_&]:bg-transparent [[data-slot=popover-content]_&]:bg-transparent",
@@ -35,7 +45,7 @@ function Calendar({
       captionLayout={captionLayout}
       formatters={{
         formatMonthDropdown: (date) =>
-          date.toLocaleString("default", { month: "short" }),
+          date.toLocaleString(locale, { month: "short" }),
         ...formatters,
       }}
       classNames={{

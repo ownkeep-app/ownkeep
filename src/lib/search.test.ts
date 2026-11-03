@@ -34,7 +34,7 @@ function fakeModule(
 ): FeatureModule {
   return {
     id,
-    title: id,
+    titleKey: "module.passwords",
     icon: null,
     enabledByDefault: true,
     searchableByDefault: true,

@@ -7,7 +7,7 @@ import { FINANCE_MODULE_ID } from "./types";
 
 export const financeModule: FeatureModule = {
   id: FINANCE_MODULE_ID,
-  title: "Finance",
+  titleKey: "module.finance",
   icon: <TrendingUp className="h-4 w-4" />,
   enabledByDefault: true,
   searchableByDefault: false,

@@ -7,7 +7,7 @@ import { EVENTS_MODULE_ID } from "./types";
 
 export const eventsModule: FeatureModule = {
   id: EVENTS_MODULE_ID,
-  title: "Event Tracker",
+  titleKey: "module.events",
   icon: <CalendarRange className="h-4 w-4" />,
   enabledByDefault: true,
   searchableByDefault: false,

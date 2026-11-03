@@ -6,6 +6,11 @@
  */
 
 import {
+  DEFAULT_LANGUAGE,
+  type LanguageSetting,
+  isLanguageSetting,
+} from "@/i18n";
+import {
   defaultCategoryOptions,
   defaultTagOptions,
   withTaxonomyDefaults,
@@ -43,6 +48,8 @@ export interface VaultSettings {
   clipboardClearSeconds: number;
   theme: Theme;
   accent: string;
+  /** UI language: `"system"` follows macOS; otherwise a pinned locale (spec §9). */
+  language: LanguageSetting;
   resultLimit: number;
   /** Configurable category labels for item edit forms (Settings). */
   categoryOptions: string[];
@@ -82,6 +89,7 @@ export function defaultSettings(): VaultSettings {
     clipboardClearSeconds: 30,
     theme: "system",
     accent: "#5B6CFF",
+    language: DEFAULT_LANGUAGE,
     resultLimit: 9,
     categoryOptions: defaultCategoryOptions(),
     tagOptions: defaultTagOptions(),
@@ -115,9 +123,12 @@ export function parseVaultJson(json: string, now: string): VaultModel {
     raw = {};
   }
   const base = createDefaultModel(now);
+  const settings = withTaxonomyDefaults(raw.settings, base.settings);
   return {
     meta: { ...base.meta, ...(raw.meta ?? {}) },
-    settings: withTaxonomyDefaults(raw.settings, base.settings),
+    settings: isLanguageSetting(settings.language)
+      ? settings
+      : { ...settings, language: base.settings.language },
     frecency: raw.frecency ?? {},
     modules: raw.modules ?? {},
   };

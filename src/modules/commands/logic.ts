@@ -1,4 +1,5 @@
 import { DEFAULT_SNIPPET_LANGUAGE } from "@/components/snippet-languages";
+import { t } from "@/i18n";
 import type { IndexEntry } from "@/modules/types";
 import {
   defaultCategory,
@@ -77,7 +78,11 @@ export function buildCommandIndex(items: CommandEntry[]): IndexEntry[] {
     ]
       .filter(Boolean)
       .join(" "),
-    displayLine: `${capitalize(item.category)} command to ${item.title}: ${item.primaryCopyTemplate}`,
+    displayLine: t("commands.displayLine", {
+      category: capitalize(item.category),
+      title: item.title,
+      template: item.primaryCopyTemplate,
+    }),
   }));
 }
 
@@ -85,8 +90,6 @@ export interface CommandGroup {
   tag: string;
   commands: CommandEntry[];
 }
-
-const UNTAGGED_GROUP = "Untagged";
 
 /**
  * Group commands by tag for the Dashboard `ListView` (§7.5).
@@ -96,7 +99,7 @@ export function groupByTag(items: CommandEntry[]): CommandGroup[] {
   const groups = new Map<string, CommandEntry[]>();
   for (const item of items) {
     const tags = item.tags.map((tag) => tag.trim()).filter(Boolean);
-    const keys = tags.length > 0 ? tags : [UNTAGGED_GROUP];
+    const keys = tags.length > 0 ? tags : [t("commands.untagged")];
     for (const key of keys) {
       const list = groups.get(key) ?? [];
       list.push(item);
@@ -216,8 +219,8 @@ export function updateCommandEntry(
 }
 
 export function validateCommandInput(input: CommandFormInput): string | null {
-  if (!input.title.trim()) return "Title is required.";
-  if (!input.category.trim()) return "Category is required.";
+  if (!input.title.trim()) return t("validation.titleRequired");
+  if (!input.category.trim()) return t("validation.categoryRequired");
   if (!input.code.trim()) return "A command/snippet is required.";
   return null;
 }

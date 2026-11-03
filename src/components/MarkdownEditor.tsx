@@ -27,10 +27,7 @@ import {
   Strikethrough,
 } from "lucide-react";
 
-import {
-  ButtonGroup,
-  type ButtonGroupOption,
-} from "@/components/ui/button-group";
+import { ButtonGroup } from "@/components/ui/button-group";
 import { Button } from "@/components/ui/button";
 import { splitCopyableLines } from "@/components/CopyableLines";
 import { writeClipboard } from "@/lib/clipboard";
@@ -38,52 +35,77 @@ import {
   applyMarkdownAction,
   type MarkdownToolbarAction,
 } from "@/lib/markdown-format";
+import { type MessageKey, t as translate, useT } from "@/i18n";
 import { toastClipboard } from "@/lib/toast";
 import { cn } from "@/lib/utils";
 
 type EditorMode = "write" | "preview";
 
-const EDITOR_MODES: ButtonGroupOption<EditorMode>[] = [
-  { value: "write", label: "Write" },
-  { value: "preview", label: "Preview" },
+const EDITOR_MODES: { value: EditorMode; labelKey: MessageKey }[] = [
+  { value: "write", labelKey: "markdown.write" },
+  { value: "preview", labelKey: "markdown.preview" },
 ];
 
 const TOOLBAR_ACTIONS: {
   action: MarkdownToolbarAction;
-  label: string;
+  labelKey: MessageKey;
   icon: ReactNode;
 }[] = [
-  { action: "bold", label: "Bold", icon: <Bold className="h-4 w-4" /> },
-  { action: "italic", label: "Italic", icon: <Italic className="h-4 w-4" /> },
+  {
+    action: "bold",
+    labelKey: "markdown.bold",
+    icon: <Bold className="h-4 w-4" />,
+  },
+  {
+    action: "italic",
+    labelKey: "markdown.italic",
+    icon: <Italic className="h-4 w-4" />,
+  },
   {
     action: "strikethrough",
-    label: "Strikethrough",
+    labelKey: "markdown.strikethrough",
     icon: <Strikethrough className="h-4 w-4" />,
   },
   {
     action: "heading1",
-    label: "Heading 1",
+    labelKey: "markdown.heading1",
     icon: <Heading1 className="h-4 w-4" />,
   },
   {
     action: "heading2",
-    label: "Heading 2",
+    labelKey: "markdown.heading2",
     icon: <Heading2 className="h-4 w-4" />,
   },
   {
     action: "heading3",
-    label: "Heading 3",
+    labelKey: "markdown.heading3",
     icon: <Heading3 className="h-4 w-4" />,
   },
-  { action: "list", label: "List", icon: <List className="h-4 w-4" /> },
-  { action: "quote", label: "Quote", icon: <Quote className="h-4 w-4" /> },
-  { action: "code", label: "Inline code", icon: <Code className="h-4 w-4" /> },
+  {
+    action: "list",
+    labelKey: "markdown.list",
+    icon: <List className="h-4 w-4" />,
+  },
+  {
+    action: "quote",
+    labelKey: "markdown.quote",
+    icon: <Quote className="h-4 w-4" />,
+  },
+  {
+    action: "code",
+    labelKey: "markdown.code",
+    icon: <Code className="h-4 w-4" />,
+  },
   {
     action: "codeBlock",
-    label: "Code block",
+    labelKey: "markdown.codeBlock",
     icon: <Code2 className="h-4 w-4" />,
   },
-  { action: "link", label: "Link", icon: <Link className="h-4 w-4" /> },
+  {
+    action: "link",
+    labelKey: "markdown.link",
+    icon: <Link className="h-4 w-4" />,
+  },
 ];
 
 const PANE_SELECTOR = "[data-dashboard-pane]";
@@ -91,7 +113,7 @@ const PANE_SELECTOR = "[data-dashboard-pane]";
 export function MarkdownEditor({
   value,
   onChange,
-  ariaLabel = "Note content",
+  ariaLabel: ariaLabelProp,
   className,
   minHeightClass = "min-h-64",
 }: {
@@ -101,6 +123,8 @@ export function MarkdownEditor({
   className?: string;
   minHeightClass?: string;
 }) {
+  const { t } = useT();
+  const ariaLabel = ariaLabelProp ?? t("markdown.noteContent");
   const [mode, setMode] = useState<EditorMode>("write");
   const [expanded, setExpanded] = useState(false);
   const [paneHost, setPaneHost] = useState<Element | null>(null);
@@ -152,18 +176,18 @@ export function MarkdownEditor({
       <div className="flex shrink-0 items-center gap-2 border-b border-border bg-muted/40 px-2 py-1.5">
         {mode === "write" && editable ? (
           <div
-            aria-label="Markdown formatting"
+            aria-label={t("markdown.formatting")}
             className="flex min-w-0 flex-1 flex-wrap items-center gap-0.5"
             role="toolbar"
           >
             {TOOLBAR_ACTIONS.map((item) => (
               <Button
-                aria-label={item.label}
+                aria-label={t(item.labelKey)}
                 className="h-8 w-8"
                 key={item.action}
                 onClick={() => runAction(item.action)}
                 size="icon"
-                title={item.label}
+                title={t(item.labelKey)}
                 type="button"
                 variant="ghost"
               >
@@ -175,17 +199,24 @@ export function MarkdownEditor({
           <div className="min-w-0 flex-1" />
         )}
         <ButtonGroup
-          aria-label="Editor mode"
+          aria-label={t("markdown.mode")}
           onValueChange={setMode}
-          options={EDITOR_MODES}
+          options={EDITOR_MODES.map(({ value, labelKey }) => ({
+            value,
+            label: t(labelKey),
+          }))}
           value={mode}
         />
         <Button
-          aria-label={expanded ? "Exit full screen" : "Full screen"}
+          aria-label={t(
+            expanded ? "markdown.exitFullScreen" : "markdown.fullScreen",
+          )}
           className="h-8 w-8"
           onClick={() => setExpanded((current) => !current)}
           size="icon"
-          title={expanded ? "Exit full screen" : "Full screen"}
+          title={t(
+            expanded ? "markdown.exitFullScreen" : "markdown.fullScreen",
+          )}
           type="button"
           variant="ghost"
         >
@@ -204,14 +235,14 @@ export function MarkdownEditor({
             fillPane ? "min-h-0 resize-none" : cn("resize-y", minHeightClass),
           )}
           onChange={(event) => onChange(event.target.value)}
-          placeholder="Write Markdown…"
+          placeholder={t("markdown.placeholder")}
           ref={textareaRef}
           spellCheck
           value={value}
         />
       ) : (
         <div
-          aria-label={`${ariaLabel} preview`}
+          aria-label={t("markdown.previewOf", { label: ariaLabel })}
           className={cn(
             "min-h-0 flex-1 overflow-auto px-3 py-2",
             !fillPane && minHeightClass,
@@ -220,7 +251,9 @@ export function MarkdownEditor({
           {value.trim() ? (
             <MarkdownPreview content={value} />
           ) : (
-            <p className="text-sm text-muted-foreground">Nothing to preview.</p>
+            <p className="text-sm text-muted-foreground">
+              {t("markdown.nothingToPreview")}
+            </p>
           )}
         </div>
       )}
@@ -268,7 +301,7 @@ export function MarkdownPreview({
 
 async function copyMarkdownLine(text: string) {
   const ok = await writeClipboard(text);
-  toastClipboard(ok, "Line copied");
+  toastClipboard(ok, translate("copyable.lineCopied"));
 }
 
 /**
@@ -281,11 +314,14 @@ export function CopyableMarkdownPreview({
   content: string;
   className?: string;
 }) {
+  const { t } = useT();
   const lines = splitCopyableLines(content);
 
   if (lines.length === 0) {
     return (
-      <p className={cn("text-sm text-muted-foreground", className)}>Empty</p>
+      <p className={cn("text-sm text-muted-foreground", className)}>
+        {t("common.empty")}
+      </p>
     );
   }
 
@@ -293,7 +329,7 @@ export function CopyableMarkdownPreview({
     <div className={cn("space-y-0.5", className)}>
       {lines.map((line, index) => (
         <button
-          aria-label={`Copy line ${index + 1}`}
+          aria-label={t("copyable.copyLine", { line: index + 1 })}
           className="group relative flex min-h-[1.5rem] w-full cursor-pointer items-start rounded-sm pr-8 text-left hover:bg-accent/60"
           key={index}
           onClick={(event) => {

@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { useT } from "@/i18n";
 import { cn } from "@/lib/utils";
 import { dataUrlToBlob, isPdf } from "./attachment";
 import type { EventAttachment } from "./types";
@@ -69,6 +70,7 @@ export function AttachmentViewer({
   initialIndex: number;
   onClose: () => void;
 }) {
+  const { t } = useT();
   const [index, setIndex] = useState(initialIndex);
   const [transform, setTransform] = useState<Transform>(IDENTITY);
   const stageRef = useRef<HTMLDivElement>(null);
@@ -156,14 +158,14 @@ export function AttachmentViewer({
       <>
         <ViewerButton
           className="absolute left-4 top-1/2 -translate-y-1/2"
-          label="Previous image"
+          label={t("events.previousImage")}
           onClick={() => step(-1)}
         >
           <ChevronLeft className="h-5 w-5" />
         </ViewerButton>
         <ViewerButton
           className="absolute right-4 top-1/2 -translate-y-1/2"
-          label="Next image"
+          label={t("events.nextImage")}
           onClick={() => step(1)}
         >
           <ChevronRight className="h-5 w-5" />
@@ -173,7 +175,9 @@ export function AttachmentViewer({
 
   return createPortal(
     <div
-      aria-label={`${pdf ? "PDF" : "Image"} ${image.name}`}
+      aria-label={t(pdf ? "events.pdfNamed" : "events.imageNamed", {
+        name: image.name,
+      })}
       aria-modal="true"
       className="fixed inset-0 z-[60] flex flex-col bg-black/95 text-white"
       onKeyDown={(event) => {
@@ -200,7 +204,7 @@ export function AttachmentViewer({
               {Math.round(transform.scale * 100)}%
             </span>
             <ViewerButton
-              label="Zoom out"
+              label={t("events.zoomOut")}
               onClick={() =>
                 setTransform((t) => zoomAround(t, t.scale / ZOOM_STEP))
               }
@@ -208,7 +212,7 @@ export function AttachmentViewer({
               <ZoomOut className="h-4 w-4" />
             </ViewerButton>
             <ViewerButton
-              label="Zoom in"
+              label={t("events.zoomIn")}
               onClick={() =>
                 setTransform((t) => zoomAround(t, t.scale * ZOOM_STEP))
               }
@@ -216,14 +220,14 @@ export function AttachmentViewer({
               <ZoomIn className="h-4 w-4" />
             </ViewerButton>
             <ViewerButton
-              label="Reset zoom"
+              label={t("events.resetZoom")}
               onClick={() => setTransform(IDENTITY)}
             >
               <RotateCcw className="h-4 w-4" />
             </ViewerButton>
           </>
         )}
-        <ViewerButton label="Close image" onClick={onClose}>
+        <ViewerButton label={t("events.closeImage")} onClick={onClose}>
           <X className="h-4 w-4" />
         </ViewerButton>
       </header>

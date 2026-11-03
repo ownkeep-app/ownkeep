@@ -290,7 +290,7 @@ pub fn reveal_secret(
     // command has nothing to do after the user closes the dialog anyway.
     app.dialog()
         .message(secret.as_str())
-        .title("OwnKeep secret")
+        .title(crate::i18n::t("native.secret.title"))
         .kind(MessageDialogKind::Info)
         .parent(&window)
         .show(|_| {});
@@ -316,9 +316,9 @@ pub async fn backup_vault_to_chosen_location(
     let destination = app
         .dialog()
         .file()
-        .set_title("Back up OwnKeep vault")
+        .set_title(crate::i18n::t("native.backup.title"))
         .set_file_name(file_name)
-        .add_filter("OwnKeep vault backup", &["dat"])
+        .add_filter(crate::i18n::t("native.backup.filter"), &["dat"])
         .blocking_save_file();
 
     let Some(destination) = destination else {
@@ -409,8 +409,8 @@ fn pick_restore_path(app: &AppHandle) -> Result<Option<PathBuf>, String> {
     let source = app
         .dialog()
         .file()
-        .set_title("Restore OwnKeep vault")
-        .add_filter("OwnKeep vault backup", &["dat"])
+        .set_title(crate::i18n::t("native.restore.title"))
+        .add_filter(crate::i18n::t("native.backup.filter"), &["dat"])
         .blocking_pick_file();
     source
         .map(|file| file.into_path().map_err(|e| e.to_string()))

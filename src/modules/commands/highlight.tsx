@@ -2,6 +2,7 @@ import { useEffect, useState, type CSSProperties } from "react";
 import { Copy } from "lucide-react";
 
 import { DetailModal } from "@/components/DetailModal";
+import { t as translate, useT } from "@/i18n";
 import { writeClipboard } from "@/lib/clipboard";
 import { toastClipboard } from "@/lib/toast";
 import { cn } from "@/lib/utils";
@@ -33,14 +34,14 @@ function lineText(tokens: SnippetToken[]): string {
 
 async function copyPlainLine(text: string) {
   const ok = await writeClipboard(text);
-  toastClipboard(ok, "Line copied");
+  toastClipboard(ok, translate("copyable.lineCopied"));
 }
 
 /** Renders a syntax-highlighted snippet; shows plain text until Shiki resolves (§7.5). */
 export function SnippetView({
   code,
   language,
-  title = "Snippet",
+  title: titleProp,
   arguments: args = [],
 }: {
   code: string;
@@ -50,6 +51,8 @@ export function SnippetView({
   /** Typed args from the command — enum dropdowns for matching placeholder names. */
   arguments?: CommandArgument[];
 }) {
+  const { t } = useT();
+  const title = titleProp ?? t("commands.snippet");
   const [highlighted, setHighlighted] = useState<HighlightedSnippet | null>(
     null,
   );
@@ -89,7 +92,7 @@ export function SnippetView({
           const text = lineText(tokens);
           return (
             <button
-              aria-label={`Copy line ${index + 1}`}
+              aria-label={t("copyable.copyLine", { line: index + 1 })}
               className="group relative flex min-h-[1.5rem] w-full cursor-pointer items-start gap-2 rounded-sm pr-8 text-left hover:bg-white/5"
               key={index}
               onClick={() => startCopyLine(text)}
@@ -119,7 +122,7 @@ export function SnippetView({
       <DetailModal
         onClose={() => setFilling(null)}
         open={filling !== null}
-        title={`Copy ${title}`}
+        title={t("commands.copyTitle", { title })}
       >
         {filling !== null ? (
           <FillInForm

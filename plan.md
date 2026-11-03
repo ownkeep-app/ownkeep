@@ -42,6 +42,8 @@ layering optional modules on the stable core.
 | **━━ v1.2 ━━** | **Shipped — signed, notarized, Touch ID live** | Universal 2 DMG, `source=Notarized Developer ID`, ticket stapled | — | **2026-08-12** |
 | **14** | 📝 Notes module (M4) | Markdown notes (toolbar, preview, full screen, per-line code copy); auto-renew subscriptions roll forward in the Rust core; per-due-occurrence reminder dedupe | 1–2 d | 2026-09 |
 | **━━ v1.3 ━━** | **Shipped — Notes module** | No schema change (`SCHEMA_VERSION` 11); Universal 2 DMG, notarized and stapled | — | **2026-09-13** |
+| **15** | 📅 Event Tracker module (M5) | Calendar / timeline / trending views, photos + PDFs in the vault | — | working release 1.5 |
+| **15.1** | 🌐 English + 简体中文 UI | Language setting in Settings → System; bundled JSON catalogs; no schema change | — | working release 1.5 |
 
 ---
 
@@ -388,6 +390,32 @@ Photos live inline in the encrypted vault, so backup/restore covers them with no
 - **Exit criteria:** `pnpm check` + `pnpm coverage` green (>95%); create / track / delete round-trips
   through the vault; photos survive backup → restore; module toggles cleanly from Settings.
 - **Deps:** Phase 2 (registry), Phase 6 (backup/restore), Phase 14 (Markdown editor).
+
+### Phase 15.1 — 🌐 English + Simplified Chinese UI · working release 1.5
+*Every user-facing string moves into bundled per-locale JSON catalogs (spec §2.1); the user picks the
+language in Settings → System (spec §9).*
+
+- [x] `src/i18n/locales/en.json` + `zh-CN.json`; `t` / `tp` / `useT` helper with `{name}` placeholders
+  and `_one` / `_other` plurals; the Chinese catalog is typed against the English keys, so a missing
+  translation fails `tsc`, and a test checks both catalogs carry the same keys and placeholders.
+- [x] `settings.language` (`system` | `en` | `zh-CN`, default `system` → macOS preferred language,
+  falling back to English); `Info.plist` declares `CFBundleLocalizations` (en, zh-Hans) so the
+  WebView and native panels report the macOS language.
+- [x] Modules declare `titleKey` instead of a display `title`; dates / month names use `Intl` in the
+  active locale.
+- [x] Rust embeds the same catalogs (`i18n.rs`) for the tray menu, quit dialog, file pickers, the
+  reveal dialog, and reminder notifications; the frontend reports the resolved locale via
+  `set_locale`.
+- [x] Migration-guide notes keep their English source in the registry and are translated by
+  matching that text (a test fails if a registry note has no catalog entry).
+- **No schema change.** `SCHEMA_VERSION` stays 11: `settings.language` is an additive, optional key —
+  `parseVaultJson` fills `"system"` when it is missing or unknown, and older builds keep the unknown
+  key when they save (settings are spread, not whitelisted), so v1.4 and v1.5 read each other's
+  vaults without loss. No migration registry entry is required.
+- **Not translated:** raw Rust error strings shown after a failed backup / restore / I/O call, and
+  user data (including the default category / tag / finance option lists, which are stored values).
+- **Exit criteria:** `pnpm check` + `pnpm coverage` green (>95%); `cargo test` green; switching the
+  language re-renders both windows and relabels the tray without a restart.
 
 ---
 

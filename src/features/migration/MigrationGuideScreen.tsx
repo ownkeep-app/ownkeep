@@ -9,8 +9,12 @@ import {
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { type MessageKey, keyForEnglish, useT } from "@/i18n";
 import { useVaultStore } from "@/stores/vault-store";
 import type { ChangeKind, SchemaChange } from "@/vault/migrations";
+
+/** Catalog prefix for migration-registry notes; the registry keeps the English source text. */
+export const MIGRATION_NOTE_PREFIX = "migration.note.";
 
 const CHANGE_ORDER: ChangeKind[] = [
   "added",
@@ -19,15 +23,16 @@ const CHANGE_ORDER: ChangeKind[] = [
   "removed",
 ];
 
-const CHANGE_LABELS: Record<ChangeKind, string> = {
-  added: "Added silently",
-  renamed: "Renamed",
-  transformed: "Updated",
-  removed: "Removed data",
+const CHANGE_LABELS: Record<ChangeKind, MessageKey> = {
+  added: "migration.kind.added",
+  renamed: "migration.kind.renamed",
+  transformed: "migration.kind.transformed",
+  removed: "migration.kind.removed",
 };
 
 /** User-aware schema migration gate shown after unlock and before any vault write. */
 export function MigrationGuideScreen() {
+  const { t } = useT();
   const migration = useVaultStore((s) => s.migration);
   const busy = useVaultStore((s) => s.busy);
   const error = useVaultStore((s) => s.error);
@@ -50,22 +55,26 @@ export function MigrationGuideScreen() {
         <header className="flex items-start gap-3">
           <Shield className="mt-1 h-5 w-5 text-primary" aria-hidden />
           <div>
-            <h1 className="text-xl font-semibold">Upgrade vault data</h1>
+            <h1 className="text-xl font-semibold">{t("migration.title")}</h1>
             <p className="mt-1 text-sm text-muted-foreground">
-              {`This vault was last written by OwnKeep v${migration.fromAppVersion}. The current app is v${migration.toAppVersion}. Review the migration guide before anything is written.`}
+              {t("migration.intro", {
+                from: migration.fromAppVersion,
+                to: migration.toAppVersion,
+              })}
             </p>
           </div>
         </header>
 
         <div className="rounded-md border border-border bg-card p-4 text-sm">
           <div className="flex items-center gap-2 font-medium">
-            <CheckCircle2 className="h-4 w-4 text-primary" aria-hidden />A
-            pre-migration backup will be created automatically.
+            <CheckCircle2 className="h-4 w-4 text-primary" aria-hidden />
+            {t("migration.autoBackup")}
           </div>
           <p className="mt-2 text-muted-foreground">
-            Schema v{migration.fromSchemaVersion} will be upgraded to schema v
-            {migration.toSchemaVersion}. Migrations are forward-only, so older
-            app builds will refuse this vault after you accept.
+            {t("migration.schemaUpgrade", {
+              from: migration.fromSchemaVersion,
+              to: migration.toSchemaVersion,
+            })}
           </p>
         </div>
 
@@ -79,7 +88,7 @@ export function MigrationGuideScreen() {
 
         <div className="flex flex-wrap gap-2">
           <Button disabled={busy} onClick={() => void acceptMigration()}>
-            {busy ? "Working..." : "Accept & upgrade"}
+            {busy ? t("common.working") : t("migration.accept")}
           </Button>
           <Button
             variant="outline"
@@ -87,14 +96,14 @@ export function MigrationGuideScreen() {
             onClick={() => void backupMigrationAndQuit()}
           >
             <LogOut aria-hidden />
-            Back up & quit
+            {t("migration.backupAndQuit")}
           </Button>
           <Button
             variant="outline"
             disabled={busy}
             onClick={() => void quitApp()}
           >
-            Quit
+            {t("common.quit")}
           </Button>
         </div>
 
@@ -106,12 +115,10 @@ export function MigrationGuideScreen() {
             />
             <div className="flex-1">
               <h2 className="text-sm font-medium text-destructive">
-                Start fresh by erasing this vault
+                {t("migration.eraseTitle")}
               </h2>
               <p className="mt-1 text-sm text-muted-foreground">
-                This permanently removes the current vault file and returns to
-                onboarding. Use this only if you are sure you do not need the
-                old data.
+                {t("migration.eraseBody")}
               </p>
               <div className="mt-3 flex flex-wrap gap-2">
                 {confirmErase ? (
@@ -122,14 +129,14 @@ export function MigrationGuideScreen() {
                       onClick={() => void eraseVaultAndStartFresh()}
                     >
                       <Trash2 aria-hidden />
-                      Erase all data
+                      {t("migration.eraseAll")}
                     </Button>
                     <Button
                       variant="outline"
                       disabled={busy}
                       onClick={() => setConfirmErase(false)}
                     >
-                      Cancel
+                      {t("common.cancel")}
                     </Button>
                   </>
                 ) : (
@@ -139,7 +146,7 @@ export function MigrationGuideScreen() {
                     onClick={() => setConfirmErase(true)}
                   >
                     <Trash2 aria-hidden />
-                    Erase & start fresh
+                    {t("migration.eraseAndStartFresh")}
                   </Button>
                 )}
               </div>
@@ -152,6 +159,7 @@ export function MigrationGuideScreen() {
 }
 
 export function IncompatibleVaultScreen() {
+  const { t } = useT();
   const message = useVaultStore((s) => s.incompatibleMessage);
   const quitApp = useVaultStore((s) => s.quitApp);
 
@@ -159,13 +167,14 @@ export function IncompatibleVaultScreen() {
     <main className="flex h-screen items-center justify-center bg-background p-6 text-foreground">
       <section className="flex max-w-md flex-col items-center gap-4 text-center">
         <AlertTriangle className="h-8 w-8 text-destructive" aria-hidden />
-        <h1 className="text-xl font-semibold">Upgrade OwnKeep</h1>
+        <h1 className="text-xl font-semibold">{t("migration.upgradeApp")}</h1>
         <p className="text-sm text-muted-foreground">
-          {message ||
-            "This vault was written by a newer version of OwnKeep. Please upgrade OwnKeep to open it."}
+          {/* Every source (this build's schema check, Rust's container check) means "this build is
+              older than the vault"; their English texts are replaced by the localized one. */}
+          {t(message ? "migration.oldApp" : "migration.vaultTooNew")}
         </p>
         <Button variant="outline" onClick={() => void quitApp()}>
-          Quit
+          {t("common.quit")}
         </Button>
       </section>
     </main>
@@ -179,6 +188,7 @@ function ChangeGroup({
   kind: ChangeKind;
   changes: SchemaChange[];
 }) {
+  const { t } = useT();
   const entries = changes.filter((change) => change.kind === kind);
   if (entries.length === 0) return null;
 
@@ -199,7 +209,7 @@ function ChangeGroup({
             : "text-sm font-semibold"
         }
       >
-        {CHANGE_LABELS[kind]}
+        {t(CHANGE_LABELS[kind])}
       </h2>
       <ul className="mt-3 flex flex-col gap-2 text-sm">
         {entries.map((change) => (
@@ -216,10 +226,17 @@ function ChangeGroup({
                 ? `${change.path} -> ${change.newPath}`
                 : change.path}
             </span>
-            <span className="text-muted-foreground">{change.note}</span>
+            <span className="text-muted-foreground">
+              {translateNote(change.note, t)}
+            </span>
           </li>
         ))}
       </ul>
     </section>
   );
+}
+
+function translateNote(note: string, t: (key: MessageKey) => string): string {
+  const key = keyForEnglish(MIGRATION_NOTE_PREFIX, note);
+  return key ? t(key) : note;
 }

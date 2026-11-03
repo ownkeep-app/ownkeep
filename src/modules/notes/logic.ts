@@ -1,11 +1,10 @@
+import { t } from "@/i18n";
 import { formatDate } from "@/lib/date";
 import type { IndexEntry } from "@/modules/types";
 import { defaultCategory, type TaxonomySettings } from "@/vault/taxonomy";
 import { NOTES_MODULE_ID, type NoteEntry, type NoteFormInput } from "./types";
 
 export { formatDate };
-
-const UNCATEGORIZED_GROUP = "Uncategorized";
 
 export function isNoteEntry(value: unknown): value is NoteEntry {
   if (!value || typeof value !== "object") return false;
@@ -45,7 +44,7 @@ export interface NoteGroup {
 export function groupNotesByCategory(items: NoteEntry[]): NoteGroup[] {
   const groups = new Map<string, NoteEntry[]>();
   for (const item of sortNotesByUpdated(items)) {
-    const key = item.category.trim() || UNCATEGORIZED_GROUP;
+    const key = item.category.trim() || t("notes.uncategorized");
     const list = groups.get(key) ?? [];
     list.push(item);
     groups.set(key, list);
@@ -122,8 +121,8 @@ export function updateNoteEntry(
 }
 
 export function validateNoteInput(input: NoteFormInput): string | null {
-  if (!input.name.trim()) return "Name is required.";
-  if (!input.category.trim()) return "Category is required.";
+  if (!input.name.trim()) return t("validation.nameRequired");
+  if (!input.category.trim()) return t("validation.categoryRequired");
   return null;
 }
 

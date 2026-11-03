@@ -1,3 +1,4 @@
+import { t } from "@/i18n";
 import type { IndexEntry } from "@/modules/types";
 import { defaultCategory, type TaxonomySettings } from "@/vault/taxonomy";
 import {
@@ -166,7 +167,7 @@ export function buildPasswordIndex(items: PasswordEntry[]): IndexEntry[] {
     ]
       .filter(Boolean)
       .join(" "),
-    displayLine: `${item.name} - ${item.username || "no username"}`,
+    displayLine: `${item.name} - ${item.username || t("passwords.noUsernameLower")}`,
   }));
 }
 
@@ -236,9 +237,10 @@ export function validatePasswordInput(
   input: PasswordFormInput,
   mode: "create" | "edit",
 ): string | null {
-  if (!input.name.trim()) return "Name is required.";
-  if (!input.category.trim()) return "Category is required.";
-  if (mode === "create" && !input.password) return "Password is required.";
+  if (!input.name.trim()) return t("validation.nameRequired");
+  if (!input.category.trim()) return t("validation.categoryRequired");
+  if (mode === "create" && !input.password)
+    return t("passwords.passwordRequired");
   return null;
 }
 

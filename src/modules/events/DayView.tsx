@@ -6,6 +6,7 @@ import { ConfirmDeleteDialog } from "@/components/ConfirmDeleteDialog";
 import { DetailModal } from "@/components/DetailModal";
 import { Button } from "@/components/ui/button";
 import { dateInputToIso, formatDate } from "@/lib/date";
+import { useT } from "@/i18n";
 import { cn } from "@/lib/utils";
 import { AttachmentTile } from "./AttachmentTile";
 import { AttachmentViewer } from "./AttachmentViewer";
@@ -33,6 +34,7 @@ export function DayView({
   onEdit: () => void;
   onDelete: () => void;
 }) {
+  const { t } = useT();
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [viewing, setViewing] = useState<{
     attachments: EventAttachment[];
@@ -53,7 +55,7 @@ export function DayView({
               variant="destructive"
             >
               <Trash2 className="h-4 w-4" />
-              Delete
+              {t("common.delete")}
             </Button>
             <Button
               className="ml-auto"
@@ -62,7 +64,7 @@ export function DayView({
               variant="outline"
             >
               <Pencil className="h-4 w-4" />
-              Edit
+              {t("common.edit")}
             </Button>
           </>
         }
@@ -71,7 +73,7 @@ export function DayView({
           day?.milestone ? (
             <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800 dark:bg-amber-400/15 dark:text-amber-300">
               <Flag className="h-3 w-3 fill-current" />
-              Milestone
+              {t("events.milestone")}
             </span>
           ) : null
         }
@@ -92,7 +94,7 @@ export function DayView({
             {tags.length > 0 ? (
               <section className="space-y-2">
                 <h3 className="text-xs font-medium uppercase text-muted-foreground">
-                  Tags
+                  {t("field.tags")}
                 </h3>
                 <dl className="grid grid-cols-2 gap-2">
                   {importantFirst(tags).map(({ tag, value }) => (
@@ -122,7 +124,7 @@ export function DayView({
             {day.items.length > 0 ? (
               <section className="space-y-2">
                 <h3 className="text-xs font-medium uppercase text-muted-foreground">
-                  Items
+                  {t("events.items")}
                 </h3>
                 <ul className="divide-y divide-border rounded-md border border-border">
                   {day.items.map((item) => (
@@ -159,7 +161,7 @@ export function DayView({
             {day.note ? (
               <section className="space-y-2">
                 <h3 className="text-xs font-medium uppercase text-muted-foreground">
-                  Note
+                  {t("finance.note")}
                 </h3>
                 <p className="whitespace-pre-line break-words rounded-md bg-muted/70 px-3 py-2">
                   {day.note}
@@ -169,7 +171,7 @@ export function DayView({
 
             {tags.length === 0 && day.items.length === 0 && !day.note ? (
               <p className="text-muted-foreground">
-                Marked as a milestone; nothing else recorded.
+                {t("events.milestoneOnly")}
               </p>
             ) : null}
           </div>

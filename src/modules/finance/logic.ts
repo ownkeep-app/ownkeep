@@ -4,6 +4,7 @@ import {
   formatDate,
   isoToDateInput,
 } from "@/lib/date";
+import { t } from "@/i18n";
 import type { IndexEntry } from "@/modules/types";
 import type { VaultSettings } from "@/vault/model";
 import {
@@ -295,16 +296,16 @@ export function updateSnapshot(
 }
 
 export function validateSnapshotInput(input: SnapshotFormInput): string | null {
-  if (!dateInputToIso(input.date)) return "Snapshot date is required.";
+  if (!dateInputToIso(input.date)) return t("finance.dateRequired");
   for (const entry of filledEntries(input.entries)) {
-    if (!entry.place.trim()) return "Each entry needs a place.";
+    if (!entry.place.trim()) return t("finance.placeRequired");
     const amount = Number(entry.amount);
     if (!Number.isFinite(amount) || amount < 0) {
-      return "Each amount must be zero or greater.";
+      return t("finance.amountNonNegative");
     }
-    if (!entry.currency.trim()) return "Each entry needs a currency.";
+    if (!entry.currency.trim()) return t("finance.currencyRequired");
     if (entry.dueDate.trim() && !dateInputToIso(entry.dueDate)) {
-      return "Each due date must be a valid date.";
+      return t("finance.dueDateInvalid");
     }
   }
   return null;

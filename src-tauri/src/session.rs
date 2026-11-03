@@ -15,6 +15,7 @@ use crate::container::Container;
 use crate::crypto::{self, Argon2Params, Key};
 use crate::envelope;
 use crate::error::{Error, Result};
+use crate::i18n::Locale;
 use crate::recovery::EmergencyKit;
 use crate::reminders::{self, Reminder};
 use crate::secrets;
@@ -298,9 +299,10 @@ impl Session {
         &mut self,
         path: &Path,
         now: chrono::DateTime<chrono::Utc>,
+        locale: Locale,
     ) -> Result<(Vec<Reminder>, bool)> {
         let unlocked = self.unlocked.as_mut().ok_or(Error::Locked)?;
-        let tick = reminders::process_reminders(&unlocked.vault, now);
+        let tick = reminders::process_reminders(&unlocked.vault, now, locale);
         let mut vault_changed = false;
         if let Some(updated) = tick.vault {
             envelope::reseal_vault(&mut unlocked.container, &unlocked.dek, &updated)?;

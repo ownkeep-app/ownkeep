@@ -12,6 +12,7 @@ import { Paperclip, Maximize2, ZoomIn, ZoomOut } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
+import { type Locale, useT } from "@/i18n";
 import { cn } from "@/lib/utils";
 import { TagIcon } from "./icons";
 import { ItemLine } from "./ItemLine";
@@ -74,16 +75,20 @@ function initialViewport(
   );
 }
 
-function tickLabel(date: string, unit: "day" | "month"): string {
+function tickLabel(
+  date: string,
+  unit: "day" | "month",
+  locale: Locale,
+): string {
   const value = new Date(`${date}T00:00:00`);
   if (unit === "month") {
-    return value.toLocaleDateString(undefined, {
+    return value.toLocaleDateString(locale, {
       month: "short",
       year: "numeric",
     });
   }
   return date.endsWith("-01")
-    ? value.toLocaleDateString(undefined, { month: "short", day: "numeric" })
+    ? value.toLocaleDateString(locale, { month: "short", day: "numeric" })
     : String(value.getDate());
 }
 
@@ -94,9 +99,15 @@ export function TimelineView({
   event: TrackedEvent;
   onOpenDay: (date: string) => void;
 }) {
+  const { t, locale } = useT();
   const today = todayKey();
   const [filter, setFilter] = useState("");
-  const filterOptions = useMemo(() => timelineFilterOptions(event), [event]);
+  // `locale` re-labels the "Everything" option after a language switch.
+  const filterOptions = useMemo(
+    () => timelineFilterOptions(event),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [event, locale],
+  );
   const points = useMemo(() => timelinePoints(event, filter), [event, filter]);
   const stageRef = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(FALLBACK_WIDTH);
@@ -187,7 +198,7 @@ export function TimelineView({
     <div className="flex min-h-0 flex-1 flex-col p-4">
       <div className="mb-3 flex flex-wrap items-center gap-2">
         <Select
-          aria-label="Timeline filter"
+          aria-label={t("events.timelineFilter")}
           className="w-48"
           onChange={(change) => setFilter(change.target.value)}
           value={filter}
@@ -209,10 +220,10 @@ export function TimelineView({
           type="button"
           variant="outline"
         >
-          Today
+          {t("events.today")}
         </Button>
         <Button
-          aria-label="Fit timeline"
+          aria-label={t("events.fitTimeline")}
           onClick={() => setViewport(initialViewport(points, width, today))}
           size="icon"
           type="button"
@@ -221,7 +232,7 @@ export function TimelineView({
           <Maximize2 className="h-4 w-4" />
         </Button>
         <Button
-          aria-label="Zoom out timeline"
+          aria-label={t("events.zoomOutTimeline")}
           onClick={() => zoomBy(1 / ZOOM_STEP)}
           size="icon"
           type="button"
@@ -230,7 +241,7 @@ export function TimelineView({
           <ZoomOut className="h-4 w-4" />
         </Button>
         <Button
-          aria-label="Zoom in timeline"
+          aria-label={t("events.zoomInTimeline")}
           onClick={() => zoomBy(ZOOM_STEP)}
           size="icon"
           type="button"
@@ -241,7 +252,7 @@ export function TimelineView({
       </div>
 
       <div
-        aria-label="Timeline"
+        aria-label={t("events.view.timeline")}
         className="relative min-h-[440px] flex-1 cursor-grab touch-none select-none overflow-hidden rounded-md border border-border bg-card active:cursor-grabbing"
         data-testid="timeline-stage"
         onClickCapture={(click) => {
@@ -266,7 +277,7 @@ export function TimelineView({
               style={{ left: x }}
             >
               <span className="absolute left-1 top-1 whitespace-nowrap text-[11px] text-muted-foreground">
-                {tickLabel(tick, unit)}
+                {tickLabel(tick, unit, locale)}
               </span>
             </div>
           );
@@ -278,7 +289,7 @@ export function TimelineView({
             style={{ left: todayX }}
           >
             <span className="absolute bottom-1 left-1 text-[11px] font-medium text-primary">
-              Today
+              {t("events.today")}
             </span>
           </div>
         ) : null}
@@ -317,19 +328,17 @@ function TimelineMarker({
   centerX: number;
   onOpen: () => void;
 }) {
+  const { t, locale } = useT();
   const offset = laneOffset(index);
   const attachmentCount = point.items.reduce(
     (total, item) => total + item.images.length,
     0,
   );
-  const label = new Date(`${point.date}T00:00:00`).toLocaleDateString(
-    undefined,
-    {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-    },
-  );
+  const label = new Date(`${point.date}T00:00:00`).toLocaleDateString(locale, {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
 
   return (
     <div
@@ -346,7 +355,7 @@ function TimelineMarker({
         }
       />
       <button
-        aria-label={`Open ${point.date}`}
+        aria-label={t("events.openDate", { date: point.date })}
         className={cn(
           "pointer-events-auto absolute flex flex-col gap-1 overflow-hidden [&>*]:shrink-0 rounded-md border border-border bg-background p-2 text-left text-xs shadow-sm transition-colors hover:border-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
         )}

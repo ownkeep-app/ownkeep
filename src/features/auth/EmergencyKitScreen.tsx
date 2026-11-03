@@ -3,10 +3,12 @@ import { useState } from "react";
 import { Screen } from "@/components/screen";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { useT } from "@/i18n";
 import { useVaultStore } from "@/stores/vault-store";
 
 /** Shows the one-time recovery code (§4.6). The user must confirm they've saved it to continue. */
 export function EmergencyKitScreen() {
+  const { t } = useT();
   const kit = useVaultStore((s) => s.pendingKit);
   const dismiss = useVaultStore((s) => s.dismissKit);
   const [saved, setSaved] = useState(false);
@@ -25,28 +27,26 @@ export function EmergencyKitScreen() {
 
   return (
     <Screen>
-      <h1 className="text-xl font-semibold">Your recovery code</h1>
-      <p className="text-sm text-muted-foreground">{kit.instructions}</p>
+      <h1 className="text-xl font-semibold">{t("kit.title")}</h1>
+      <p className="text-sm text-muted-foreground">{t("kit.instructions")}</p>
       <code className="w-full select-all rounded-md border border-border bg-muted p-3 font-mono text-sm leading-relaxed">
         {kit.recovery_code}
       </code>
       <Button variant="outline" onClick={copy}>
-        {copied ? "Copied" : "Copy code"}
+        {copied ? t("common.copied") : t("kit.copyCode")}
       </Button>
       <label className="flex items-center gap-2 text-sm text-muted-foreground">
         <Checkbox
           checked={saved}
           onCheckedChange={setSaved}
-          aria-label="I've saved my recovery code somewhere safe"
+          aria-label={t("kit.savedConfirm")}
         />
-        I've saved my recovery code somewhere safe
+        {t("kit.savedConfirm")}
       </label>
       <Button disabled={!saved} onClick={dismiss}>
-        Continue
+        {t("common.continue")}
       </Button>
-      <p className="text-xs text-muted-foreground">
-        Summon OwnKeep anytime with ⌘⇧Space; open the Dashboard with ⌘⇧D.
-      </p>
+      <p className="text-xs text-muted-foreground">{t("kit.hotkeyHint")}</p>
     </Screen>
   );
 }

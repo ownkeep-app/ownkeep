@@ -5,12 +5,12 @@ import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 
 import {
   APP_DEVELOPER_EMAIL,
-  APP_FEATURES,
+  APP_FEATURE_KEYS,
   APP_LICENSE,
   APP_LICENSE_URL,
-  APP_RELEASE_DATE,
   APP_WEBSITE,
   aboutVersionLabel,
+  formatReleaseDate,
 } from "@/components/about";
 import {
   modalOverlayClassName,
@@ -23,6 +23,7 @@ import {
   motionOrUndefined,
 } from "@/lib/motion";
 import { openExternalUrl } from "@/lib/url";
+import { useT } from "@/i18n";
 import { cn } from "@/lib/utils";
 
 /**
@@ -37,6 +38,7 @@ export function AboutDialog({
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
 }) {
+  const { t, locale } = useT();
   const [internalOpen, setInternalOpen] = useState(false);
   const open = controlledOpen ?? internalOpen;
   function setOpen(next: boolean) {
@@ -71,7 +73,7 @@ export function AboutDialog({
     <>
       {showTrigger && (
         <Button
-          aria-label="About OwnKeep"
+          aria-label={t("shortcuts.about")}
           className="fixed bottom-3 right-14 z-40"
           onClick={() => setOpen(true)}
           size="icon"
@@ -98,14 +100,14 @@ export function AboutDialog({
             role="presentation"
           >
             <button
-              aria-label="Dismiss about OwnKeep"
+              aria-label={t("about.dismiss")}
               className="absolute inset-0 h-full w-full cursor-default"
               onClick={() => setOpen(false)}
               tabIndex={-1}
               type="button"
             />
             <motion.section
-              aria-label="About OwnKeep"
+              aria-label={t("shortcuts.about")}
               aria-modal="true"
               className={cn(
                 modalPanelClassName,
@@ -127,9 +129,11 @@ export function AboutDialog({
             >
               <header className="flex items-center gap-2 px-5 pb-4 pt-5">
                 <Info className="h-4 w-4 text-primary" aria-hidden />
-                <h2 className="flex-1 text-sm font-semibold">About OwnKeep</h2>
+                <h2 className="flex-1 text-sm font-semibold">
+                  {t("shortcuts.about")}
+                </h2>
                 <Button
-                  aria-label="Close about OwnKeep"
+                  aria-label={t("about.close")}
                   onClick={() => setOpen(false)}
                   ref={closeRef}
                   size="icon"
@@ -141,18 +145,15 @@ export function AboutDialog({
               </header>
 
               <div className="min-h-0 flex-1 space-y-4 overflow-auto px-5 pb-4 text-sm">
-                <p className="text-muted-foreground">
-                  An offline-first password vault and command-line library for
-                  macOS — one encrypted file, no cloud, no telemetry.
-                </p>
+                <p className="text-muted-foreground">{t("about.tagline")}</p>
 
                 <section>
                   <h3 className="mb-2 text-xs font-medium uppercase text-muted-foreground">
-                    Features
+                    {t("about.features")}
                   </h3>
                   <ul className="list-disc space-y-1.5 pl-4 text-muted-foreground">
-                    {APP_FEATURES.map((feature) => (
-                      <li key={feature}>{feature}</li>
+                    {APP_FEATURE_KEYS.map((key) => (
+                      <li key={key}>{t(key)}</li>
                     ))}
                   </ul>
                 </section>
@@ -161,14 +162,14 @@ export function AboutDialog({
               <section className="relative border-t border-border bg-muted/70 px-5 py-4 dark:bg-muted/40">
                 <DetailsCornerMarks />
                 <h3 className="relative z-10 mb-3 text-xs font-medium uppercase text-muted-foreground">
-                  Details
+                  {t("about.details")}
                 </h3>
                 <dl className="relative z-10 grid grid-cols-2 gap-x-4 gap-y-3">
                   <DetailItem
                     icon={
                       <Tag className="size-3.5 text-sky-500 dark:text-sky-400" />
                     }
-                    label="Version"
+                    label={t("about.version")}
                   >
                     {aboutVersionLabel()}
                   </DetailItem>
@@ -176,15 +177,15 @@ export function AboutDialog({
                     icon={
                       <CalendarDays className="size-3.5 text-amber-500 dark:text-amber-400" />
                     }
-                    label="Release date"
+                    label={t("about.releaseDate")}
                   >
-                    {APP_RELEASE_DATE}
+                    {formatReleaseDate(locale)}
                   </DetailItem>
                   <DetailItem
                     icon={
                       <Mail className="size-3.5 text-rose-500 dark:text-rose-400" />
                     }
-                    label="Developer"
+                    label={t("about.developer")}
                   >
                     <a
                       className="text-primary underline-offset-2 hover:underline"
@@ -201,7 +202,7 @@ export function AboutDialog({
                     icon={
                       <Globe className="size-3.5 text-emerald-500 dark:text-emerald-400" />
                     }
-                    label="Website"
+                    label={t("about.website")}
                   >
                     <a
                       className="text-primary underline-offset-2 hover:underline"
@@ -219,7 +220,7 @@ export function AboutDialog({
                     icon={
                       <Scale className="size-3.5 text-violet-500 dark:text-violet-400" />
                     }
-                    label="License"
+                    label={t("about.license")}
                   >
                     <a
                       className="text-primary underline-offset-2 hover:underline"

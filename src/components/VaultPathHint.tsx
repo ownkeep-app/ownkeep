@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 
+import { useT } from "@/i18n";
 import { vaultApi } from "@/vault/api";
 import { PRODUCTION_VAULT_PATH } from "@/vault/paths";
 
@@ -8,6 +9,7 @@ import { PRODUCTION_VAULT_PATH } from "@/vault/paths";
  * falls back to the documented production path when IPC is unavailable (e.g. Vitest).
  */
 export function VaultPathHint({ className }: { className?: string }) {
+  const { t } = useT();
   const [path, setPath] = useState(PRODUCTION_VAULT_PATH);
 
   useEffect(() => {
@@ -25,7 +27,7 @@ export function VaultPathHint({ className }: { className?: string }) {
 
   return (
     <p className={className}>
-      Vault file:{" "}
+      {t("vault.file")}{" "}
       <code className="break-all rounded bg-muted px-1.5 py-0.5 font-mono text-[0.8em]">
         {path}
       </code>

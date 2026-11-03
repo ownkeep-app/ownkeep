@@ -7,6 +7,8 @@
 use chrono::{DateTime, Days, Local, Months, NaiveDate, NaiveTime, SecondsFormat, TimeZone, Utc};
 use serde_json::{json, Value};
 
+use crate::i18n::{translate, Locale};
+
 const TODOS_MODULE_ID: &str = "todos";
 const SUBSCRIPTIONS_MODULE_ID: &str = "subscriptions";
 const DEFAULT_TODO_LEAD_MINUTES: f64 = 30.0;
@@ -31,7 +33,7 @@ pub struct ReminderTick {
 }
 
 /// Collect due reminders and roll auto-renew `nextDueDate` values that have been reached.
-pub fn process_reminders(vault: &[u8], now: DateTime<Utc>) -> ReminderTick {
+pub fn process_reminders(vault: &[u8], now: DateTime<Utc>, locale: Locale) -> ReminderTick {
     let Ok(mut root) = serde_json::from_slice::<Value>(vault) else {
         return ReminderTick {
             reminders: Vec::new(),
@@ -40,9 +42,9 @@ pub fn process_reminders(vault: &[u8], now: DateTime<Utc>) -> ReminderTick {
     };
 
     let mut reminders = Vec::new();
-    reminders.extend(collect_todo_reminders(&root, now));
-    let rolled = renew_due_auto_subscriptions(&mut root, now, &mut reminders);
-    reminders.extend(collect_manual_subscription_reminders(&root, now));
+    reminders.extend(collect_todo_reminders(&root, now, locale));
+    let rolled = renew_due_auto_subscriptions(&mut root, now, locale, &mut reminders);
+    reminders.extend(collect_manual_subscription_reminders(&root, now, locale));
 
     ReminderTick {
         reminders,
@@ -50,7 +52,7 @@ pub fn process_reminders(vault: &[u8], now: DateTime<Utc>) -> ReminderTick {
     }
 }
 
-fn collect_todo_reminders(root: &Value, now: DateTime<Utc>) -> Vec<Reminder> {
+fn collect_todo_reminders(root: &Value, now: DateTime<Utc>, locale: Locale) -> Vec<Reminder> {
     if !module_enabled(root, TODOS_MODULE_ID) {
         return Vec::new();
     }
@@ -82,8 +84,8 @@ fn collect_todo_reminders(root: &Value, now: DateTime<Utc>) -> Vec<Reminder> {
                 key: format!("{TODOS_MODULE_ID}:{id}:due:{due_raw}"),
                 module_id: TODOS_MODULE_ID.to_string(),
                 item_id: id.to_string(),
-                title: format!("Todo due: {title}"),
-                body: Some(format_todo_body(item, due)),
+                title: translate(locale, "native.reminder.todoDue", &[("title", title)]),
+                body: Some(format_todo_body(item, due, locale)),
             })
         })
         .collect()
@@ -93,6 +95,7 @@ fn collect_todo_reminders(root: &Value, now: DateTime<Utc>) -> Vec<Reminder> {
 fn renew_due_auto_subscriptions(
     root: &mut Value,
     now: DateTime<Utc>,
+    locale: Locale,
     reminders: &mut Vec<Reminder>,
 ) -> bool {
     if !module_enabled(root, SUBSCRIPTIONS_MODULE_ID) {
@@ -117,7 +120,11 @@ fn renew_due_auto_subscriptions(
         {
             continue;
         }
-        let Some(due_raw) = item.get("nextDueDate").and_then(Value::as_str).map(str::to_string) else {
+        let Some(due_raw) = item
+            .get("nextDueDate")
+            .and_then(Value::as_str)
+            .map(str::to_string)
+        else {
             continue;
         };
         let Some(due) = parse_rfc3339(&due_raw) else {
@@ -141,13 +148,18 @@ fn renew_due_auto_subscriptions(
             key: format!("{SUBSCRIPTIONS_MODULE_ID}:{id}:due:{due_raw}"),
             module_id: SUBSCRIPTIONS_MODULE_ID.to_string(),
             item_id: id,
-            title: format!(
-                "Your subscription on {service} has been automatically renewed. Expect invoice to come"
+            title: translate(
+                locale,
+                "native.reminder.subscriptionRenewed",
+                &[("service", &service)],
             ),
-            body: Some(format_subscription_body(item, due)),
+            body: Some(format_subscription_body(item, due, locale)),
         });
 
-        let cycle = item.get("cycle").and_then(Value::as_str).unwrap_or("monthly");
+        let cycle = item
+            .get("cycle")
+            .and_then(Value::as_str)
+            .unwrap_or("monthly");
         let custom_days = item
             .get("customIntervalDays")
             .and_then(Value::as_i64)
@@ -164,7 +176,11 @@ fn renew_due_auto_subscriptions(
     changed
 }
 
-fn collect_manual_subscription_reminders(root: &Value, now: DateTime<Utc>) -> Vec<Reminder> {
+fn collect_manual_subscription_reminders(
+    root: &Value,
+    now: DateTime<Utc>,
+    locale: Locale,
+) -> Vec<Reminder> {
     if !module_enabled(root, SUBSCRIPTIONS_MODULE_ID) {
         return Vec::new();
     }
@@ -199,8 +215,12 @@ fn collect_manual_subscription_reminders(root: &Value, now: DateTime<Utc>) -> Ve
                 key: format!("{SUBSCRIPTIONS_MODULE_ID}:{id}:due:{due_raw}"),
                 module_id: SUBSCRIPTIONS_MODULE_ID.to_string(),
                 item_id: id.to_string(),
-                title: format!("Subscription due: {service}"),
-                body: Some(format_subscription_body(item, due)),
+                title: translate(
+                    locale,
+                    "native.reminder.subscriptionDue",
+                    &[("service", service)],
+                ),
+                body: Some(format_subscription_body(item, due, locale)),
             })
         })
         .collect()
@@ -276,9 +296,7 @@ fn add_billing_cycles(
         "custom" => {
             let days = custom_days.filter(|value| *value > 0)?;
             start.checked_add_days(Days::new(
-                days.checked_mul(i64::from(periods))?
-                    .try_into()
-                    .ok()?,
+                days.checked_mul(i64::from(periods))?.try_into().ok()?,
             ))
         }
         _ => None,
@@ -307,11 +325,20 @@ fn format_due_date(due: DateTime<Utc>) -> String {
     due.with_timezone(&Local).format("%Y-%m-%d").to_string()
 }
 
-fn format_todo_body(item: &Value, due: DateTime<Utc>) -> String {
-    let mut parts = vec![format!("Due {}", format_due_datetime(due))];
+fn format_todo_body(item: &Value, due: DateTime<Utc>, locale: Locale) -> String {
+    let mut parts = vec![translate(
+        locale,
+        "todos.due",
+        &[("date", &format_due_datetime(due))],
+    )];
     if let Some(priority) = item.get("priority").and_then(Value::as_str) {
         if priority != "normal" {
-            parts.push(format!("{priority} priority"));
+            let label = translate(locale, &format!("todos.priority.{priority}"), &[]);
+            parts.push(translate(
+                locale,
+                "todos.priorityLabel",
+                &[("priority", &label)],
+            ));
         }
     }
     if let Some(category) = item.get("category").and_then(Value::as_str) {
@@ -322,7 +349,7 @@ fn format_todo_body(item: &Value, due: DateTime<Utc>) -> String {
     parts.join(" - ")
 }
 
-fn format_subscription_body(item: &Value, due: DateTime<Utc>) -> String {
+fn format_subscription_body(item: &Value, due: DateTime<Utc>, locale: Locale) -> String {
     let amount = item.get("amount").and_then(Value::as_f64).unwrap_or(0.0);
     let currency = item
         .get("currency")
@@ -331,21 +358,21 @@ fn format_subscription_body(item: &Value, due: DateTime<Utc>) -> String {
         .filter(|value| !value.is_empty())
         .unwrap_or("CNY")
         .to_uppercase();
-    let renew = if item
+    let renew_key = if item
         .get("autoRenew")
         .and_then(Value::as_bool)
         .unwrap_or(false)
     {
-        "auto-renew"
+        "subscriptions.autoRenewLower"
     } else {
-        "manual renewal"
+        "subscriptions.manualRenewalLower"
     };
     format!(
-        "Due {} - {} {:.2} - {}",
-        format_due_date(due),
+        "{} - {} {:.2} - {}",
+        translate(locale, "todos.due", &[("date", &format_due_date(due))]),
         currency,
         amount,
-        renew
+        translate(locale, renew_key, &[])
     )
 }
 
@@ -377,7 +404,7 @@ mod tests {
             due.to_rfc3339()
         );
 
-        let reminders = process_reminders(vault.as_bytes(), now()).reminders;
+        let reminders = process_reminders(vault.as_bytes(), now(), Locale::En).reminders;
 
         assert_eq!(reminders.len(), 1);
         assert_eq!(
@@ -407,10 +434,14 @@ mod tests {
             }}"#,
             due.to_rfc3339()
         );
-        assert!(process_reminders(vault.as_bytes(), now()).reminders.is_empty());
+        assert!(process_reminders(vault.as_bytes(), now(), Locale::En)
+            .reminders
+            .is_empty());
 
         let disabled = vault.replace(r#""enabled":true"#, r#""enabled":false"#);
-        assert!(process_reminders(disabled.as_bytes(), now()).reminders.is_empty());
+        assert!(process_reminders(disabled.as_bytes(), now(), Locale::En)
+            .reminders
+            .is_empty());
     }
 
     #[test]
@@ -439,7 +470,7 @@ mod tests {
             }}"#
         );
 
-        let tick = process_reminders(vault.as_bytes(), now());
+        let tick = process_reminders(vault.as_bytes(), now(), Locale::En);
 
         assert_eq!(tick.reminders.len(), 1);
         assert_eq!(
@@ -482,7 +513,7 @@ mod tests {
             due.to_rfc3339()
         );
 
-        let reminders = process_reminders(vault.as_bytes(), now()).reminders;
+        let reminders = process_reminders(vault.as_bytes(), now(), Locale::En).reminders;
 
         assert_eq!(reminders.len(), 1);
         assert_eq!(
@@ -516,14 +547,14 @@ mod tests {
             due.to_rfc3339_opts(SecondsFormat::Millis, true)
         );
 
-        let tick = process_reminders(vault.as_bytes(), now());
+        let tick = process_reminders(vault.as_bytes(), now(), Locale::En);
         assert!(tick.reminders.is_empty());
         assert!(tick.vault.is_none());
     }
 
     #[test]
     fn ignores_a_vault_that_is_not_valid_json() {
-        let tick = process_reminders(b"{ not json", now());
+        let tick = process_reminders(b"{ not json", now(), Locale::En);
         assert!(tick.reminders.is_empty());
         assert!(tick.vault.is_none());
     }
@@ -543,7 +574,7 @@ mod tests {
             due_raw = due.to_rfc3339()
         );
 
-        let tick = process_reminders(vault.as_bytes(), now());
+        let tick = process_reminders(vault.as_bytes(), now(), Locale::En);
 
         // The done todo is skipped; the other two inherit defaultLeadMinutes (10).
         assert_eq!(tick.reminders.len(), 2);
@@ -551,7 +582,7 @@ mod tests {
         assert_eq!(tick.reminders[1].item_id, "todo-3");
 
         let high = tick.reminders[0].body.as_deref().unwrap();
-        assert!(high.contains("high priority"), "{high}");
+        assert!(high.contains("High priority"), "{high}");
         assert!(high.ends_with("Work"), "{high}");
 
         let bare = tick.reminders[1].body.as_deref().unwrap();
@@ -578,7 +609,7 @@ mod tests {
             due.to_rfc3339()
         );
 
-        let tick = process_reminders(vault.as_bytes(), now());
+        let tick = process_reminders(vault.as_bytes(), now(), Locale::En);
         assert!(tick.reminders.is_empty());
         assert!(tick.vault.is_none());
     }
@@ -605,7 +636,7 @@ mod tests {
             due.to_rfc3339_opts(SecondsFormat::Millis, true)
         );
 
-        let tick = process_reminders(vault.as_bytes(), now());
+        let tick = process_reminders(vault.as_bytes(), now(), Locale::En);
         assert!(tick.reminders.is_empty());
         assert!(tick.vault.is_none());
     }
@@ -629,7 +660,7 @@ mod tests {
             }}"#
         );
 
-        let tick = process_reminders(vault.as_bytes(), now());
+        let tick = process_reminders(vault.as_bytes(), now(), Locale::En);
         assert!(tick.reminders.is_empty());
         assert!(tick.vault.is_none());
     }
@@ -652,7 +683,7 @@ mod tests {
             }}"#
         );
 
-        let tick = process_reminders(vault.as_bytes(), now());
+        let tick = process_reminders(vault.as_bytes(), now(), Locale::En);
 
         // Both are due, so both notify — but neither cycle can compute a next date,
         // so the vault must not be rewritten.
@@ -685,7 +716,7 @@ mod tests {
             }}"#
         );
 
-        let tick = process_reminders(vault.as_bytes(), now());
+        let tick = process_reminders(vault.as_bytes(), now(), Locale::En);
         assert_eq!(tick.reminders.len(), 3);
 
         let updated = serde_json::from_slice::<Value>(tick.vault.as_ref().unwrap()).unwrap();
@@ -700,5 +731,25 @@ mod tests {
         assert_eq!(day_of(1), NaiveDate::from_ymd_opt(2026, 7, 16).unwrap());
         // Weekly from 06-14 needs five hops to clear today (07-12).
         assert_eq!(day_of(2), NaiveDate::from_ymd_opt(2026, 7, 19).unwrap());
+    }
+
+    #[test]
+    fn reminder_text_follows_the_requested_locale() {
+        let due = Utc.with_ymd_and_hms(2026, 7, 12, 11, 5, 0).unwrap();
+        let vault = format!(
+            r#"{{
+              "settings":{{"modules":{{"todos":{{"enabled":true}}}}}},
+              "modules":{{"todos":[{{
+                "id":"todo-1","title":"喝水","done":false,"dueAt":"{}",
+                "notifyLeadMinutes":0,"priority":"high","category":"Personal"
+              }}]}}
+            }}"#,
+            due.to_rfc3339()
+        );
+
+        let reminders = process_reminders(vault.as_bytes(), now(), Locale::ZhCn).reminders;
+
+        assert_eq!(reminders[0].title, "待办到期：喝水");
+        assert!(reminders[0].body.as_deref().unwrap().contains("高优先级"));
     }
 }

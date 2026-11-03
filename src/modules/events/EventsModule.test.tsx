@@ -591,7 +591,7 @@ describe("EventsListView", () => {
     );
     const dialog = await screen.findByRole("dialog", { name: "Import CSV" });
     expect(dialog).toHaveTextContent("1 new day, 1 existing day updated.");
-    expect(dialog).toHaveTextContent("New tags: Naps (number)");
+    expect(dialog).toHaveTextContent("New tags: Naps (Number)");
     expect(dialog).toHaveTextContent(
       "Line 4: 睡眠时长: “bad” isn't a valid value, skipped.",
     );

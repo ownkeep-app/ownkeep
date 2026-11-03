@@ -1,5 +1,7 @@
 import dayjs from "dayjs";
 
+import { t, tp } from "@/i18n";
+
 /** Calendar-day due urgency (null when undated or invalid). */
 export type DueStatusKind = "overdue" | "today" | "upcoming";
 
@@ -27,17 +29,18 @@ export function calendarDueStatus(
   if (!due.isValid()) return null;
 
   const days = due.startOf("day").diff(dayjs(now).startOf("day"), "day");
-  if (days < 0) return { kind: "overdue", label: "Overdue" };
+  if (days < 0) return { kind: "overdue", label: t("due.overdue") };
   if (days === 0) {
     return {
       kind: "today",
-      label: vocabulary === "invoice" ? "Invoice today" : "Due today",
+      label: t(vocabulary === "invoice" ? "due.invoiceToday" : "due.today"),
     };
   }
-  const unit = days === 1 ? "day" : "days";
-  const prefix = vocabulary === "invoice" ? "Invoice in" : "Due in";
   return {
     kind: "upcoming",
-    label: `${prefix} ${days} ${unit}`,
+    label: tp(
+      vocabulary === "invoice" ? "due.invoiceInDays" : "due.inDays",
+      days,
+    ),
   };
 }

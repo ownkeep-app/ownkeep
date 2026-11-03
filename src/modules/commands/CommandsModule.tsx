@@ -26,6 +26,7 @@ import { snippetLanguageLabel } from "@/components/snippet-languages";
 import { TagMultiSelect } from "@/components/tag-multi-select";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useT } from "@/i18n";
 import { writeClipboard } from "@/lib/clipboard";
 import { toastClipboard } from "@/lib/toast";
 import { cn } from "@/lib/utils";
@@ -48,6 +49,7 @@ import {
 import type { CommandEntry, CommandFormInput } from "./types";
 
 export function CommandsListView({ items }: ListViewProps<CommandEntry>) {
+  const { t, tp } = useT();
   const saveCommand = useVaultStore((s) => s.saveCommand);
   const deleteCommand = useVaultStore((s) => s.deleteCommand);
   const { categoryOptions } = useTaxonomySettings();
@@ -129,7 +131,7 @@ export function CommandsListView({ items }: ListViewProps<CommandEntry>) {
     if (parsePlaceholders(command.primaryCopyTemplate).length > 0) {
       setCopying(command);
     } else {
-      void copyText(command.primaryCopyTemplate, "Command copied");
+      void copyText(command.primaryCopyTemplate, t("commandBar.commandCopied"));
     }
   }
 
@@ -147,15 +149,14 @@ export function CommandsListView({ items }: ListViewProps<CommandEntry>) {
     <div className="flex h-full flex-col">
       <header className="flex items-center gap-3 border-b border-border px-6 py-4">
         <div className="min-w-0 flex-1">
-          <h1 className="text-lg font-semibold">Commands</h1>
+          <h1 className="text-lg font-semibold">{t("module.commands")}</h1>
           <p className="text-sm text-muted-foreground">
-            {commands.length} saved{" "}
-            {commands.length === 1 ? "command" : "commands"}
+            {tp("commands.savedCount", commands.length)}
           </p>
         </div>
         <Button onClick={startCreate}>
           <Plus className="h-4 w-4" />
-          New
+          {t("common.new")}
         </Button>
       </header>
 
@@ -167,10 +168,10 @@ export function CommandsListView({ items }: ListViewProps<CommandEntry>) {
             value={categoryFilter}
           />
           <Input
-            aria-label="Filter commands"
+            aria-label={t("commands.filter")}
             className="min-w-0 flex-1"
             onChange={(event) => setQuery(event.target.value)}
-            placeholder="Filter commands"
+            placeholder={t("commands.filter")}
             value={query}
           />
           {filtersActive ? (
@@ -186,17 +187,17 @@ export function CommandsListView({ items }: ListViewProps<CommandEntry>) {
         {indexedGroups.length === 0 ? (
           query.trim() ? (
             <EmptyState
-              title="No matches"
-              description={`Nothing matches “${query.trim()}”.`}
+              title={t("common.noMatches")}
+              description={t("common.nothingMatches", { query: query.trim() })}
             />
           ) : (
             <EmptyState
-              title="No commands yet"
-              description="Save a snippet with {{ }} placeholders to reuse it fast."
+              title={t("commands.emptyTitle")}
+              description={t("commands.emptyBody")}
               action={
                 <Button onClick={startCreate}>
                   <Plus className="h-4 w-4" />
-                  New command
+                  {t("commands.new")}
                 </Button>
               }
             />
@@ -248,7 +249,9 @@ export function CommandsListView({ items }: ListViewProps<CommandEntry>) {
                           </div>
                           <div className="flex shrink-0 items-center gap-1">
                             <Button
-                              aria-label={`Copy ${command.title}`}
+                              aria-label={t("commands.copyTitle", {
+                                title: command.title,
+                              })}
                               onClick={() => startCopy(command)}
                               size="icon"
                               type="button"
@@ -257,20 +260,22 @@ export function CommandsListView({ items }: ListViewProps<CommandEntry>) {
                               <Copy className="h-4 w-4" />
                             </Button>
                             <RowActionsMenu
-                              label={`Actions for ${command.title}`}
+                              label={t("common.actionsFor", {
+                                name: command.title,
+                              })}
                               actions={[
                                 {
-                                  label: "View",
+                                  label: t("common.view"),
                                   icon: <Eye className="h-4 w-4" />,
                                   onSelect: () => setViewing(command),
                                 },
                                 {
-                                  label: "Edit",
+                                  label: t("common.edit"),
                                   icon: <Pencil className="h-4 w-4" />,
                                   onSelect: () => setEditing(command),
                                 },
                                 {
-                                  label: "Delete",
+                                  label: t("common.delete"),
                                   icon: <Trash2 className="h-4 w-4" />,
                                   destructive: true,
                                   onSelect: () =>
@@ -307,7 +312,7 @@ export function CommandsListView({ items }: ListViewProps<CommandEntry>) {
                   variant="destructive"
                 >
                   <Trash2 className="h-4 w-4" />
-                  Delete
+                  {t("common.delete")}
                 </Button>
                 <Button
                   onClick={() => startCopy(viewing)}
@@ -315,7 +320,7 @@ export function CommandsListView({ items }: ListViewProps<CommandEntry>) {
                   variant="outline"
                 >
                   <Copy className="h-4 w-4" />
-                  Copy
+                  {t("common.copy")}
                 </Button>
                 <Button
                   className="ml-auto"
@@ -327,7 +332,7 @@ export function CommandsListView({ items }: ListViewProps<CommandEntry>) {
                   variant="outline"
                 >
                   <Pencil className="h-4 w-4" />
-                  Edit
+                  {t("common.edit")}
                 </Button>
               </>
             )
@@ -351,7 +356,9 @@ export function CommandsListView({ items }: ListViewProps<CommandEntry>) {
         <DetailModal
           onClose={() => setCopying(null)}
           open={copying !== null}
-          title={copying ? `Copy ${copying.title}` : ""}
+          title={
+            copying ? t("commands.copyTitle", { title: copying.title }) : ""
+          }
         >
           {copying && (
             <FillInForm
@@ -359,13 +366,13 @@ export function CommandsListView({ items }: ListViewProps<CommandEntry>) {
               onCancel={() => setCopying(null)}
               onComplete={(filled) => {
                 setCopying(null);
-                void copyText(filled, "Command copied");
+                void copyText(filled, t("commandBar.commandCopied"));
               }}
               onRaw={() => {
                 setCopying(null);
                 void copyText(
                   copying.primaryCopyTemplate,
-                  "Raw command copied",
+                  t("commandBar.rawCommandCopied"),
                 );
               }}
               template={copying.primaryCopyTemplate}
@@ -379,6 +386,7 @@ export function CommandsListView({ items }: ListViewProps<CommandEntry>) {
 }
 
 export function CommandDetailView({ item }: { item: CommandEntry }) {
+  const { t } = useT();
   const snippet = item.snippets[0];
   return (
     <DetailModalBody>
@@ -395,11 +403,13 @@ export function CommandDetailView({ item }: { item: CommandEntry }) {
       </DetailModalHero>
       <DetailFields>
         {item.tags.length > 0 && (
-          <DetailField label="Tags" value={item.tags.join(", ")} />
+          <DetailField label={t("field.tags")} value={item.tags.join(", ")} />
         )}
         {snippet && (
           <DetailFieldSpan
-            label={`Snippet (${snippetLanguageLabel(snippet.language)})`}
+            label={t("commands.snippetWithLanguage", {
+              language: snippetLanguageLabel(snippet.language),
+            })}
           >
             <div className="mt-1">
               <SnippetView
@@ -425,6 +435,7 @@ export function CommandEditView({
   onSave: (item: CommandEntry) => void;
   onCancel: () => void;
 }) {
+  const { t } = useT();
   const { categoryOptions, tagOptions, taxonomy } = useTaxonomySettings();
   const [form, setForm] = useState<CommandFormInput>(() =>
     item ? formFromCommand(item) : emptyCommandForm(taxonomy),
@@ -455,65 +466,62 @@ export function CommandEditView({
 
   return (
     <ItemFormShell
-      cancelLabel="Cancel command edit"
+      cancelLabel={t("commands.cancelEdit")}
       error={error}
       mode={item ? "edit" : "create"}
       onCancel={onCancel}
       onSubmit={submit}
-      title={item ? "Edit command" : "New command"}
+      title={t(item ? "commands.edit" : "commands.new")}
     >
-      <Field className="col-span-2" label="Title">
+      <Field className="col-span-2" label={t("field.title")}>
         <Input
-          aria-label="Command title"
+          aria-label={t("commands.titleLabel")}
           autoFocus
           onChange={(event) => update("title", event.target.value)}
           value={form.title}
         />
       </Field>
-      <Field className="col-span-2" label="Description">
+      <Field className="col-span-2" label={t("field.description")}>
         <Input
-          aria-label="Command description"
+          aria-label={t("commands.descriptionLabel")}
           onChange={(event) => update("description", event.target.value)}
           value={form.description}
         />
       </Field>
-      <Field label="Language">
+      <Field label={t("commands.language")}>
         <LanguageSelect
-          aria-label="Snippet language"
+          aria-label={t("commands.snippetLanguage")}
           onChange={(event) => update("language", event.target.value)}
           value={form.language}
         />
       </Field>
-      <Field label="Category">
+      <Field label={t("field.category")}>
         <CategorySelect
-          aria-label="Command category"
+          aria-label={t("commands.categoryLabel")}
           onChange={(event) => update("category", event.target.value)}
           options={categoryOptions}
           value={form.category}
         />
       </Field>
-      <Field className="col-span-2" label="Tags">
+      <Field className="col-span-2" label={t("field.tags")}>
         <TagMultiSelect
-          aria-label="Command tags"
+          aria-label={t("commands.tagsLabel")}
           onChange={(tags) => update("tags", tags)}
           options={tagOptions}
           value={form.tags}
         />
       </Field>
-      <Field className="col-span-2" label="Command (use {{name}} placeholders)">
+      <Field className="col-span-2" label={t("commands.codeField")}>
         <textarea
-          aria-label="Command code"
+          aria-label={t("commands.codeLabel")}
           className="min-h-24 rounded-md border border-input bg-card px-3 py-2 font-mono text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
           onChange={(event) => update("code", event.target.value)}
           value={form.code}
         />
       </Field>
-      <Field
-        className="col-span-2"
-        label="Arguments (one per line: name  or  name = a, b, c)"
-      >
+      <Field className="col-span-2" label={t("commands.argumentsField")}>
         <textarea
-          aria-label="Command arguments"
+          aria-label={t("commands.argumentsLabel")}
           className="min-h-16 rounded-md border border-input bg-card px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
           onChange={(event) => update("argumentsText", event.target.value)}
           value={form.argumentsText}

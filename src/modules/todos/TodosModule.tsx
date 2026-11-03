@@ -53,10 +53,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import {
-  ButtonGroup,
-  type ButtonGroupOption,
-} from "@/components/ui/button-group";
+import { ButtonGroup } from "@/components/ui/button-group";
 import {
   nextSortState,
   stableSortBy,
@@ -67,6 +64,7 @@ import { cn } from "@/lib/utils";
 import { useClearFiltersOnEscape } from "@/hooks/use-clear-filters-on-escape";
 import { useTaxonomySettings } from "@/hooks/use-taxonomy-settings";
 import type { ListViewProps } from "@/modules/types";
+import { type MessageKey, useT } from "@/i18n";
 import { useVaultStore } from "@/stores/vault-store";
 import { DEFAULT_CATEGORY, optionsWithExtras } from "@/vault/taxonomy";
 import {
@@ -88,17 +86,19 @@ import {
 
 type TodoStatusFilter = "undone" | "done" | "all";
 
-const TODO_STATUS_FILTERS: ButtonGroupOption<TodoStatusFilter>[] = [
-  { value: "undone", label: "Undone" },
-  { value: "done", label: "Done" },
-  { value: "all", label: "All" },
-];
+const TODO_STATUS_FILTERS: { value: TodoStatusFilter; labelKey: MessageKey }[] =
+  [
+    { value: "undone", labelKey: "todos.filter.undone" },
+    { value: "done", labelKey: "todos.filter.done" },
+    { value: "all", labelKey: "todos.filter.all" },
+  ];
 
 export function TodosListView({
   items,
   focusItemId,
   onFocusItemHandled,
 }: ListViewProps<TodoEntry>) {
+  const { t } = useT();
   const saveTodo = useVaultStore((s) => s.saveTodo);
   const deleteTodo = useVaultStore((s) => s.deleteTodo);
   const toggleTodoDone = useVaultStore((s) => s.toggleTodoDone);
@@ -263,23 +263,26 @@ export function TodosListView({
     <div className="flex h-full flex-col">
       <header className="flex items-center gap-3 border-b border-border px-6 py-4">
         <div className="min-w-0 flex-1">
-          <h1 className="text-lg font-semibold">Todos</h1>
+          <h1 className="text-lg font-semibold">{t("module.todos")}</h1>
           <p className="text-sm text-muted-foreground">
-            {openCount} open of {todos.length}
+            {t("todos.openOf", { open: openCount, total: todos.length })}
           </p>
         </div>
         <Button onClick={startCreate}>
           <Plus className="h-4 w-4" />
-          New
+          {t("common.new")}
         </Button>
       </header>
 
       <div className="flex min-h-0 flex-1 flex-col">
         <div className="flex flex-col gap-3 border-b border-border p-4 sm:flex-row sm:items-center">
           <ButtonGroup
-            aria-label="Todo status"
+            aria-label={t("todos.status")}
             onValueChange={setStatusFilter}
-            options={TODO_STATUS_FILTERS}
+            options={TODO_STATUS_FILTERS.map(({ value, labelKey }) => ({
+              value,
+              label: t(labelKey),
+            }))}
             value={statusFilter}
           />
           <CategoryFilterSelect
@@ -290,10 +293,10 @@ export function TodosListView({
           <label className="relative block min-w-0 flex-1">
             <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input
-              aria-label="Filter todos"
+              aria-label={t("todos.filter")}
               className="pl-9"
               onChange={(event) => setQuery(event.target.value)}
-              placeholder="Filter todos"
+              placeholder={t("todos.filter")}
               value={query}
             />
           </label>
@@ -311,27 +314,30 @@ export function TodosListView({
         {filtered.length === 0 ? (
           query.trim() ? (
             <EmptyState
-              title="No matches"
-              description={`Nothing matches “${query.trim()}”.`}
+              title={t("common.noMatches")}
+              description={t("common.nothingMatches", { query: query.trim() })}
             />
           ) : todos.length === 0 ? (
             <EmptyState
-              title="No todos yet"
-              description="Add a task — set a due time to get reminders."
+              title={t("todos.emptyTitle")}
+              description={t("todos.emptyBody")}
               action={
                 <Button onClick={startCreate}>
                   <Plus className="h-4 w-4" />
-                  New todo
+                  {t("todos.new")}
                 </Button>
               }
             />
           ) : statusFilter === "done" ? (
             <EmptyState
-              title="No done todos"
-              description="Completed tasks will show here."
+              title={t("todos.noDoneTitle")}
+              description={t("todos.noDoneBody")}
             />
           ) : (
-            <EmptyState title="No undone todos" description="All caught up." />
+            <EmptyState
+              title={t("todos.noUndoneTitle")}
+              description={t("todos.noUndoneBody")}
+            />
           )
         ) : (
           <Table className="table-fixed" wrapperClassName="min-h-0 flex-1">
@@ -341,35 +347,35 @@ export function TodosListView({
                 <SortableTableHead
                   className="w-14 px-4"
                   column="done"
-                  label="Done"
+                  label={t("todos.done")}
                   onSort={handleSort}
                   sort={sortState}
                 />
                 <SortableTableHead
                   className="w-[28%] px-4"
                   column="title"
-                  label="Title"
+                  label={t("field.title")}
                   onSort={handleSort}
                   sort={sortState}
                 />
                 <SortableTableHead
                   className="w-[20%] px-4"
                   column="due"
-                  label="Due"
+                  label={t("field.due")}
                   onSort={handleSort}
                   sort={sortState}
                 />
                 <SortableTableHead
                   className="w-[14%] px-4"
                   column="priority"
-                  label="Priority"
+                  label={t("field.priority")}
                   onSort={handleSort}
                   sort={sortState}
                 />
                 <SortableTableHead
                   className="w-[18%] px-4"
                   column="category"
-                  label="Category"
+                  label={t("field.category")}
                   onSort={handleSort}
                   sort={sortState}
                 />
@@ -385,7 +391,7 @@ export function TodosListView({
                   <IndexTableCell index={index + 1} />
                   <TableCell className="px-4 py-3">
                     <Checkbox
-                      aria-label={`Toggle ${item.title}`}
+                      aria-label={t("todos.toggle", { title: item.title })}
                       checked={item.done}
                       onCheckedChange={(checked) =>
                         void handleToggle(item.id, checked === true)
@@ -415,7 +421,7 @@ export function TodosListView({
                   </TableCell>
                   <TableCell className="px-4 py-3">
                     <InlineSelect
-                      aria-label={`Priority for ${item.title}`}
+                      aria-label={t("todos.priorityFor", { title: item.title })}
                       display={<PriorityPill priority={item.priority} />}
                       onChange={(priority) =>
                         void handlePriorityChange(
@@ -425,14 +431,14 @@ export function TodosListView({
                       }
                       options={TODO_PRIORITIES.map((priority) => ({
                         value: priority,
-                        label: priority[0].toUpperCase() + priority.slice(1),
+                        label: t(`todos.priority.${priority}`),
                       }))}
                       value={item.priority}
                     />
                   </TableCell>
                   <TableCell className="truncate px-4 py-3 text-muted-foreground">
                     <InlineSelect
-                      aria-label={`Category for ${item.title}`}
+                      aria-label={t("common.categoryFor", { name: item.title })}
                       className="truncate text-muted-foreground"
                       display={item.category || "-"}
                       onChange={(category) =>
@@ -460,20 +466,20 @@ export function TodosListView({
                       </Button>
                       */}
                       <RowActionsMenu
-                        label={`Actions for ${item.title}`}
+                        label={t("common.actionsFor", { name: item.title })}
                         actions={[
                           {
-                            label: "View",
+                            label: t("common.view"),
                             icon: <Eye className="h-4 w-4" />,
                             onSelect: () => setViewing(item),
                           },
                           {
-                            label: "Edit",
+                            label: t("common.edit"),
                             icon: <Pencil className="h-4 w-4" />,
                             onSelect: () => setEditing(item),
                           },
                           {
-                            label: "Delete",
+                            label: t("common.delete"),
                             icon: <Trash2 className="h-4 w-4" />,
                             destructive: true,
                             onSelect: () =>
@@ -507,14 +513,14 @@ export function TodosListView({
                   variant="destructive"
                 >
                   <Trash2 className="h-4 w-4" />
-                  Delete
+                  {t("common.delete")}
                 </Button>
                 <Button
                   onClick={() => void handleToggle(viewing.id, !viewing.done)}
                   type="button"
                   variant="outline"
                 >
-                  {viewing.done ? "Mark open" : "Mark done"}
+                  {t(viewing.done ? "todos.markOpen" : "todos.markDone")}
                 </Button>
                 <Button
                   className="ml-auto"
@@ -526,7 +532,7 @@ export function TodosListView({
                   variant="outline"
                 >
                   <Pencil className="h-4 w-4" />
-                  Edit
+                  {t("common.edit")}
                 </Button>
               </>
             )
@@ -568,10 +574,13 @@ const priorityRank: Record<TodoEntry["priority"], number> = {
 };
 
 export function TodoDetailView({ item }: { item: TodoEntry }) {
+  const { t, tp, locale } = useT();
   return (
     <DetailModalBody>
       <DetailModalHero>
-        <p className="text-xs uppercase text-muted-foreground">Todo</p>
+        <p className="text-xs uppercase text-muted-foreground">
+          {t("todos.todo")}
+        </p>
         <div className="mt-1 flex items-start gap-2">
           {item.done ? (
             <CheckCircle2 className="mt-1 h-4 w-4 text-primary" />
@@ -582,29 +591,35 @@ export function TodoDetailView({ item }: { item: TodoEntry }) {
         </div>
       </DetailModalHero>
       <DetailFields>
-        <DetailField label="Status" value={item.done ? "Done" : "Open"} />
-        <DetailField label="Due">
+        <DetailField
+          label={t("field.status")}
+          value={t(item.done ? "todos.done" : "todos.open")}
+        />
+        <DetailField label={t("field.due")}>
           <div className="mt-1 flex flex-wrap items-center gap-2 text-sm">
             <span>{formatDateTime(item.dueAt)}</span>
             <DueStatusBadge dueAt={item.dueAt} inactive={item.done} />
           </div>
         </DetailField>
         <DetailField
-          label="Reminder"
-          value={`${item.notifyLeadMinutes} minutes before due`}
+          label={t("todos.reminder")}
+          value={tp("todos.minutesBefore", item.notifyLeadMinutes)}
         />
-        <DetailField label="Priority">
+        <DetailField label={t("field.priority")}>
           <div className="mt-1">
             <PriorityPill priority={item.priority} />
           </div>
         </DetailField>
-        <DetailField label="Category" value={item.category} />
-        <DetailField label="Recurrence" value={item.recurrence} />
+        <DetailField label={t("field.category")} value={item.category} />
         <DetailField
-          label="Updated"
-          value={new Date(item.updatedAt).toLocaleString()}
+          label={t("todos.recurrence")}
+          value={t(`todos.recurrence.${item.recurrence}`)}
         />
-        <DetailFieldSpan label="Notes" value={item.notes || "-"} />
+        <DetailField
+          label={t("field.updated")}
+          value={new Date(item.updatedAt).toLocaleString(locale)}
+        />
+        <DetailFieldSpan label={t("field.notes")} value={item.notes || "-"} />
       </DetailFields>
     </DetailModalBody>
   );
@@ -619,6 +634,7 @@ export function TodoEditView({
   onSave: (item: TodoEntry) => void;
   onCancel: () => void;
 }) {
+  const { t } = useT();
   const { categoryOptions, taxonomy } = useTaxonomySettings();
   const [form, setForm] = useState<TodoFormInput>(() =>
     item ? formFromTodo(item) : emptyTodoForm(taxonomy),
@@ -647,36 +663,36 @@ export function TodoEditView({
 
   return (
     <ItemFormShell
-      cancelLabel="Cancel"
-      description="Add a due time to receive scheduler reminders."
+      cancelLabel={t("common.cancel")}
+      description={t("todos.formHint")}
       error={error}
       mode={item ? "edit" : "create"}
       onCancel={onCancel}
       onSubmit={submit}
-      title={item ? "Edit todo" : "New todo"}
+      title={t(item ? "todos.edit" : "todos.new")}
     >
       <label className="col-span-2 space-y-1 text-sm font-medium">
-        Title
+        {t("field.title")}
         <Input
-          aria-label="Todo title"
+          aria-label={t("todos.titleLabel")}
           onChange={(event) => update("title", event.target.value)}
           value={form.title}
         />
       </label>
       <label className="space-y-1 text-sm font-medium">
-        Due
+        {t("field.due")}
         <DateTimePicker
-          aria-label="Todo due"
+          aria-label={t("todos.dueLabel")}
           clearable
           onChange={(dueAt) => update("dueAt", dueAt)}
-          placeholder="No due date"
+          placeholder={t("date.noDueDate")}
           value={form.dueAt}
         />
       </label>
       <label className="space-y-1 text-sm font-medium">
-        Reminder lead
+        {t("todos.reminderLead")}
         <Input
-          aria-label="Todo reminder lead minutes"
+          aria-label={t("todos.reminderLeadLabel")}
           min={0}
           onChange={(event) => update("notifyLeadMinutes", event.target.value)}
           type="number"
@@ -684,9 +700,9 @@ export function TodoEditView({
         />
       </label>
       <label className="space-y-1 text-sm font-medium">
-        Priority
+        {t("field.priority")}
         <Select
-          aria-label="Todo priority"
+          aria-label={t("todos.priorityLabelField")}
           onChange={(event) =>
             update("priority", event.target.value as TodoFormInput["priority"])
           }
@@ -694,15 +710,15 @@ export function TodoEditView({
         >
           {TODO_PRIORITIES.map((priority) => (
             <option key={priority} value={priority}>
-              {priority}
+              {t(`todos.priority.${priority}`)}
             </option>
           ))}
         </Select>
       </label>
       <label className="space-y-1 text-sm font-medium">
-        Recurrence
+        {t("todos.recurrence")}
         <Select
-          aria-label="Todo recurrence"
+          aria-label={t("todos.recurrenceLabel")}
           onChange={(event) =>
             update(
               "recurrence",
@@ -713,24 +729,24 @@ export function TodoEditView({
         >
           {TODO_RECURRENCES.map((recurrence) => (
             <option key={recurrence} value={recurrence}>
-              {recurrence}
+              {t(`todos.recurrence.${recurrence}`)}
             </option>
           ))}
         </Select>
       </label>
       <label className="space-y-1 text-sm font-medium">
-        Category
+        {t("field.category")}
         <CategorySelect
-          aria-label="Todo category"
+          aria-label={t("todos.categoryLabel")}
           onChange={(event) => update("category", event.target.value)}
           options={categoryOptions}
           value={form.category}
         />
       </label>
       <label className="col-span-2 space-y-1 text-sm font-medium">
-        Notes
+        {t("field.notes")}
         <textarea
-          aria-label="Todo notes"
+          aria-label={t("todos.notesLabel")}
           className="min-h-24 w-full rounded-md border border-input bg-card px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
           onChange={(event) => update("notes", event.target.value)}
           value={form.notes}
@@ -756,7 +772,8 @@ const PRIORITY_ICON: Record<
 };
 
 function PriorityPill({ priority }: { priority: TodoEntry["priority"] }) {
-  const label = priority[0].toUpperCase() + priority.slice(1);
+  const { t } = useT();
+  const label = t(`todos.priority.${priority}`);
   const Icon = PRIORITY_ICON[priority];
   return (
     <span

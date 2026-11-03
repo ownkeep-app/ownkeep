@@ -5,11 +5,13 @@ import { Fingerprint, Loader2 } from "lucide-react";
 import { Screen } from "@/components/screen";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useT } from "@/i18n";
 import { whenMainWindowReady } from "@/lib/window";
 import { useVaultStore } from "@/stores/vault-store";
 
 /** Unlock with the master password, or fall back to the recovery code (→ forced new master, §4.1). */
 export function LockScreen() {
+  const { t } = useT();
   const unlock = useVaultStore((s) => s.unlock);
   const unlockRecovery = useVaultStore((s) => s.unlockRecovery);
   const unlockBiometric = useVaultStore((s) => s.unlockBiometric);
@@ -60,9 +62,7 @@ export function LockScreen() {
         await unlock(value);
       }
     } catch {
-      setError(
-        recovery ? "That recovery code didn't work." : "Wrong password.",
-      );
+      setError(t(recovery ? "lock.recoveryFailed" : "lock.wrongPassword"));
     } finally {
       setUnlocking(false);
     }
@@ -74,7 +74,7 @@ export function LockScreen() {
     try {
       await unlockBiometric();
     } catch {
-      setError("Touch ID didn't work — enter your master password.");
+      setError(t("lock.touchIdFailed"));
     } finally {
       setUnlocking(false);
     }
@@ -88,23 +88,23 @@ export function LockScreen() {
         setError(null);
       }
     } catch {
-      setError("Couldn't back up or erase the vault.");
+      setError(t("lock.startFreshFailed"));
     }
   }
 
   return (
     <Screen>
-      <h1 className="text-xl font-semibold">OwnKeep is locked</h1>
+      <h1 className="text-xl font-semibold">{t("lock.title")}</h1>
       {!startFresh && (
         <form onSubmit={onSubmit} className="flex w-full flex-col gap-3">
           {recovery ? (
             <textarea
               ref={recoveryRef}
-              aria-label="Recovery code"
+              aria-label={t("lock.recoveryCode")}
               rows={3}
               disabled={loading}
               className="rounded-md border border-border bg-card p-2 font-mono text-sm"
-              placeholder="Your 12-word recovery code"
+              placeholder={t("lock.recoveryCodePlaceholder")}
               value={value}
               onChange={(e) => setValue(e.target.value)}
             />
@@ -112,8 +112,8 @@ export function LockScreen() {
             <Input
               ref={passwordRef}
               type="password"
-              aria-label="Master password"
-              placeholder="Master password"
+              aria-label={t("auth.masterPassword")}
+              placeholder={t("auth.masterPassword")}
               disabled={loading}
               value={value}
               onChange={(e) => setValue(e.target.value)}
@@ -124,10 +124,10 @@ export function LockScreen() {
             {loading ? (
               <>
                 <Loader2 className="animate-spin" aria-hidden />
-                Unlocking…
+                {t("lock.unlocking")}
               </>
             ) : (
-              "Unlock"
+              t("lock.unlock")
             )}
           </Button>
         </form>
@@ -142,7 +142,7 @@ export function LockScreen() {
           onClick={() => void onTouchId()}
         >
           <Fingerprint aria-hidden />
-          Unlock with Touch ID
+          {t("lock.unlockTouchId")}
         </Button>
       )}
       {!startFresh && (
@@ -156,9 +156,7 @@ export function LockScreen() {
             setError(null);
           }}
         >
-          {recovery
-            ? "Use master password"
-            : "Forgot password? Use recovery code"}
+          {t(recovery ? "lock.useMasterPassword" : "lock.useRecoveryCode")}
         </button>
       )}
       {recovery && !startFresh && (
@@ -172,20 +170,15 @@ export function LockScreen() {
             setError(null);
           }}
         >
-          Lost recovery code too?
+          {t("lock.lostRecoveryCode")}
         </button>
       )}
       {startFresh && (
         <div className="flex w-full flex-col gap-3 rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm">
           <p className="font-medium text-destructive">
-            Back up this vault, then start fresh
+            {t("lock.startFreshTitle")}
           </p>
-          <p className="text-muted-foreground">
-            Save a copy of the encrypted vault file somewhere safe first. Then
-            OwnKeep erases the local vault so you can create a new empty one.
-            Without the master password or recovery code, the backup stays
-            encrypted and unreadable.
-          </p>
+          <p className="text-muted-foreground">{t("lock.startFreshBody")}</p>
           {error && <p className="text-destructive">{error}</p>}
           <div className="flex flex-wrap gap-2">
             {confirmFresh ? (
@@ -197,7 +190,7 @@ export function LockScreen() {
                   aria-busy={loading}
                   onClick={() => void onBackupAndStartFresh()}
                 >
-                  {loading ? "Working…" : "Save copy & erase vault"}
+                  {loading ? t("common.working") : t("lock.saveCopyAndErase")}
                 </Button>
                 <Button
                   type="button"
@@ -205,7 +198,7 @@ export function LockScreen() {
                   disabled={loading}
                   onClick={() => setConfirmFresh(false)}
                 >
-                  Cancel
+                  {t("common.cancel")}
                 </Button>
               </>
             ) : (
@@ -216,7 +209,7 @@ export function LockScreen() {
                   disabled={loading}
                   onClick={() => setConfirmFresh(true)}
                 >
-                  Back up & start fresh
+                  {t("lock.backupAndStartFresh")}
                 </Button>
                 <Button
                   type="button"
@@ -228,7 +221,7 @@ export function LockScreen() {
                     setError(null);
                   }}
                 >
-                  Back
+                  {t("common.back")}
                 </Button>
               </>
             )}

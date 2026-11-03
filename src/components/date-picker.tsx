@@ -8,11 +8,12 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import { type Locale, useT } from "@/i18n";
 import { dateToDateInput, parseDateInput } from "@/lib/date";
 import { cn } from "@/lib/utils";
 
-function formatLocalDate(date: Date): string {
-  return date.toLocaleDateString(undefined, {
+function formatLocalDate(date: Date, locale: Locale): string {
+  return date.toLocaleDateString(locale, {
     month: "short",
     day: "numeric",
     year: "numeric",
@@ -23,7 +24,7 @@ export function DatePicker({
   value,
   onChange,
   "aria-label": ariaLabel,
-  placeholder = "Pick a date",
+  placeholder,
   clearable = false,
   className,
 }: {
@@ -36,6 +37,7 @@ export function DatePicker({
   clearable?: boolean;
   className?: string;
 }) {
+  const { t, locale } = useT();
   const [open, setOpen] = useState(false);
   const selected = parseDateInput(value);
 
@@ -54,7 +56,11 @@ export function DatePicker({
           variant="outline"
         >
           <CalendarIcon />
-          {selected ? formatLocalDate(selected) : <span>{placeholder}</span>}
+          {selected ? (
+            formatLocalDate(selected, locale)
+          ) : (
+            <span>{placeholder ?? t("picker.pickDate")}</span>
+          )}
         </Button>
       </PopoverTrigger>
       <PopoverContent align="start" className="w-auto p-0">

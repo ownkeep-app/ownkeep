@@ -7,7 +7,7 @@ import { NOTES_MODULE_ID } from "./types";
 
 export const notesModule: FeatureModule = {
   id: NOTES_MODULE_ID,
-  title: "Notes",
+  titleKey: "module.notes",
   icon: <StickyNote className="h-4 w-4" />,
   enabledByDefault: true,
   searchableByDefault: false,

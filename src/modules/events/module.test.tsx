@@ -24,7 +24,7 @@ describe("eventsModule surface", () => {
     expect(eventsModule).toEqual(
       expect.objectContaining({
         id: "events",
-        title: "Event Tracker",
+        titleKey: "module.events",
         enabledByDefault: true,
         searchableByDefault: false,
         scopePrefix: "e",

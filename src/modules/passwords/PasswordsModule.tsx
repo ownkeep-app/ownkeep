@@ -53,6 +53,7 @@ import {
   type SortState,
   type SortValue,
 } from "@/lib/table-sort";
+import { useT } from "@/i18n";
 import { writeClipboard } from "@/lib/clipboard";
 import { toastClipboard, toastError, toastSecretCopied } from "@/lib/toast";
 import { isHttpUrl, openExternalUrl } from "@/lib/url";
@@ -79,6 +80,7 @@ import {
 } from "./types";
 
 export function PasswordsListView({ items }: ListViewProps<PasswordEntry>) {
+  const { t, tp } = useT();
   const savePassword = useVaultStore((s) => s.savePassword);
   const deletePassword = useVaultStore((s) => s.deletePassword);
   const copySecret = useVaultStore((s) => s.copySecret);
@@ -169,7 +171,7 @@ export function PasswordsListView({ items }: ListViewProps<PasswordEntry>) {
       await copySecret(id, PASSWORD_SECRET_FIELD);
       toastSecretCopied(clearSeconds);
     } catch {
-      toastError("Couldn't copy the password.");
+      toastError(t("commandBar.copyPasswordFailed"));
     }
   }
 
@@ -177,13 +179,13 @@ export function PasswordsListView({ items }: ListViewProps<PasswordEntry>) {
     try {
       await revealSecret(id, PASSWORD_SECRET_FIELD);
     } catch {
-      toastError("Couldn't reveal the password.");
+      toastError(t("passwords.revealFailed"));
     }
   }
 
   async function handleCopyUsername(username: string) {
     const ok = await writeClipboard(username);
-    toastClipboard(ok, "Username copied");
+    toastClipboard(ok, t("passwords.usernameCopied"));
   }
 
   if (editing !== undefined) {
@@ -200,15 +202,14 @@ export function PasswordsListView({ items }: ListViewProps<PasswordEntry>) {
     <div className="flex h-full flex-col">
       <header className="flex items-center gap-3 border-b border-border px-6 py-4">
         <div className="min-w-0 flex-1">
-          <h1 className="text-lg font-semibold">Passwords</h1>
+          <h1 className="text-lg font-semibold">{t("module.passwords")}</h1>
           <p className="text-sm text-muted-foreground">
-            {passwords.length} saved{" "}
-            {passwords.length === 1 ? "login" : "logins"}
+            {tp("passwords.savedCount", passwords.length)}
           </p>
         </div>
         <Button onClick={startCreate}>
           <Plus className="h-4 w-4" />
-          New
+          {t("common.new")}
         </Button>
       </header>
 
@@ -222,10 +223,10 @@ export function PasswordsListView({ items }: ListViewProps<PasswordEntry>) {
           <label className="relative block min-w-0 flex-1">
             <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input
-              aria-label="Filter passwords"
+              aria-label={t("passwords.filter")}
               className="pl-9"
               onChange={(event) => setQuery(event.target.value)}
-              placeholder="Filter passwords"
+              placeholder={t("passwords.filter")}
               value={query}
             />
           </label>
@@ -242,17 +243,17 @@ export function PasswordsListView({ items }: ListViewProps<PasswordEntry>) {
         {filtered.length === 0 ? (
           query.trim() ? (
             <EmptyState
-              title="No matches"
-              description={`Nothing matches “${query.trim()}”.`}
+              title={t("common.noMatches")}
+              description={t("common.nothingMatches", { query: query.trim() })}
             />
           ) : (
             <EmptyState
-              title="No passwords yet"
-              description="Add your first login to start filling the vault."
+              title={t("passwords.emptyTitle")}
+              description={t("passwords.emptyBody")}
               action={
                 <Button onClick={startCreate}>
                   <Plus className="h-4 w-4" />
-                  New password
+                  {t("passwords.new")}
                 </Button>
               }
             />
@@ -265,33 +266,33 @@ export function PasswordsListView({ items }: ListViewProps<PasswordEntry>) {
                 <SortableTableHead
                   className="w-[22%] px-4"
                   column="name"
-                  label="Name"
+                  label={t("field.name")}
                   onSort={handleSort}
                   sort={sortState}
                 />
                 <SortableTableHead
                   className="w-[32%] px-4"
                   column="username"
-                  label="Username"
+                  label={t("field.username")}
                   onSort={handleSort}
                   sort={sortState}
                 />
                 <SortableTableHead
                   className="w-[14%] px-4"
                   column="password"
-                  label="Password"
+                  label={t("field.password")}
                   onSort={handleSort}
                   sort={sortState}
                 />
                 <SortableTableHead
                   className="w-[14%] px-4"
                   column="category"
-                  label="Category"
+                  label={t("field.category")}
                   onSort={handleSort}
                   sort={sortState}
                 />
                 <TableHead className="w-12 px-2 text-right" scope="col">
-                  <span className="sr-only">Login URL</span>
+                  <span className="sr-only">{t("field.loginUrl")}</span>
                 </TableHead>
                 <ActionsTableHead />
               </TableRow>
@@ -318,7 +319,9 @@ export function PasswordsListView({ items }: ListViewProps<PasswordEntry>) {
                       </span>
                       {item.username.trim() ? (
                         <Button
-                          aria-label={`Copy username for ${item.name}`}
+                          aria-label={t("passwords.copyUsernameFor", {
+                            name: item.name,
+                          })}
                           onClick={() => void handleCopyUsername(item.username)}
                           size="icon"
                           type="button"
@@ -332,7 +335,9 @@ export function PasswordsListView({ items }: ListViewProps<PasswordEntry>) {
                   <TableCell className="px-4 py-3">
                     <div className="flex items-center gap-1">
                       <button
-                        aria-label={`Reveal password for ${item.name}`}
+                        aria-label={t("passwords.revealFor", {
+                          name: item.name,
+                        })}
                         className="font-mono text-sm text-muted-foreground hover:text-foreground"
                         onClick={() => void handleReveal(item.id)}
                         type="button"
@@ -340,7 +345,7 @@ export function PasswordsListView({ items }: ListViewProps<PasswordEntry>) {
                         {MASKED_PASSWORD}
                       </button>
                       <Button
-                        aria-label={`Copy password for ${item.name}`}
+                        aria-label={t("passwords.copyFor", { name: item.name })}
                         onClick={() => void handleCopy(item.id)}
                         size="icon"
                         type="button"
@@ -352,7 +357,7 @@ export function PasswordsListView({ items }: ListViewProps<PasswordEntry>) {
                   </TableCell>
                   <TableCell className="truncate px-4 py-3 text-muted-foreground">
                     <InlineSelect
-                      aria-label={`Category for ${item.name}`}
+                      aria-label={t("common.categoryFor", { name: item.name })}
                       className="truncate text-muted-foreground"
                       display={item.category || "-"}
                       onChange={(category) =>
@@ -369,7 +374,9 @@ export function PasswordsListView({ items }: ListViewProps<PasswordEntry>) {
                     <div className="flex justify-end">
                       {isHttpUrl(item.loginUrl) ? (
                         <Button
-                          aria-label={`Open login URL for ${item.name}`}
+                          aria-label={t("passwords.openLoginUrlFor", {
+                            name: item.name,
+                          })}
                           onClick={() => void openExternalUrl(item.loginUrl)}
                           size="icon"
                           title={item.loginUrl}
@@ -383,20 +390,20 @@ export function PasswordsListView({ items }: ListViewProps<PasswordEntry>) {
                   </TableCell>
                   <TableCell className="px-2 py-2">
                     <RowActionsMenu
-                      label={`Actions for ${item.name}`}
+                      label={t("common.actionsFor", { name: item.name })}
                       actions={[
                         {
-                          label: "View",
+                          label: t("common.view"),
                           icon: <Eye className="h-4 w-4" />,
                           onSelect: () => setViewing(item),
                         },
                         {
-                          label: "Edit",
+                          label: t("common.edit"),
                           icon: <Pencil className="h-4 w-4" />,
                           onSelect: () => setEditing(item),
                         },
                         {
-                          label: "Delete",
+                          label: t("common.delete"),
                           icon: <Trash2 className="h-4 w-4" />,
                           destructive: true,
                           onSelect: () =>
@@ -429,7 +436,7 @@ export function PasswordsListView({ items }: ListViewProps<PasswordEntry>) {
                   variant="destructive"
                 >
                   <Trash2 className="h-4 w-4" />
-                  Delete
+                  {t("common.delete")}
                 </Button>
                 <Button
                   className="ml-auto"
@@ -441,7 +448,7 @@ export function PasswordsListView({ items }: ListViewProps<PasswordEntry>) {
                   variant="outline"
                 >
                   <Pencil className="h-4 w-4" />
-                  Edit
+                  {t("common.edit")}
                 </Button>
               </>
             )
@@ -493,22 +500,25 @@ export function PasswordDetailView({
   onCopy?: () => void;
   onReveal?: () => void;
 }) {
+  const { t, locale } = useT();
   return (
     <DetailModalBody>
       <DetailModalHero>
-        <p className="text-xs uppercase text-muted-foreground">Login</p>
+        <p className="text-xs uppercase text-muted-foreground">
+          {t("passwords.login")}
+        </p>
         <h2 className="break-words text-lg font-semibold">{item.name}</h2>
         <p className="truncate text-sm text-muted-foreground">
-          {item.username || "No username"}
+          {item.username || t("passwords.noUsername")}
         </p>
       </DetailModalHero>
       <DetailFields>
-        <DetailFieldSpan label="Password">
+        <DetailFieldSpan label={t("field.password")}>
           <div className="mt-1 flex items-center gap-2">
             <p className="flex-1 font-mono text-sm">{MASKED_PASSWORD}</p>
             {onReveal && (
               <Button
-                aria-label={`Reveal password for ${item.name}`}
+                aria-label={t("passwords.revealFor", { name: item.name })}
                 onClick={onReveal}
                 size="icon"
                 type="button"
@@ -519,7 +529,7 @@ export function PasswordDetailView({
             )}
             {onCopy && (
               <Button
-                aria-label={`Copy password for ${item.name}`}
+                aria-label={t("passwords.copyFor", { name: item.name })}
                 onClick={onCopy}
                 size="icon"
                 type="button"
@@ -530,14 +540,17 @@ export function PasswordDetailView({
             )}
           </div>
         </DetailFieldSpan>
-        <DetailUrlField label="Login URL" value={item.loginUrl} />
-        <DetailUrlField label="Recovery URL" value={item.recoveryUrl} />
-        <DetailField label="Category" value={item.category} />
-        <DetailField
-          label="Updated"
-          value={new Date(item.updatedAt).toLocaleString()}
+        <DetailUrlField label={t("field.loginUrl")} value={item.loginUrl} />
+        <DetailUrlField
+          label={t("field.recoveryUrl")}
+          value={item.recoveryUrl}
         />
-        <DetailFieldSpan label="Notes" value={item.notes || "-"} />
+        <DetailField label={t("field.category")} value={item.category} />
+        <DetailField
+          label={t("field.updated")}
+          value={new Date(item.updatedAt).toLocaleString(locale)}
+        />
+        <DetailFieldSpan label={t("field.notes")} value={item.notes || "-"} />
       </DetailFields>
     </DetailModalBody>
   );
@@ -552,6 +565,7 @@ export function PasswordEditView({
   onSave: (item: PasswordEntry) => void;
   onCancel: () => void;
 }) {
+  const { t } = useT();
   const { categoryOptions, taxonomy } = useTaxonomySettings();
   const mode = item ? "edit" : "create";
   const [form, setForm] = useState<PasswordFormInput>(() =>
@@ -570,7 +584,7 @@ export function PasswordEditView({
     const password = generateSecurePassword();
     update("password", password);
     const ok = await writeClipboard(password);
-    toastClipboard(ok, "Password generated and copied");
+    toastClipboard(ok, t("passwords.generatedCopied"));
   }
 
   function submit(event: FormEvent<HTMLFormElement>) {
@@ -590,41 +604,41 @@ export function PasswordEditView({
 
   return (
     <ItemFormShell
-      cancelLabel="Cancel password edit"
+      cancelLabel={t("passwords.cancelEdit")}
       error={error}
       mode={mode}
       onCancel={onCancel}
       onSubmit={submit}
-      title={item ? "Edit password" : "New password"}
+      title={t(item ? "passwords.edit" : "passwords.new")}
     >
-      <Field label="Name">
+      <Field label={t("field.name")}>
         <Input
-          aria-label="Password name"
+          aria-label={t("passwords.nameLabel")}
           autoFocus
           onChange={(event) => update("name", event.target.value)}
           value={form.name}
         />
       </Field>
-      <Field label="Username">
+      <Field label={t("field.username")}>
         <Input
-          aria-label="Password username"
+          aria-label={t("passwords.usernameLabel")}
           onChange={(event) => update("username", event.target.value)}
           value={form.username}
         />
       </Field>
-      <Field label="Category">
+      <Field label={t("field.category")}>
         <CategorySelect
-          aria-label="Password category"
+          aria-label={t("passwords.categoryLabel")}
           onChange={(event) => update("category", event.target.value)}
           options={categoryOptions}
           value={form.category}
         />
       </Field>
       <div className="flex flex-col gap-1 text-sm font-medium">
-        <span>{item ? "Password (leave blank to keep)" : "Password"}</span>
+        <span>{t(item ? "passwords.keepBlank" : "field.password")}</span>
         <div className="flex items-center gap-2">
           <Input
-            aria-label="Password value"
+            aria-label={t("passwords.valueLabel")}
             className="min-w-0 flex-1"
             onChange={(event) => update("password", event.target.value)}
             type="password"
@@ -636,28 +650,28 @@ export function PasswordEditView({
               type="button"
               variant="outline"
             >
-              Generate
+              {t("passwords.generate")}
             </Button>
           ) : null}
         </div>
       </div>
-      <Field label="Login URL">
+      <Field label={t("field.loginUrl")}>
         <Input
-          aria-label="Login URL"
+          aria-label={t("field.loginUrl")}
           onChange={(event) => update("loginUrl", event.target.value)}
           value={form.loginUrl}
         />
       </Field>
-      <Field label="Recovery URL">
+      <Field label={t("field.recoveryUrl")}>
         <Input
-          aria-label="Recovery URL"
+          aria-label={t("field.recoveryUrl")}
           onChange={(event) => update("recoveryUrl", event.target.value)}
           value={form.recoveryUrl}
         />
       </Field>
-      <Field className="col-span-2" label="Notes">
+      <Field className="col-span-2" label={t("field.notes")}>
         <textarea
-          aria-label="Password notes"
+          aria-label={t("passwords.notesLabel")}
           className="min-h-24 rounded-md border border-input bg-card px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
           onChange={(event) => update("notes", event.target.value)}
           value={form.notes}

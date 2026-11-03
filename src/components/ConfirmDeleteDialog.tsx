@@ -7,6 +7,7 @@ import {
   modalPanelClassName,
 } from "@/components/modal-styles";
 import { Button } from "@/components/ui/button";
+import { useT } from "@/i18n";
 import { fadeTransition, motionOrUndefined } from "@/lib/motion";
 import { cn } from "@/lib/utils";
 
@@ -26,6 +27,7 @@ export function ConfirmDeleteDialog({
   onCancel: () => void;
   onConfirm: () => void;
 }) {
+  const { t } = useT();
   const cancelRef = useRef<HTMLButtonElement>(null);
   const reduce = useReducedMotion();
 
@@ -51,7 +53,7 @@ export function ConfirmDeleteDialog({
           role="presentation"
         >
           <button
-            aria-label="Dismiss delete confirmation"
+            aria-label={t("confirmDelete.dismiss")}
             className="absolute inset-0 h-full w-full cursor-default"
             onClick={onCancel}
             tabIndex={-1}
@@ -65,13 +67,13 @@ export function ConfirmDeleteDialog({
             role="alertdialog"
           >
             <h2 className="text-base font-semibold" id="confirm-delete-title">
-              Delete “{itemName}”?
+              {t("confirmDelete.title", { name: itemName })}
             </h2>
             <p
               className="mt-2 text-sm text-muted-foreground"
               id="confirm-delete-description"
             >
-              This cannot be undone.
+              {t("confirmDelete.body")}
             </p>
             <div className="mt-5 flex flex-wrap justify-end gap-2">
               <Button
@@ -80,10 +82,10 @@ export function ConfirmDeleteDialog({
                 type="button"
                 variant="outline"
               >
-                Cancel
+                {t("common.cancel")}
               </Button>
               <Button onClick={onConfirm} type="button" variant="destructive">
-                Delete
+                {t("common.delete")}
               </Button>
             </div>
           </section>

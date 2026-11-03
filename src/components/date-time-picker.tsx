@@ -17,10 +17,11 @@ import {
   normalizeTimeInput,
   parseDateTimeInput,
 } from "@/lib/date";
+import { type Locale, useT } from "@/i18n";
 import { cn } from "@/lib/utils";
 
-function formatTriggerLabel(date: Date): string {
-  return date.toLocaleString(undefined, {
+function formatTriggerLabel(date: Date, locale: Locale): string {
+  return date.toLocaleString(locale, {
     month: "short",
     day: "numeric",
     year: "numeric",
@@ -33,7 +34,7 @@ export function DateTimePicker({
   value,
   onChange,
   "aria-label": ariaLabel,
-  placeholder = "Pick a date & time",
+  placeholder,
   clearable = false,
   className,
 }: {
@@ -45,11 +46,12 @@ export function DateTimePicker({
   clearable?: boolean;
   className?: string;
 }) {
+  const { t, locale } = useT();
   const [open, setOpen] = useState(false);
   const selected = parseDateTimeInput(value);
   const datePart = selected ? dateToDateInput(selected) : "";
   const timePart = selected ? dateToTimeInput(selected) : DEFAULT_DUE_TIME;
-  const label = selected ? formatTriggerLabel(selected) : "";
+  const label = selected ? formatTriggerLabel(selected, locale) : "";
 
   function commit(nextDate: string, nextTime: string) {
     const combined = combineDateAndTime(nextDate, nextTime);
@@ -71,7 +73,11 @@ export function DateTimePicker({
           variant="outline"
         >
           <CalendarIcon />
-          {selected ? label : <span>{placeholder}</span>}
+          {selected ? (
+            label
+          ) : (
+            <span>{placeholder ?? t("picker.pickDateTime")}</span>
+          )}
         </Button>
       </PopoverTrigger>
       <PopoverContent align="start" className="w-auto p-0">
@@ -101,9 +107,13 @@ export function DateTimePicker({
         />
         <div className="border-t border-border p-3">
           <label className="flex items-center gap-2 text-sm">
-            <span className="text-muted-foreground">Time</span>
+            <span className="text-muted-foreground">{t("picker.time")}</span>
             <Input
-              aria-label={ariaLabel ? `${ariaLabel} time` : "Due time"}
+              aria-label={
+                ariaLabel
+                  ? t("picker.timeOf", { label: ariaLabel })
+                  : t("picker.dueTime")
+              }
               className="h-8"
               disabled={!datePart}
               onChange={(event) => {

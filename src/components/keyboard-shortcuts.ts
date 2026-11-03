@@ -1,39 +1,42 @@
+import type { MessageKey } from "@/i18n";
+
 export interface Shortcut {
-  keys: string[];
-  label: string;
+  /** Key glyphs, or a message key for a key named in words (e.g. "Type"). */
+  keys: (string | MessageKey)[];
+  labelKey: MessageKey;
 }
 
 export interface ShortcutGroup {
-  title: string;
+  titleKey: MessageKey;
   shortcuts: Shortcut[];
 }
 
 /** Keyboard maps surfaced by the in-app cheat sheet (spec §10). */
 export const COMMAND_BAR_SHORTCUTS: ShortcutGroup = {
-  title: "Command bar",
+  titleKey: "shortcuts.commandBar",
   shortcuts: [
-    { keys: ["Type"], label: "Search across searchable modules" },
-    { keys: ["⌥", "⇧", "1–9"], label: "Run a result's primary action" },
-    { keys: ["⌥", "⌘", "1–9"], label: "Copy a command's raw template" },
-    { keys: ["↵"], label: "Run the selected result" },
-    { keys: ["Esc"], label: "Hide the launcher" },
+    { keys: ["shortcuts.key.type"], labelKey: "shortcuts.search" },
+    { keys: ["⌥", "⇧", "1–9"], labelKey: "shortcuts.runPrimary" },
+    { keys: ["⌥", "⌘", "1–9"], labelKey: "shortcuts.copyRaw" },
+    { keys: ["↵"], labelKey: "shortcuts.runSelected" },
+    { keys: ["Esc"], labelKey: "shortcuts.hideLauncher" },
   ],
 };
 
 export const DASHBOARD_SHORTCUTS: ShortcutGroup = {
-  title: "Dashboard",
+  titleKey: "shortcuts.dashboard",
   shortcuts: [
-    { keys: ["⌥", "⇧", "1–9"], label: "Jump to the Nth module" },
-    { keys: ["↑", "↓"], label: "Move through the sidebar" },
+    { keys: ["⌥", "⇧", "1–9"], labelKey: "shortcuts.jumpToModule" },
+    { keys: ["↑", "↓"], labelKey: "shortcuts.moveSidebar" },
   ],
 };
 
 export const GLOBAL_SHORTCUTS: ShortcutGroup = {
-  title: "Anywhere",
+  titleKey: "shortcuts.anywhere",
   shortcuts: [
-    { keys: ["⌘", "⇧", "Space"], label: "Summon the command bar" },
-    { keys: ["⌘", "⇧", "D"], label: "Toggle the Dashboard window" },
-    { keys: ["⌘", "H"], label: "Show this shortcut help" },
-    { keys: ["⌘", "/"], label: "About OwnKeep" },
+    { keys: ["⌘", "⇧", "Space"], labelKey: "shortcuts.summonBar" },
+    { keys: ["⌘", "⇧", "D"], labelKey: "shortcuts.toggleDashboard" },
+    { keys: ["⌘", "H"], labelKey: "shortcuts.showHelp" },
+    { keys: ["⌘", "/"], labelKey: "shortcuts.about" },
   ],
 };

@@ -1,3 +1,5 @@
+import { type Locale, currentLocale, t } from "@/i18n";
+
 /** Calendar date string `YYYY-MM-DD` used by date pickers / forms. */
 const DATE_INPUT_PATTERN = /^(\d{4})-(\d{2})-(\d{2})$/;
 /** Local datetime form value `YYYY-MM-DDTHH:mm:ss`. */
@@ -61,12 +63,12 @@ export function dateTimeInputToIso(value: string): string | null {
 /** Format a stored ISO timestamp as a date-only label in the user's locale. */
 export function formatDate(
   iso: string | null | undefined,
-  emptyLabel = "No due date",
+  emptyLabel = t("date.noDueDate"),
 ): string {
   if (!iso) return emptyLabel;
   const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return "Invalid date";
-  return date.toLocaleDateString(undefined, {
+  if (Number.isNaN(date.getTime())) return t("date.invalid");
+  return date.toLocaleDateString(currentLocale(), {
     month: "short",
     day: "numeric",
     year: "numeric",
@@ -76,12 +78,12 @@ export function formatDate(
 /** Format a stored ISO timestamp as a date + time label in the user's locale. */
 export function formatDateTime(
   iso: string | null | undefined,
-  emptyLabel = "No due date",
+  emptyLabel = t("date.noDueDate"),
 ): string {
   if (!iso) return emptyLabel;
   const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return "Invalid date";
-  return date.toLocaleString(undefined, {
+  if (Number.isNaN(date.getTime())) return t("date.invalid");
+  return date.toLocaleString(currentLocale(), {
     month: "short",
     day: "numeric",
     year: "numeric",
@@ -186,4 +188,25 @@ export function combineDateAndTime(
   if (!parseDateInput(datePart)) return null;
   const time = normalizeTimeInput(timePart ?? "") ?? DEFAULT_DUE_TIME;
   return `${datePart}T${time}`;
+}
+
+/** Month and weekday names (Sunday first) in `locale`, in the shape uPlot's `fmtDate` expects. */
+export function localeDateNames(locale: Locale) {
+  const names = (
+    count: number,
+    date: (index: number) => Date,
+    options: Intl.DateTimeFormatOptions,
+  ) =>
+    Array.from({ length: count }, (_, index) =>
+      date(index).toLocaleDateString(locale, options),
+    );
+  const month = (index: number) => new Date(2000, index, 1);
+  // 2000-01-02 was a Sunday.
+  const weekday = (index: number) => new Date(2000, 0, 2 + index);
+  return {
+    MMMM: names(12, month, { month: "long" }),
+    MMM: names(12, month, { month: "short" }),
+    WWWW: names(7, weekday, { weekday: "long" }),
+    WWW: names(7, weekday, { weekday: "short" }),
+  };
 }

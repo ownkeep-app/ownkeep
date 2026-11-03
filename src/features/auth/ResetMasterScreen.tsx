@@ -3,11 +3,13 @@ import { type FormEvent, useEffect, useRef, useState } from "react";
 import { Screen } from "@/components/screen";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useT } from "@/i18n";
 import { whenMainWindowReady } from "@/lib/window";
 import { useVaultStore } from "@/stores/vault-store";
 
 /** Shown after a recovery-code unlock (§4.1 path B): the user must set a new master password. */
 export function ResetMasterScreen() {
+  const { t } = useT();
   const changeMaster = useVaultStore((s) => s.changeMaster);
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
@@ -23,11 +25,11 @@ export function ResetMasterScreen() {
     event.preventDefault();
     setError(null);
     if (password.length < 8) {
-      setError("Use at least 8 characters.");
+      setError(t("auth.passwordTooShort"));
       return;
     }
     if (password !== confirm) {
-      setError("Passwords don't match.");
+      setError(t("auth.passwordMismatch"));
       return;
     }
     setBusy(true);
@@ -42,30 +44,27 @@ export function ResetMasterScreen() {
 
   return (
     <Screen>
-      <h1 className="text-xl font-semibold">Set a new master password</h1>
-      <p className="text-sm text-muted-foreground">
-        You unlocked with your recovery code. Choose a new master password to
-        finish.
-      </p>
+      <h1 className="text-xl font-semibold">{t("reset.title")}</h1>
+      <p className="text-sm text-muted-foreground">{t("reset.body")}</p>
       <form onSubmit={onSubmit} className="flex w-full flex-col gap-3">
         <Input
           ref={passwordRef}
           type="password"
-          aria-label="New master password"
-          placeholder="New master password"
+          aria-label={t("reset.newPassword")}
+          placeholder={t("reset.newPassword")}
           value={password}
           onChange={(e) => setPassword(e.target.value)}
         />
         <Input
           type="password"
-          aria-label="Confirm password"
-          placeholder="Confirm password"
+          aria-label={t("auth.confirmPassword")}
+          placeholder={t("auth.confirmPassword")}
           value={confirm}
           onChange={(e) => setConfirm(e.target.value)}
         />
         {error && <p className="text-sm text-destructive">{error}</p>}
         <Button type="submit" disabled={busy}>
-          {busy ? "Saving…" : "Set password"}
+          {busy ? t("common.saving") : t("reset.submit")}
         </Button>
       </form>
     </Screen>

@@ -3,6 +3,7 @@ import { X } from "lucide-react";
 
 import { modalPanelClassName } from "@/components/modal-styles";
 import { Button } from "@/components/ui/button";
+import { useT } from "@/i18n";
 import { cn } from "@/lib/utils";
 
 /**
@@ -36,10 +37,11 @@ export function ItemFormShell({
   /** Optional action pinned bottom-left, apart from Cancel/Save (e.g. a destructive Delete). */
   secondaryAction?: ReactNode;
 }) {
+  const { t } = useT();
   return (
     <div className="relative flex h-full flex-col overflow-hidden">
       <button
-        aria-label="Dismiss form"
+        aria-label={t("form.dismiss")}
         className="absolute inset-0 bg-foreground/15 dark:bg-black/50"
         onClick={onCancel}
         type="button"
@@ -65,7 +67,7 @@ export function ItemFormShell({
           <header className="flex shrink-0 items-start gap-3 border-b border-border px-6 py-4">
             <div className="min-w-0 flex-1 space-y-1">
               <p className="text-xs font-medium uppercase tracking-wide text-primary">
-                {mode === "create" ? "Creating" : "Editing"}
+                {t(mode === "create" ? "form.creating" : "form.editing")}
               </p>
               <h1 className="text-lg font-semibold">{title}</h1>
               {description ? (
@@ -100,7 +102,7 @@ export function ItemFormShell({
               <div className="mr-auto">{secondaryAction}</div>
             ) : null}
             <div
-              aria-label="Form actions"
+              aria-label={t("form.actions")}
               className="flex gap-2 rounded-lg border border-orange-200/80 bg-orange-50/80 p-2 shadow-sm dark:border-orange-400/20 dark:bg-orange-400/10"
               role="group"
             >
@@ -110,9 +112,9 @@ export function ItemFormShell({
                 type="button"
                 variant="outline"
               >
-                Cancel
+                {t("common.cancel")}
               </Button>
-              <Button type="submit">Save</Button>
+              <Button type="submit">{t("common.save")}</Button>
             </div>
           </footer>
         </form>

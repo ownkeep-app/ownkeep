@@ -1,6 +1,7 @@
 import { act, render, screen } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, onTestFinished, vi } from "vitest";
 
+import { useI18nStore } from "@/i18n";
 import { currentWindowLabel, setMainWindowMode } from "@/lib/window";
 import { useVaultStore } from "@/stores/vault-store";
 import { vaultApi } from "@/vault/api";
@@ -44,6 +45,7 @@ vi.mock("@/vault/api", () => ({
     lock: vi.fn(async () => {}),
     setAutoLock: vi.fn(async () => {}),
     setHotkeys: vi.fn(async () => {}),
+    setLocale: vi.fn(async () => {}),
     changeMaster: vi.fn(async () => {}),
     regenerateRecovery: vi.fn(),
   },
@@ -110,6 +112,33 @@ describe("App routing", () => {
     window.dispatchEvent(new Event("focus"));
 
     expect(mockSetMainWindowMode).not.toHaveBeenCalled();
+  });
+
+  it("switches the UI to the vault's language and keeps it on the lock screen", async () => {
+    onTestFinished(() => useI18nStore.getState().setLanguage("system"));
+    api.getVault.mockResolvedValue(
+      JSON.stringify({ settings: { language: "zh-CN" } }),
+    );
+    render(<App />);
+
+    expect(
+      await screen.findByRole("combobox", { name: "搜索 OwnKeep" }),
+    ).toBeVisible();
+    expect(document.documentElement.lang).toBe("zh-CN");
+    expect(api.setLocale).toHaveBeenLastCalledWith("zh-CN");
+
+    act(() => useVaultStore.setState({ status: "locked", model: null }));
+    expect(await screen.findByText("OwnKeep 已锁定")).toBeVisible();
+  });
+
+  it("falls back to the default language for an unknown stored value", async () => {
+    api.getVault.mockResolvedValue(
+      JSON.stringify({ settings: { language: "fr" } }),
+    );
+    render(<App />);
+    await screen.findByRole("combobox", { name: /search OwnKeep/i });
+    expect(useVaultStore.getState().model?.settings.language).toBe("system");
+    expect(api.setLocale).toHaveBeenLastCalledWith("en");
   });
 
   it("subscribes to system theme changes when theme is set to system", async () => {

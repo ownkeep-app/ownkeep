@@ -1,13 +1,15 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
+import { t } from "@/i18n";
+
 import { MODULES } from "./registry";
 
 describe("MODULES registry", () => {
   it("declares each module's defaults and dashboard ListView", () => {
     for (const module of MODULES) {
       expect(module.id).toBeTruthy();
-      expect(module.title).toBeTruthy();
+      expect(t(module.titleKey)).toBeTruthy();
       const empty = module.createEmpty();
       expect(empty).toBeDefined();
       // Exercise the index builders for coverage; placeholder modules return [].
@@ -16,7 +18,7 @@ describe("MODULES registry", () => {
       ).toBeDefined();
 
       const { unmount } = render(<module.ListView items={[]} />);
-      expect(screen.getByText(module.title)).toBeVisible();
+      expect(screen.getByText(t(module.titleKey))).toBeVisible();
       unmount();
     }
   });

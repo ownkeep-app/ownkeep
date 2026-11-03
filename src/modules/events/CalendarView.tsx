@@ -4,6 +4,7 @@ import { ChevronLeft, ChevronRight, Flag, Paperclip } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
+import { type Locale, useT } from "@/i18n";
 import { cn } from "@/lib/utils";
 import { TagIcon } from "./icons";
 import { ItemLine } from "./ItemLine";
@@ -21,14 +22,22 @@ import {
 } from "./logic";
 import type { TrackedEvent } from "./types";
 
-const WEEKDAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 const MAX_ITEMS_PER_CELL = 3;
 const MONTH_INDEXES = Array.from({ length: 12 }, (_, month) => month);
 
-function monthName(month: number): string {
-  return new Date(2000, month, 1).toLocaleDateString(undefined, {
+function monthName(month: number, locale: Locale): string {
+  return new Date(2000, month, 1).toLocaleDateString(locale, {
     month: "short",
   });
+}
+
+/** Monday-first short weekday names; 2000-01-03 was a Monday. */
+function weekdayLabels(locale: Locale): string[] {
+  return Array.from({ length: 7 }, (_, offset) =>
+    new Date(2000, 0, 3 + offset).toLocaleDateString(locale, {
+      weekday: "short",
+    }),
+  );
 }
 
 export function CalendarView({
@@ -38,6 +47,7 @@ export function CalendarView({
   event: TrackedEvent;
   onOpenDay: (date: string) => void;
 }) {
+  const { t, locale } = useT();
   const today = todayKey();
   const [cursor, setCursor] = useState(() => monthOf(today));
   const weeks = useMemo(() => monthGrid(cursor), [cursor]);
@@ -46,7 +56,7 @@ export function CalendarView({
     (left, right) => right - left,
   );
   const monthLabel = new Date(cursor.year, cursor.month, 1).toLocaleDateString(
-    undefined,
+    locale,
     { month: "long", year: "numeric" },
   );
 
@@ -60,7 +70,7 @@ export function CalendarView({
           {monthLabel}
         </h2>
         <Select
-          aria-label="Jump to year"
+          aria-label={t("events.jumpToYear")}
           className="w-24"
           onChange={(change) =>
             setCursor((current) => ({
@@ -77,7 +87,7 @@ export function CalendarView({
           ))}
         </Select>
         <Select
-          aria-label="Jump to month"
+          aria-label={t("events.jumpToMonth")}
           className="w-24"
           onChange={(change) =>
             setCursor((current) => ({
@@ -89,7 +99,7 @@ export function CalendarView({
         >
           {MONTH_INDEXES.map((month) => (
             <option key={month} value={month}>
-              {monthName(month)}
+              {monthName(month, locale)}
             </option>
           ))}
         </Select>
@@ -99,10 +109,10 @@ export function CalendarView({
           type="button"
           variant="outline"
         >
-          Today
+          {t("events.today")}
         </Button>
         <Button
-          aria-label="Previous month"
+          aria-label={t("events.previousMonth")}
           onClick={() => setCursor((current) => shiftMonth(current, -1))}
           size="icon"
           type="button"
@@ -111,7 +121,7 @@ export function CalendarView({
           <ChevronLeft className="h-4 w-4" />
         </Button>
         <Button
-          aria-label="Next month"
+          aria-label={t("events.nextMonth")}
           onClick={() => setCursor((current) => shiftMonth(current, 1))}
           size="icon"
           type="button"
@@ -123,7 +133,7 @@ export function CalendarView({
 
       <div className="flex min-h-0 flex-1 flex-col overflow-auto">
         <div className="sticky top-0 z-10 grid grid-cols-7 border-b border-border bg-background pb-1 text-xs font-medium uppercase text-muted-foreground">
-          {WEEKDAY_LABELS.map((label) => (
+          {weekdayLabels(locale).map((label) => (
             <span className="px-2" key={label}>
               {label}
             </span>
@@ -163,6 +173,7 @@ function DayCell({
   isToday: boolean;
   onOpen: () => void;
 }) {
+  const { t } = useT();
   const day = dayFor(event, date);
   const tags = day ? trackedTagValues(event, day) : [];
   const items = day?.items ?? [];
@@ -175,7 +186,13 @@ function DayCell({
 
   return (
     <button
-      aria-label={`${date}${day ? ", tracked" : ""}${milestone ? ", milestone" : ""}`}
+      aria-label={[
+        date,
+        day ? t("events.trackedLower") : null,
+        milestone ? t("events.milestoneLower") : null,
+      ]
+        .filter(Boolean)
+        .join(t("events.listSeparator"))}
       className={cn(
         "flex min-w-0 flex-col gap-1 overflow-hidden [&>*]:shrink-0 border-b border-r border-border p-1.5 text-left text-xs transition-colors hover:bg-accent/50 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ring [&:nth-child(7n+1)]:border-l",
         !inMonth && "bg-muted/30 text-muted-foreground",
@@ -198,7 +215,7 @@ function DayCell({
         </span>
         {milestone ? (
           <Flag
-            aria-label="Milestone"
+            aria-label={t("events.milestone")}
             className="mr-auto ml-1 h-3.5 w-3.5 fill-current text-amber-500"
           />
         ) : null}
@@ -221,7 +238,11 @@ function DayCell({
               )}
               data-important={tag.important ? "" : undefined}
               key={tag.id}
-              title={tag.important ? `${tag.name} (important)` : tag.name}
+              title={
+                tag.important
+                  ? t("events.importantTag", { name: tag.name })
+                  : tag.name
+              }
             >
               <TagIcon className="h-3 w-3" icon={tag.icon} />
               <span className="truncate">{formatTagValue(tag, value)}</span>
@@ -233,7 +254,9 @@ function DayCell({
         <ItemLine item={item} key={item.id} />
       ))}
       {hiddenItems > 0 ? (
-        <span className="text-muted-foreground">+{hiddenItems} more</span>
+        <span className="text-muted-foreground">
+          {t("events.moreCount", { count: hiddenItems })}
+        </span>
       ) : null}
       {day?.note ? (
         <p

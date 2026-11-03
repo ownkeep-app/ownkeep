@@ -23,7 +23,7 @@ interface DummyItem {
 
 const dummyModule: FeatureModule = {
   id: "dummy",
-  title: "Dummy",
+  titleKey: "module.todos",
   icon: null,
   enabledByDefault: true,
   searchableByDefault: false,

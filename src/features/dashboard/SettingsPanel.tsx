@@ -21,6 +21,12 @@ import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { VaultPathHint } from "@/components/VaultPathHint";
+import {
+  type LanguageSetting,
+  type MessageKey,
+  isLanguageSetting,
+  useT,
+} from "@/i18n";
 import { toastSuccess } from "@/lib/toast";
 import { MODULES } from "@/modules/registry";
 import { useVaultStore } from "@/stores/vault-store";
@@ -29,19 +35,26 @@ import type { Theme } from "@/vault/model";
 import { parseOptionLines } from "@/vault/taxonomy";
 
 /** Auto-lock presets (spec §4.3/§9). `0` = never — the vault stays open until locked manually. */
-const AUTO_LOCK_OPTIONS: { label: string; minutes: number }[] = [
-  { label: "5 minutes", minutes: 5 },
-  { label: "15 minutes", minutes: 15 },
-  { label: "30 minutes", minutes: 30 },
-  { label: "1 hour", minutes: 60 },
-  { label: "3 hours", minutes: 180 },
-  { label: "Never", minutes: 0 },
+const AUTO_LOCK_OPTIONS: { labelKey: MessageKey; minutes: number }[] = [
+  { labelKey: "settings.autoLock.5m", minutes: 5 },
+  { labelKey: "settings.autoLock.15m", minutes: 15 },
+  { labelKey: "settings.autoLock.30m", minutes: 30 },
+  { labelKey: "settings.autoLock.1h", minutes: 60 },
+  { labelKey: "settings.autoLock.3h", minutes: 180 },
+  { labelKey: "settings.autoLock.never", minutes: 0 },
 ];
 
-const THEME_OPTIONS: ButtonGroupOption<Theme>[] = [
-  { value: "system", label: "System" },
-  { value: "light", label: "Light" },
-  { value: "dark", label: "Dark" },
+const THEME_OPTIONS: { value: Theme; labelKey: MessageKey }[] = [
+  { value: "system", labelKey: "settings.theme.system" },
+  { value: "light", labelKey: "settings.theme.light" },
+  { value: "dark", labelKey: "settings.theme.dark" },
+];
+
+/** Locale names stay in their own language so either can be found from the other. */
+const LANGUAGE_OPTIONS: { value: LanguageSetting; labelKey: MessageKey }[] = [
+  { value: "system", labelKey: "settings.language.system" },
+  { value: "en", labelKey: "settings.language.en" },
+  { value: "zh-CN", labelKey: "settings.language.zhCN" },
 ];
 
 const CLIPBOARD_CLEAR_OPTIONS = [10, 30, 60, 120, 300];
@@ -50,16 +63,18 @@ const RESULT_LIMIT_OPTIONS = [3, 5, 7, 9];
 type RestoreMode = "password" | "recovery";
 type SettingsMenu = "settings" | "system";
 
-const SETTINGS_MENUS: ButtonGroupOption<SettingsMenu>[] = [
+const SETTINGS_MENUS: (Omit<ButtonGroupOption<SettingsMenu>, "label"> & {
+  labelKey: MessageKey;
+})[] = [
   {
     value: "settings",
-    label: "Settings",
+    labelKey: "settings.menu.settings",
     icon: <SlidersHorizontal className="h-4 w-4" />,
     controls: "settings-settings-panel",
   },
   {
     value: "system",
-    label: "System",
+    labelKey: "settings.menu.system",
     icon: <Monitor className="h-4 w-4" />,
     controls: "settings-system-panel",
   },
@@ -67,6 +82,7 @@ const SETTINGS_MENUS: ButtonGroupOption<SettingsMenu>[] = [
 
 /** Settings pane for backup/restore plus encrypted user preferences (spec §9/§11). */
 export function SettingsPanel() {
+  const { t } = useT();
   const model = useVaultStore((s) => s.model);
   const busy = useVaultStore((s) => s.busy);
   const error = useVaultStore((s) => s.error);
@@ -146,7 +162,7 @@ export function SettingsPanel() {
     const categoryOptions = parseOptionLines(categoryOptionsText);
     const tagOptions = parseOptionLines(tagOptionsText);
     if (categoryOptions.length === 0 || tagOptions.length === 0) {
-      setMessage("Category and tag option lists cannot be empty.");
+      setMessage(t("settings.taxonomyEmpty"));
       return;
     }
     setCategoryOptionsText(categoryOptions.join("\n"));
@@ -156,7 +172,7 @@ export function SettingsPanel() {
       tagOptions.join("\n") !== settings.tagOptions.join("\n")
     ) {
       await updateSettings({ categoryOptions, tagOptions });
-      toastSuccess("Category and tag options saved.");
+      toastSuccess(t("settings.taxonomySaved"));
     }
   }
 
@@ -164,9 +180,9 @@ export function SettingsPanel() {
     setMessage(null);
     const path = await backupVault();
     if (path) {
-      toastSuccess(`Backup saved to ${path}`);
+      toastSuccess(t("settings.backupSaved", { path }));
     } else {
-      setMessage("Backup canceled.");
+      setMessage(t("settings.backupCanceled"));
     }
   }
 
@@ -181,7 +197,7 @@ export function SettingsPanel() {
         : await restoreVaultWithRecovery(secret);
     setRestoreSecret("");
     if (restoredPath) {
-      toastSuccess(`Vault restored from ${restoredPath}`);
+      toastSuccess(t("settings.restored", { path: restoredPath }));
     }
   }
 
@@ -191,13 +207,13 @@ export function SettingsPanel() {
     try {
       if (next) {
         await enableBiometric();
-        toastSuccess("Touch ID unlock enabled.");
+        toastSuccess(t("settings.touchIdEnabled"));
       } else {
         await disableBiometric();
-        toastSuccess("Touch ID unlock disabled.");
+        toastSuccess(t("settings.touchIdDisabled"));
       }
     } catch {
-      setMessage("Touch ID change didn't complete.");
+      setMessage(t("settings.touchIdToggleFailed"));
     } finally {
       setBiometricBusy(false);
       await refreshBiometric();
@@ -209,9 +225,9 @@ export function SettingsPanel() {
     setBiometricBusy(true);
     try {
       await reenrollBiometric();
-      toastSuccess("Touch ID re-enrolled.");
+      toastSuccess(t("settings.touchIdReenrolled"));
     } catch {
-      setMessage("Couldn't update Touch ID.");
+      setMessage(t("settings.touchIdReenrollFailed"));
     } finally {
       setBiometricBusy(false);
       await refreshBiometric();
@@ -221,11 +237,14 @@ export function SettingsPanel() {
   return (
     <div className="flex h-full min-h-0 flex-col">
       <div className="flex shrink-0 flex-col gap-3 border-b border-border bg-background px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
-        <h1 className="text-lg font-semibold">Settings</h1>
+        <h1 className="text-lg font-semibold">{t("dashboard.settings")}</h1>
         <ButtonGroup
-          aria-label="Settings menu"
+          aria-label={t("settings.menu")}
           onValueChange={setActiveMenu}
-          options={SETTINGS_MENUS}
+          options={SETTINGS_MENUS.map(({ labelKey, ...option }) => ({
+            ...option,
+            label: t(labelKey),
+          }))}
           role="tablist"
           value={activeMenu}
         />
@@ -233,7 +252,11 @@ export function SettingsPanel() {
 
       <div className="min-h-0 flex-1 overflow-y-auto px-6 pb-6 pt-5">
         <div
-          aria-label={`${activeMenu === "settings" ? "Primary" : "System"} settings`}
+          aria-label={t(
+            activeMenu === "settings"
+              ? "settings.primaryPanel"
+              : "settings.systemPanel",
+          )}
           className="grid max-w-5xl gap-5 lg:grid-cols-2"
           id={`settings-${activeMenu}-panel`}
           role="tabpanel"
@@ -242,7 +265,7 @@ export function SettingsPanel() {
             <>
               <section>
                 <h2 className="mb-3 text-sm font-medium text-muted-foreground">
-                  Modules
+                  {t("dashboard.modules")}
                 </h2>
                 <ul className="flex flex-col divide-y divide-border rounded-md border border-border bg-card">
                   {MODULES.map((m) => {
@@ -257,12 +280,14 @@ export function SettingsPanel() {
                       >
                         {m.icon}
                         <span className="min-w-0 flex-1 text-sm">
-                          {m.title}
+                          {t(m.titleKey)}
                         </span>
                         <label className="flex items-center gap-2 text-xs text-muted-foreground">
-                          Search
+                          {t("settings.moduleSearch")}
                           <Switch
-                            aria-label={`Include ${m.title} in search`}
+                            aria-label={t("settings.moduleSearchLabel", {
+                              module: t(m.titleKey),
+                            })}
                             checked={searchable}
                             onCheckedChange={(v) =>
                               void toggleModuleSearchable(m.id, v)
@@ -270,9 +295,11 @@ export function SettingsPanel() {
                           />
                         </label>
                         <label className="flex items-center gap-2 text-xs text-muted-foreground">
-                          Enabled
+                          {t("settings.moduleEnabled")}
                           <Switch
-                            aria-label={`Enable ${m.title}`}
+                            aria-label={t("settings.moduleEnableLabel", {
+                              module: t(m.titleKey),
+                            })}
                             checked={enabled}
                             onCheckedChange={(v) => void toggleModule(m.id, v)}
                           />
@@ -285,22 +312,22 @@ export function SettingsPanel() {
 
               <section>
                 <h2 className="mb-3 text-sm font-medium text-muted-foreground">
-                  Hotkeys
+                  {t("settings.hotkeys")}
                 </h2>
                 <div className="flex flex-col gap-3 rounded-md border border-border bg-card p-3">
                   <label className="flex flex-col gap-1.5 text-sm">
-                    Global hotkey
+                    {t("settings.globalHotkey")}
                     <Input
-                      aria-label="Global hotkey"
+                      aria-label={t("settings.globalHotkey")}
                       onBlur={() => void persistHotkeys()}
                       onChange={(e) => setGlobalHotkey(e.target.value)}
                       value={globalHotkey}
                     />
                   </label>
                   <label className="flex flex-col gap-1.5 text-sm">
-                    Dashboard hotkey
+                    {t("settings.dashboardHotkey")}
                     <Input
-                      aria-label="Dashboard hotkey"
+                      aria-label={t("settings.dashboardHotkey")}
                       onBlur={() => void persistHotkeys()}
                       onChange={(e) => setDashboardHotkey(e.target.value)}
                       value={dashboardHotkey}
@@ -311,17 +338,18 @@ export function SettingsPanel() {
 
               <section>
                 <h2 className="mb-3 text-sm font-medium text-muted-foreground">
-                  Categories
+                  {t("settings.categories")}
                 </h2>
                 <div className="rounded-md border border-border bg-card p-3">
                   <label className="grid gap-1 text-sm">
-                    <span className="font-medium">Category options</span>
+                    <span className="font-medium">
+                      {t("settings.categoryOptions")}
+                    </span>
                     <span className="text-xs text-muted-foreground">
-                      One label per line. Used as single-select choices when
-                      editing items.
+                      {t("settings.categoryOptionsHint")}
                     </span>
                     <textarea
-                      aria-label="Category options"
+                      aria-label={t("settings.categoryOptions")}
                       className="min-h-28 rounded-md border border-input bg-card px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
                       onBlur={() => void persistTaxonomy()}
                       onChange={(event) =>
@@ -335,17 +363,18 @@ export function SettingsPanel() {
 
               <section>
                 <h2 className="mb-3 text-sm font-medium text-muted-foreground">
-                  Tags
+                  {t("settings.tags")}
                 </h2>
                 <div className="rounded-md border border-border bg-card p-3">
                   <label className="grid gap-1 text-sm">
-                    <span className="font-medium">Tag options</span>
+                    <span className="font-medium">
+                      {t("settings.tagOptions")}
+                    </span>
                     <span className="text-xs text-muted-foreground">
-                      One label per line. Used as multi-select choices when
-                      editing items.
+                      {t("settings.tagOptionsHint")}
                     </span>
                     <textarea
-                      aria-label="Tag options"
+                      aria-label={t("settings.tagOptions")}
                       className="min-h-36 rounded-md border border-input bg-card px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
                       onBlur={() => void persistTaxonomy()}
                       onChange={(event) =>
@@ -361,28 +390,32 @@ export function SettingsPanel() {
             <>
               <section>
                 <h2 className="mb-3 text-sm font-medium text-muted-foreground">
-                  Security
+                  {t("settings.security")}
                 </h2>
                 <div className="flex flex-col divide-y divide-border rounded-md border border-border bg-card">
                   <label className="flex items-center gap-3 px-3 py-2.5">
-                    <span className="flex-1 text-sm">Auto-lock</span>
+                    <span className="flex-1 text-sm">
+                      {t("settings.autoLock")}
+                    </span>
                     <Select
-                      aria-label="Auto-lock timeout"
+                      aria-label={t("settings.autoLockTimeout")}
                       className="w-auto"
                       onChange={(e) => void setAutoLock(Number(e.target.value))}
                       value={autoLockMinutes}
                     >
                       {AUTO_LOCK_OPTIONS.map((o) => (
                         <option key={o.minutes} value={o.minutes}>
-                          {o.label}
+                          {t(o.labelKey)}
                         </option>
                       ))}
                     </Select>
                   </label>
                   <label className="flex items-center gap-3 px-3 py-2.5">
-                    <span className="flex-1 text-sm">Clipboard clear</span>
+                    <span className="flex-1 text-sm">
+                      {t("settings.clipboardClear")}
+                    </span>
                     <Select
-                      aria-label="Clipboard clear seconds"
+                      aria-label={t("settings.clipboardClearSeconds")}
                       className="w-auto"
                       onChange={(e) =>
                         void updateSettings({
@@ -393,13 +426,15 @@ export function SettingsPanel() {
                     >
                       {CLIPBOARD_CLEAR_OPTIONS.map((seconds) => (
                         <option key={seconds} value={seconds}>
-                          {seconds}s
+                          {t("settings.seconds", { seconds })}
                         </option>
                       ))}
                     </Select>
                   </label>
                   <div className="flex items-center gap-3 px-3 py-2.5">
-                    <span className="flex-1 text-sm">Unlock with Touch ID</span>
+                    <span className="flex-1 text-sm">
+                      {t("lock.unlockTouchId")}
+                    </span>
                     {biometric?.available ? (
                       <>
                         {biometric.enrolled && (
@@ -410,11 +445,11 @@ export function SettingsPanel() {
                             type="button"
                             variant="ghost"
                           >
-                            Update
+                            {t("settings.touchIdUpdate")}
                           </Button>
                         )}
                         <Switch
-                          aria-label="Unlock with Touch ID"
+                          aria-label={t("lock.unlockTouchId")}
                           checked={biometric.enrolled}
                           onCheckedChange={(v) => {
                             if (!biometricBusy) void onToggleBiometric(v);
@@ -423,43 +458,71 @@ export function SettingsPanel() {
                       </>
                     ) : (
                       <span className="text-xs text-muted-foreground">
-                        {biometric === null
-                          ? "Checking…"
-                          : "Not available on this Mac"}
+                        {t(
+                          biometric === null
+                            ? "settings.touchIdChecking"
+                            : "settings.touchIdUnavailable",
+                        )}
                       </span>
                     )}
                   </div>
                 </div>
                 <p className="mt-2 text-xs text-muted-foreground">
-                  Touch ID is an optional shortcut — your master password and
-                  recovery code always unlock the vault.
+                  {t("settings.touchIdHint")}
                 </p>
                 {autoLockMinutes === 0 && (
                   <p className="mt-2 text-xs text-destructive">
-                    With auto-lock off, the vault stays unlocked until you lock
-                    it manually or quit.
+                    {t("settings.autoLockOffWarning")}
                   </p>
                 )}
               </section>
 
               <section>
                 <h2 className="mb-3 text-sm font-medium text-muted-foreground">
-                  Appearance
+                  {t("settings.appearance")}
                 </h2>
                 <div className="flex flex-col divide-y divide-border rounded-md border border-border bg-card">
                   <div className="flex items-center gap-3 px-3 py-2.5">
-                    <span className="flex-1 text-sm">Theme</span>
+                    <span className="flex-1 text-sm">
+                      {t("settings.theme")}
+                    </span>
                     <ButtonGroup
-                      aria-label="Theme"
+                      aria-label={t("settings.theme")}
                       onValueChange={(theme) => void updateSettings({ theme })}
-                      options={THEME_OPTIONS}
+                      options={THEME_OPTIONS.map(({ value, labelKey }) => ({
+                        value,
+                        label: t(labelKey),
+                      }))}
                       value={settings.theme}
                     />
                   </div>
                   <label className="flex items-center gap-3 px-3 py-2.5">
-                    <span className="flex-1 text-sm">Accent</span>
+                    <span className="flex-1 text-sm">
+                      {t("settings.language")}
+                    </span>
+                    <Select
+                      aria-label={t("settings.language")}
+                      className="w-auto"
+                      onChange={(e) => {
+                        if (isLanguageSetting(e.target.value)) {
+                          void updateSettings({ language: e.target.value });
+                        }
+                      }}
+                      value={settings.language}
+                    >
+                      {LANGUAGE_OPTIONS.map((o) => (
+                        <option key={o.value} value={o.value}>
+                          {t(o.labelKey)}
+                        </option>
+                      ))}
+                    </Select>
+                  </label>
+                  <label className="flex items-center gap-3 px-3 py-2.5">
+                    <span className="flex-1 text-sm">
+                      {t("settings.accent")}
+                    </span>
                     <Input
-                      aria-label="Accent color"
+                      aria-label={t("settings.accentColor")}
                       className="h-9 w-16 p-1"
                       onChange={(e) =>
                         void updateSettings({ accent: e.target.value })
@@ -469,9 +532,11 @@ export function SettingsPanel() {
                     />
                   </label>
                   <label className="flex items-center gap-3 px-3 py-2.5">
-                    <span className="flex-1 text-sm">Result limit</span>
+                    <span className="flex-1 text-sm">
+                      {t("settings.resultLimit")}
+                    </span>
                     <Select
-                      aria-label="Result limit"
+                      aria-label={t("settings.resultLimit")}
                       className="w-auto"
                       onChange={(e) =>
                         void updateSettings({
@@ -492,21 +557,19 @@ export function SettingsPanel() {
 
               <section>
                 <h2 className="mb-3 text-sm font-medium text-muted-foreground">
-                  Vault file
+                  {t("settings.vaultFile")}
                 </h2>
                 <div className="rounded-md border border-border bg-card p-3">
                   <VaultPathHint className="text-sm text-muted-foreground" />
                   <p className="mt-2 text-xs text-muted-foreground">
-                    This encrypted file is outside the app bundle. Backups and
-                    upgrades never move it — keep a separate copy somewhere
-                    safe.
+                    {t("settings.vaultFileHint")}
                   </p>
                 </div>
               </section>
 
               <section>
                 <h2 className="mb-3 text-sm font-medium text-muted-foreground">
-                  Backup & restore
+                  {t("settings.backupRestore")}
                 </h2>
                 <div className="flex flex-col gap-3 rounded-md border border-border bg-card p-3">
                   <Button
@@ -516,36 +579,37 @@ export function SettingsPanel() {
                     variant="outline"
                   >
                     <Download className="h-4 w-4" />
-                    Back up vault
+                    {t("settings.backup")}
                   </Button>
                   {biometric?.enrolled && (
                     <p className="flex items-start gap-2 text-xs text-muted-foreground">
                       <Fingerprint className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-                      <span>
-                        Touch ID unlock isn't included in backups — you'll
-                        re-enable it after restoring on the target Mac.
-                      </span>
+                      <span>{t("settings.backupTouchIdNotice")}</span>
                     </p>
                   )}
                   <form className="flex flex-col gap-2" onSubmit={onRestore}>
                     <div className="flex gap-2">
                       <Select
-                        aria-label="Restore credential type"
+                        aria-label={t("settings.restoreCredentialType")}
                         className="w-auto"
                         onChange={(e) =>
                           setRestoreMode(e.target.value as RestoreMode)
                         }
                         value={restoreMode}
                       >
-                        <option value="password">Master password</option>
-                        <option value="recovery">Recovery code</option>
+                        <option value="password">
+                          {t("auth.masterPassword")}
+                        </option>
+                        <option value="recovery">
+                          {t("lock.recoveryCode")}
+                        </option>
                       </Select>
                       <Input
-                        aria-label={
+                        aria-label={t(
                           restoreMode === "password"
-                            ? "Backup master password"
-                            : "Backup recovery code"
-                        }
+                            ? "settings.backupMasterPassword"
+                            : "settings.backupRecoveryCode",
+                        )}
                         onChange={(e) => setRestoreSecret(e.target.value)}
                         type={restoreMode === "password" ? "password" : "text"}
                         value={restoreSecret}
@@ -553,10 +617,7 @@ export function SettingsPanel() {
                     </div>
                     <p className="flex items-start gap-2 text-xs text-destructive">
                       <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-                      <span>
-                        Restoring will permanently erase all current data. This
-                        cannot be undone.
-                      </span>
+                      <span>{t("settings.restoreWarning")}</span>
                     </p>
                     <Button
                       disabled={busy || !restoreSecret.trim()}
@@ -564,7 +625,7 @@ export function SettingsPanel() {
                       variant="destructive"
                     >
                       <Upload className="h-4 w-4" />
-                      Restore vault
+                      {t("settings.restore")}
                     </Button>
                   </form>
                 </div>
@@ -572,7 +633,7 @@ export function SettingsPanel() {
 
               <section>
                 <h2 className="mb-3 text-sm font-medium text-muted-foreground">
-                  Emergency Kit
+                  {t("settings.emergencyKit")}
                 </h2>
                 <div className="flex flex-col gap-3 rounded-md border border-border bg-card p-3">
                   <Button
@@ -585,27 +646,27 @@ export function SettingsPanel() {
                     variant="outline"
                   >
                     <RotateCcw className="h-4 w-4" />
-                    Regenerate recovery code
+                    {t("settings.regenerateRecovery")}
                   </Button>
                   {pendingKit && (
                     <div className="flex flex-col gap-3 rounded-md bg-muted p-3">
                       <div className="flex items-center gap-2 text-sm font-medium">
                         <KeyRound className="h-4 w-4" />
-                        New recovery code
+                        {t("settings.newRecoveryCode")}
                       </div>
                       <code className="select-all rounded-md border border-border bg-card p-2 font-mono text-xs leading-relaxed">
                         {pendingKit.recovery_code}
                       </code>
                       <label className="flex items-center gap-2 text-sm">
                         <Checkbox
-                          aria-label="I've saved this recovery code"
+                          aria-label={t("settings.recoverySaved")}
                           checked={kitSaved}
                           onCheckedChange={setKitSaved}
                         />
-                        I've saved this recovery code
+                        {t("settings.recoverySaved")}
                       </label>
                       <Button disabled={!kitSaved} onClick={dismissKit}>
-                        Done
+                        {t("common.done")}
                       </Button>
                     </div>
                   )}

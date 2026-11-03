@@ -1,4 +1,5 @@
 import { Select } from "@/components/ui/select";
+import { useT } from "@/i18n";
 import { cn } from "@/lib/utils";
 import { optionsWithExtras } from "@/vault/taxonomy";
 
@@ -21,7 +22,7 @@ export function CategoryFilterSelect({
   options,
   value,
   onChange,
-  "aria-label": ariaLabel = "Filter by category",
+  "aria-label": ariaLabel,
   className,
 }: {
   options: readonly string[];
@@ -30,14 +31,15 @@ export function CategoryFilterSelect({
   "aria-label"?: string;
   className?: string;
 }) {
+  const { t } = useT();
   return (
     <Select
-      aria-label={ariaLabel}
+      aria-label={ariaLabel ?? t("filter.byCategory")}
       className={cn("w-full shrink-0 sm:w-44", className)}
       onChange={(event) => onChange(event.target.value)}
       value={value}
     >
-      <option value={ALL_CATEGORIES_FILTER}>All categories</option>
+      <option value={ALL_CATEGORIES_FILTER}>{t("filter.allCategories")}</option>
       {options.map((category) => (
         <option key={category} value={category}>
           {category}

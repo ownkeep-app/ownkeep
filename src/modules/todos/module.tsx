@@ -12,7 +12,7 @@ import { TODOS_MODULE_ID } from "./types";
 
 export const todosModule: FeatureModule = {
   id: TODOS_MODULE_ID,
-  title: "Todos",
+  titleKey: "module.todos",
   icon: <ListTodo className="h-4 w-4" />,
   enabledByDefault: true,
   searchableByDefault: false,

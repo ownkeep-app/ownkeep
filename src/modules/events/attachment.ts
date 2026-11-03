@@ -1,3 +1,4 @@
+import { t } from "@/i18n";
 import type { EventAttachment } from "./types";
 
 const PDF_MIME = "application/pdf";
@@ -16,7 +17,7 @@ function loadImage(src: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const image = new Image();
     image.onload = () => resolve(image);
-    image.onerror = () => reject(new Error("Couldn't read that image."));
+    image.onerror = () => reject(new Error(t("events.imageReadFailed")));
     image.src = src;
   });
 }
@@ -25,7 +26,7 @@ function readAsDataUrl(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => resolve(String(reader.result));
-    reader.onerror = () => reject(new Error("Couldn't read that image."));
+    reader.onerror = () => reject(new Error(t("events.imageReadFailed")));
     reader.readAsDataURL(file);
   });
 }
@@ -41,7 +42,7 @@ export async function compressImage(file: File): Promise<EventAttachment> {
   canvas.width = Math.round(image.naturalWidth * scale);
   canvas.height = Math.round(image.naturalHeight * scale);
   const context = canvas.getContext("2d");
-  if (!context) throw new Error("Couldn't process that image.");
+  if (!context) throw new Error(t("events.imageProcessFailed"));
   // JPEG has no alpha; paint white first so transparent PNG screenshots stay legible.
   context.fillStyle = "#ffffff";
   context.fillRect(0, 0, canvas.width, canvas.height);
@@ -63,7 +64,7 @@ function isPdfFile(file: File): boolean {
 
 async function readPdf(file: File): Promise<EventAttachment> {
   if (file.size > MAX_PDF_BYTES) {
-    throw new Error(`“${file.name}” is larger than 10 MB.`);
+    throw new Error(t("events.fileTooLarge", { name: file.name }));
   }
   // Some pickers report no MIME type; normalise so `isPdf` can recognise the stored file.
   const dataUrl = (await readAsDataUrl(file)).replace(
@@ -77,7 +78,9 @@ async function readPdf(file: File): Promise<EventAttachment> {
 export function readAttachment(file: File): Promise<EventAttachment> {
   if (isPdfFile(file)) return readPdf(file);
   if (file.type.startsWith("image/")) return compressImage(file);
-  return Promise.reject(new Error(`“${file.name}” is not an image or PDF.`));
+  return Promise.reject(
+    new Error(t("events.fileUnsupported", { name: file.name })),
+  );
 }
 
 /** Decode a base64 data URL without `fetch` (the CSP's connect-src does not allow `data:`). */

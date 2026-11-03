@@ -3,6 +3,7 @@ import { type FormEvent, type KeyboardEvent, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
+import { useT } from "@/i18n";
 import { fillTemplate, parsePlaceholders } from "./logic";
 import type { CommandArgument } from "./types";
 
@@ -26,6 +27,7 @@ export function FillInForm({
   onRaw: () => void;
   onCancel: () => void;
 }) {
+  const { t } = useT();
   const placeholders = useMemo(() => parsePlaceholders(template), [template]);
   const argByName = useMemo(
     () => new Map(args.map((arg) => [arg.name, arg])),
@@ -79,7 +81,7 @@ export function FillInForm({
                 onChange={(event) => setValue(name, event.target.value)}
                 value={values[name]}
               >
-                <option value="">{`Select ${name}`}</option>
+                <option value="">{t("commands.selectArg", { name })}</option>
                 {arg!.values!.map((option) => (
                   <option key={option} value={option}>
                     {option}
@@ -103,12 +105,12 @@ export function FillInForm({
       </pre>
 
       <div className="flex gap-2">
-        <Button type="submit">Copy</Button>
+        <Button type="submit">{t("common.copy")}</Button>
         <Button onClick={onRaw} type="button" variant="outline">
-          Copy raw
+          {t("commands.copyRaw")}
         </Button>
         <Button onClick={onCancel} type="button" variant="ghost">
-          Cancel
+          {t("common.cancel")}
         </Button>
       </div>
     </form>

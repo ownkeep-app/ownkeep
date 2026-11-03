@@ -1,3 +1,4 @@
+import { t } from "@/i18n";
 import { parseCsv } from "@/lib/csv";
 import { dateToDateInput, parseDateInput } from "@/lib/date";
 import { createTag, dayFor, emptyDay, upsertDay } from "./logic";
@@ -93,7 +94,7 @@ export function planCsvImport(
       newTags: [],
       added: 0,
       updated: 0,
-      issues: [{ line: 1, message: "The first row needs a “date” column." }],
+      issues: [{ line: 1, message: t("events.importNeedsDate") }],
     };
   }
   const noteColumn = headers.findIndex((name) => NOTE_HEADERS.includes(name));
@@ -132,7 +133,7 @@ export function planCsvImport(
     if (!date) {
       issues.push({
         line,
-        message: `Skipped: “${row[dateColumn] ?? ""}” is not a date.`,
+        message: t("events.importNotDate", { value: row[dateColumn] ?? "" }),
       });
       return;
     }
@@ -145,7 +146,7 @@ export function planCsvImport(
       if (value === undefined) {
         issues.push({
           line,
-          message: `${tag.name}: “${raw}” isn't a valid value, skipped.`,
+          message: t("events.importBadValue", { tag: tag.name, value: raw }),
         });
         continue;
       }

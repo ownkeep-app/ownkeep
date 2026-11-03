@@ -31,6 +31,7 @@ import { useClearFiltersOnEscape } from "@/hooks/use-clear-filters-on-escape";
 import { toastError } from "@/lib/toast";
 import { cn } from "@/lib/utils";
 import type { ListViewProps } from "@/modules/types";
+import { t, tp, useT } from "@/i18n";
 import { useVaultStore } from "@/stores/vault-store";
 import { CalendarView } from "./CalendarView";
 import { CsvImportDialog } from "./CsvImportDialog";
@@ -47,8 +48,8 @@ import {
   formFromEvent,
   removeDay,
   sortEvents,
-  STATUS_LABELS,
-  TAG_TYPE_LABELS,
+  statusLabel,
+  tagTypeLabel,
   trackedEvents,
   updateTrackedEvent,
   upsertDay,
@@ -75,6 +76,7 @@ const STATUS_BADGE_CLASSES: Record<EventStatus, string> = {
 };
 
 function StatusBadge({ status }: { status: EventStatus }) {
+  useT(); // re-render the label on a language switch
   return (
     <span
       className={cn(
@@ -82,17 +84,17 @@ function StatusBadge({ status }: { status: EventStatus }) {
         STATUS_BADGE_CLASSES[status],
       )}
     >
-      {STATUS_LABELS[status]}
+      {statusLabel(status)}
     </span>
   );
 }
 
 function dateRangeLabel(event: TrackedEvent): string {
   const range = eventDateRange(event);
-  if (!range) return "Nothing tracked yet";
+  if (!range) return t("events.nothingTracked");
   const first = formatDate(dateInputToIso(range.first));
   const last = formatDate(dateInputToIso(range.last));
-  const days = `${event.days.length} ${event.days.length === 1 ? "day" : "days"}`;
+  const days = tp("events.dayCount", event.days.length);
   return first === last ? `${first} · ${days}` : `${first} – ${last} · ${days}`;
 }
 
@@ -101,6 +103,7 @@ export function EventsListView({
   focusItemId,
   onFocusItemHandled,
 }: ListViewProps<TrackedEvent>) {
+  const { t, tp } = useT();
   const saveEvent = useVaultStore((s) => s.saveEvent);
   const deleteEvent = useVaultStore((s) => s.deleteEvent);
   const [query, setQuery] = useState("");
@@ -142,7 +145,7 @@ export function EventsListView({
     try {
       await saveEvent(entry);
     } catch {
-      toastError("Couldn't save. Showing the last saved version.");
+      toastError(t("events.saveFailed"));
     }
   }
 
@@ -200,41 +203,41 @@ export function EventsListView({
     <div className="flex h-full flex-col">
       <header className="flex items-center gap-3 border-b border-border px-6 py-4">
         <div className="min-w-0 flex-1">
-          <h1 className="text-lg font-semibold">Event Tracker</h1>
+          <h1 className="text-lg font-semibold">{t("module.events")}</h1>
           <p className="text-sm text-muted-foreground">
-            {events.length} tracked {events.length === 1 ? "event" : "events"}
+            {tp("events.trackedCount", events.length)}
           </p>
         </div>
         <Button onClick={startCreate}>
           <Plus className="h-4 w-4" />
-          New
+          {t("common.new")}
         </Button>
       </header>
 
       <div className="flex min-h-0 flex-1 flex-col">
         <div className="flex flex-col gap-3 border-b border-border p-4 sm:flex-row sm:items-center">
           <Select
-            aria-label="Filter by status"
+            aria-label={t("events.filterByStatus")}
             className="sm:w-40"
             onChange={(event) =>
               setStatusFilter(event.target.value as EventStatus | "")
             }
             value={statusFilter}
           >
-            <option value="">All statuses</option>
+            <option value="">{t("events.allStatuses")}</option>
             {EVENT_STATUSES.map((status) => (
               <option key={status} value={status}>
-                {STATUS_LABELS[status]}
+                {statusLabel(status)}
               </option>
             ))}
           </Select>
           <div className="relative min-w-0 flex-1">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
-              aria-label="Filter events"
+              aria-label={t("events.filter")}
               className="pl-9"
               onChange={(event) => setQuery(event.target.value)}
-              placeholder="Filter events"
+              placeholder={t("events.filter")}
               value={query}
             />
           </div>
@@ -251,17 +254,17 @@ export function EventsListView({
         {filtered.length === 0 ? (
           filtersActive ? (
             <EmptyState
-              title="No matches"
-              description="No event matches these filters."
+              title={t("common.noMatches")}
+              description={t("events.noMatchesBody")}
             />
           ) : (
             <EmptyState
-              title="No events yet"
-              description="Track something over time — a child's growth, sleep, a treatment — day by day."
+              title={t("events.emptyTitle")}
+              description={t("events.emptyBody")}
               action={
                 <Button onClick={startCreate}>
                   <Plus className="h-4 w-4" />
-                  New event
+                  {t("events.new")}
                 </Button>
               }
             />
@@ -283,20 +286,20 @@ export function EventsListView({
                   <StatusBadge status={event.status} />
                   <div className="-mr-1.5 shrink-0 [&_button]:h-7 [&_button]:w-7">
                     <RowActionsMenu
-                      label={`Actions for ${event.title}`}
+                      label={t("common.actionsFor", { name: event.title })}
                       actions={[
                         {
-                          label: "Open",
+                          label: t("events.open"),
                           icon: <CalendarDays className="h-4 w-4" />,
                           onSelect: () => setSelectedId(event.id),
                         },
                         {
-                          label: "Edit",
+                          label: t("common.edit"),
                           icon: <Pencil className="h-4 w-4" />,
                           onSelect: () => setEditing(event),
                         },
                         {
-                          label: "Delete",
+                          label: t("common.delete"),
                           icon: <Trash2 className="h-4 w-4" />,
                           destructive: true,
                           onSelect: () => setPendingDelete(event),
@@ -344,6 +347,7 @@ function EventPane({
   onDelete: () => void;
   onSave: (event: TrackedEvent) => void;
 }) {
+  const { t } = useT();
   const [mode, setMode] = useState<EventViewMode>("calendar");
   const [editingDate, setEditingDate] = useState<string | null>(null);
   const [viewingDate, setViewingDate] = useState<string | null>(null);
@@ -368,7 +372,7 @@ function EventPane({
     <div className="relative flex h-full min-h-0 flex-col">
       <header className="flex items-center gap-2 border-b border-border px-4 py-3">
         <Button
-          aria-label="Back to events"
+          aria-label={t("events.back")}
           onClick={onBack}
           size="icon"
           type="button"
@@ -383,7 +387,7 @@ function EventPane({
           </p>
         </div>
         <Select
-          aria-label="Event status"
+          aria-label={t("events.statusLabel")}
           className="w-28"
           onChange={(change) =>
             onSave({
@@ -396,27 +400,27 @@ function EventPane({
         >
           {EVENT_STATUSES.map((status) => (
             <option key={status} value={status}>
-              {STATUS_LABELS[status]}
+              {statusLabel(status)}
             </option>
           ))}
         </Select>
         <ButtonGroup<EventViewMode>
-          aria-label="Event view"
+          aria-label={t("events.viewLabel")}
           onValueChange={setMode}
           options={[
             {
               value: "calendar",
-              label: "Calendar",
+              label: t("events.view.calendar"),
               icon: <CalendarDays className="h-4 w-4" />,
             },
             {
               value: "timeline",
-              label: "Timeline",
+              label: t("events.view.timeline"),
               icon: <ChartGantt className="h-4 w-4" />,
             },
             {
               value: "trending",
-              label: "Trending",
+              label: t("events.view.trending"),
               icon: <TrendingUp className="h-4 w-4" />,
             },
           ]}
@@ -424,20 +428,20 @@ function EventPane({
           value={mode}
         />
         <RowActionsMenu
-          label={`Actions for ${event.title}`}
+          label={t("common.actionsFor", { name: event.title })}
           actions={[
             {
-              label: "Edit",
+              label: t("common.edit"),
               icon: <Pencil className="h-4 w-4" />,
               onSelect: onEdit,
             },
             {
-              label: "Import CSV",
+              label: t("events.importCsv"),
               icon: <Upload className="h-4 w-4" />,
               onSelect: () => importInputRef.current?.click(),
             },
             {
-              label: "Delete",
+              label: t("common.delete"),
               icon: <Trash2 className="h-4 w-4" />,
               destructive: true,
               onSelect: onDelete,
@@ -471,7 +475,7 @@ function EventPane({
             ) : (
               <ChevronDown className="h-3.5 w-3.5" />
             )}
-            Description
+            {t("field.description")}
           </button>
           {showDescription ? (
             <MarkdownPreview
@@ -566,6 +570,7 @@ export function EventEditView({
   onSave: (item: TrackedEvent) => void;
   onCancel: () => void;
 }) {
+  const { t } = useT();
   const [form, setForm] = useState<EventFormInput>(() =>
     item ? formFromEvent(item) : emptyEventForm(),
   );
@@ -602,28 +607,28 @@ export function EventEditView({
 
   return (
     <ItemFormShell
-      cancelLabel="Cancel"
-      description="Tags are quick fields you fill in on each tracked day."
+      cancelLabel={t("common.cancel")}
+      description={t("events.formHint")}
       error={error}
       mode={item ? "edit" : "create"}
       onCancel={onCancel}
       onSubmit={submit}
-      title={item ? "Edit event" : "New event"}
+      title={t(item ? "events.edit" : "events.new")}
     >
       <div className="col-span-2 grid grid-cols-4 gap-4">
         <label className="col-span-3 space-y-1 text-sm font-medium">
-          Title
+          {t("field.title")}
           <Input
-            aria-label="Event title"
+            aria-label={t("events.titleLabel")}
             onChange={(event) => update("title", event.target.value)}
-            placeholder="e.g. Height of my son"
+            placeholder={t("events.titlePlaceholder")}
             value={form.title}
           />
         </label>
         <label className="col-span-1 space-y-1 text-sm font-medium">
-          Status
+          {t("field.status")}
           <Select
-            aria-label="Status"
+            aria-label={t("field.status")}
             onChange={(event) =>
               update("status", event.target.value as EventStatus)
             }
@@ -631,7 +636,7 @@ export function EventEditView({
           >
             {EVENT_STATUSES.map((status) => (
               <option key={status} value={status}>
-                {STATUS_LABELS[status]}
+                {statusLabel(status)}
               </option>
             ))}
           </Select>
@@ -640,7 +645,7 @@ export function EventEditView({
 
       <section className="col-span-2 space-y-2">
         <div className="flex items-center justify-between">
-          <h2 className="text-sm font-medium">Tags</h2>
+          <h2 className="text-sm font-medium">{t("field.tags")}</h2>
           <Button
             onClick={() => update("tags", [...form.tags, createTag()])}
             size="sm"
@@ -648,13 +653,12 @@ export function EventEditView({
             variant="outline"
           >
             <Plus className="h-4 w-4" />
-            Add tag
+            {t("events.addTag")}
           </Button>
         </div>
         {form.tags.length === 0 ? (
           <p className="text-sm text-muted-foreground">
-            e.g. “Sleeping pills” (number), “Sleep” (number, unit h), “Vivid
-            dreams” (yes / no).
+            {t("events.tagsExample")}
           </p>
         ) : (
           <ul className="space-y-2">
@@ -676,15 +680,15 @@ export function EventEditView({
         )}
         {item && item.tags.length > 0 ? (
           <p className="text-xs text-muted-foreground">
-            Removing a tag also removes the values tracked for it.
+            {t("events.tagRemoveWarning")}
           </p>
         ) : null}
       </section>
 
       <div className="col-span-2 space-y-1 text-sm font-medium">
-        Description
+        {t("field.description")}
         <MarkdownEditor
-          ariaLabel="Event description"
+          ariaLabel={t("events.descriptionLabel")}
           minHeightClass="min-h-40"
           onChange={(value) => update("description", value)}
           value={form.description}
@@ -705,22 +709,23 @@ function TagEditorRow({
   onChange: (patch: Partial<EventTag>) => void;
   onRemove: () => void;
 }) {
+  const { t } = useT();
   return (
     <li className="flex items-center gap-2">
       <TagIconPicker
-        label={`Tag ${position} icon`}
+        label={t("events.tagIcon", { n: position })}
         onChange={(icon) => onChange({ icon })}
         value={tag.icon}
       />
       <Input
-        aria-label={`Tag ${position} name`}
+        aria-label={t("events.tagName", { n: position })}
         className="flex-1"
         onChange={(event) => onChange({ name: event.target.value })}
-        placeholder="Name"
+        placeholder={t("field.name")}
         value={tag.name}
       />
       <Select
-        aria-label={`Tag ${position} type`}
+        aria-label={t("events.tagTypeLabel", { n: position })}
         className="w-32"
         onChange={(event) =>
           onChange({ type: event.target.value as EventTag["type"] })
@@ -729,24 +734,24 @@ function TagEditorRow({
       >
         {TAG_TYPES.map((type) => (
           <option key={type} value={type}>
-            {TAG_TYPE_LABELS[type]}
+            {tagTypeLabel(type)}
           </option>
         ))}
       </Select>
       <Input
-        aria-label={`Tag ${position} unit`}
+        aria-label={t("events.tagUnit", { n: position })}
         className="w-20"
         disabled={tag.type !== "number"}
         onChange={(event) => onChange({ unit: event.target.value })}
-        placeholder="Unit"
+        placeholder={t("events.unit")}
         value={tag.type === "number" ? tag.unit : ""}
       />
       <Button
-        aria-label={`Tag ${position} important`}
+        aria-label={t("events.tagImportant", { n: position })}
         aria-pressed={Boolean(tag.important)}
         onClick={() => onChange({ important: !tag.important })}
         size="icon"
-        title="Important: highlight on the calendar"
+        title={t("events.importantHint")}
         type="button"
         variant="ghost"
       >
@@ -760,7 +765,7 @@ function TagEditorRow({
         />
       </Button>
       <Button
-        aria-label={`Remove tag ${position}`}
+        aria-label={t("events.tagRemove", { n: position })}
         onClick={onRemove}
         size="icon"
         type="button"

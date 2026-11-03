@@ -22,6 +22,7 @@ import {
   COMMAND_BAR_SHORTCUTS,
   GLOBAL_SHORTCUTS,
 } from "@/components/keyboard-shortcuts";
+import { useT } from "@/i18n";
 import { writeClipboard } from "@/lib/clipboard";
 import { listItem, listStagger, motionOrUndefined } from "@/lib/motion";
 import { runQuery, type RankedResult } from "@/lib/search";
@@ -54,6 +55,7 @@ export function CommandBar({
 }: {
   modules?: FeatureModule[];
 }) {
+  const { t } = useT();
   const query = useShellStore((state) => state.query);
   const setQuery = useShellStore((state) => state.setQuery);
   const model = useVaultStore((state) => state.model);
@@ -149,7 +151,7 @@ export function CommandBar({
           await copySecret(entry.id, secretField);
           toastSecretCopied(clearSeconds);
         } catch {
-          toastError("Couldn't copy the password.");
+          toastError(t("commandBar.copyPasswordFailed"));
         }
         await finishAction(entry.id);
         return;
@@ -163,7 +165,7 @@ export function CommandBar({
             return;
           }
           const ok = await writeClipboard(command.primaryCopyTemplate);
-          toastClipboard(ok, "Command copied");
+          toastClipboard(ok, t("commandBar.commandCopied"));
           await finishAction(entry.id);
           return;
         }
@@ -178,6 +180,7 @@ export function CommandBar({
       finishAction,
       findCommand,
       browseInDashboard,
+      t,
     ],
   );
 
@@ -187,10 +190,10 @@ export function CommandBar({
       const command = findCommand(result.entry.id);
       if (!command) return;
       const ok = await writeClipboard(command.primaryCopyTemplate); // placeholders intact (§7.3)
-      toastClipboard(ok, "Raw command copied");
+      toastClipboard(ok, t("commandBar.rawCommandCopied"));
       await finishAction(command.id);
     },
-    [findCommand, finishAction],
+    [findCommand, finishAction, t],
   );
 
   useEffect(() => {
@@ -236,14 +239,14 @@ export function CommandBar({
             onComplete={(filled) => {
               setFilling(null);
               void writeClipboard(filled).then((ok) => {
-                toastClipboard(ok, "Command copied");
+                toastClipboard(ok, t("commandBar.commandCopied"));
                 return finishAction(command.id);
               });
             }}
             onRaw={() => {
               setFilling(null);
               void writeClipboard(command.primaryCopyTemplate).then((ok) => {
-                toastClipboard(ok, "Raw command copied");
+                toastClipboard(ok, t("commandBar.rawCommandCopied"));
                 return finishAction(command.id);
               });
             }}
@@ -262,15 +265,15 @@ export function CommandBar({
         <Command
           shouldFilter={false}
           className="overflow-hidden rounded-lg border border-border bg-popover shadow-sm"
-          label="Search OwnKeep"
+          label={t("commandBar.search")}
         >
           <div className="relative">
             <CommandInput
-              aria-label="Search OwnKeep"
+              aria-label={t("commandBar.search")}
               autoFocus
               className="h-16 text-xl"
               onValueChange={setQuery}
-              placeholder="Search OwnKeep"
+              placeholder={t("commandBar.search")}
               value={query}
               wrapperClassName="border-border/60 pr-3"
               trailing={
@@ -279,8 +282,8 @@ export function CommandBar({
                   variant="ghost"
                   size="icon"
                   className="ml-1 size-10 shrink-0 text-muted-foreground hover:text-foreground"
-                  aria-label="Open Dashboard"
-                  title="Dashboard (⌘⇧D)"
+                  aria-label={t("commandBar.openDashboard")}
+                  title={t("commandBar.dashboardTitle")}
                   onClick={() => void goToDashboard()}
                 >
                   <LayoutDashboard className="size-5" />
@@ -327,7 +330,7 @@ export function CommandBar({
               initial={motionOrUndefined(reduce, { opacity: 0 })}
               animate={{ opacity: 1 }}
             >
-              No matches for “{query.trim()}”.
+              {t("commandBar.noMatches", { query: query.trim() })}
             </motion.div>
           )}
           {query.trim() === "" && results.length === 0 && <CommandIdleHint />}
@@ -370,13 +373,14 @@ function CommandBarBackdrop() {
 
 /** Quiet empty-state cue under the input before the user types. */
 function CommandIdleHint() {
+  const { t } = useT();
   return (
     <div aria-hidden className="px-5 py-8 text-center">
       <p className="text-sm text-muted-foreground">
-        Search passwords and commands
+        {t("commandBar.idleHint")}
       </p>
       <p className="mt-1 text-xs text-muted-foreground/80">
-        Use ⌥⇧1–9 to run a result
+        {t("commandBar.idleShortcut")}
       </p>
     </div>
   );

@@ -53,6 +53,7 @@ import {
 import { toastSuccess } from "@/lib/toast";
 import { useClearFiltersOnEscape } from "@/hooks/use-clear-filters-on-escape";
 import type { ListViewProps } from "@/modules/types";
+import { useT } from "@/i18n";
 import { useVaultStore } from "@/stores/vault-store";
 import { defaultSettings } from "@/vault/model";
 import { optionsWithExtras } from "@/vault/taxonomy";
@@ -83,6 +84,7 @@ import {
 } from "./types";
 
 export function FinanceListView({ items }: ListViewProps<Snapshot>) {
+  const { t, tp } = useT();
   const model = useVaultStore((s) => s.model);
   const saveSnapshot = useVaultStore((s) => s.saveSnapshot);
   const deleteSnapshot = useVaultStore((s) => s.deleteSnapshot);
@@ -191,10 +193,11 @@ export function FinanceListView({ items }: ListViewProps<Snapshot>) {
       <header className="border-b border-border px-6 py-4">
         <div className="flex items-center gap-3">
           <div className="min-w-0 flex-1">
-            <h1 className="text-lg font-semibold">Finance</h1>
+            <h1 className="text-lg font-semibold">{t("module.finance")}</h1>
             <p className="text-sm text-muted-foreground">
-              {snapshots.length} snapshot{snapshots.length === 1 ? "" : "s"} ·
-              net worth {formatMoney(latest, fx.baseCurrency)}
+              {tp("finance.summary", snapshots.length, {
+                netWorth: formatMoney(latest, fx.baseCurrency),
+              })}
             </p>
           </div>
           <Button
@@ -203,7 +206,7 @@ export function FinanceListView({ items }: ListViewProps<Snapshot>) {
             variant="outline"
           >
             <Settings2 className="h-4 w-4" />
-            Settings
+            {t("dashboard.settings")}
           </Button>
           <Button
             onClick={() => setShowFx(true)}
@@ -211,11 +214,11 @@ export function FinanceListView({ items }: ListViewProps<Snapshot>) {
             variant="outline"
           >
             <Coins className="h-4 w-4" />
-            FX rates
+            {t("finance.fxRates")}
           </Button>
           <Button onClick={startCreate} type="button">
             <Plus className="h-4 w-4" />
-            New snapshot
+            {t("finance.newSnapshot")}
           </Button>
         </div>
       </header>
@@ -227,10 +230,10 @@ export function FinanceListView({ items }: ListViewProps<Snapshot>) {
           <label className="relative block min-w-0 flex-1">
             <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input
-              aria-label="Filter snapshots"
+              aria-label={t("finance.filter")}
               className="pl-9"
               onChange={(event) => setQuery(event.target.value)}
-              placeholder="Filter snapshots"
+              placeholder={t("finance.filter")}
               value={query}
             />
           </label>
@@ -242,17 +245,17 @@ export function FinanceListView({ items }: ListViewProps<Snapshot>) {
         {filtered.length === 0 ? (
           query.trim() ? (
             <EmptyState
-              title="No matches"
-              description={`Nothing matches “${query.trim()}”.`}
+              title={t("common.noMatches")}
+              description={t("common.nothingMatches", { query: query.trim() })}
             />
           ) : (
             <EmptyState
-              title="No snapshots yet"
-              description="Add a snapshot to start tracking net worth over time."
+              title={t("finance.emptyTitle")}
+              description={t("finance.emptyBody")}
               action={
                 <Button onClick={startCreate} type="button">
                   <Plus className="h-4 w-4" />
-                  New snapshot
+                  {t("finance.newSnapshot")}
                 </Button>
               }
             />
@@ -265,21 +268,21 @@ export function FinanceListView({ items }: ListViewProps<Snapshot>) {
                 <SortableTableHead
                   className="w-[22%] px-4"
                   column="date"
-                  label="Date"
+                  label={t("finance.date")}
                   onSort={handleSort}
                   sort={sortState}
                 />
                 <SortableTableHead
                   className="w-[40%] px-4"
                   column="netWorth"
-                  label="Net worth"
+                  label={t("finance.netWorth")}
                   onSort={handleSort}
                   sort={sortState}
                 />
                 <SortableTableHead
                   className="w-[14%] px-4"
                   column="places"
-                  label="Places"
+                  label={t("finance.places")}
                   onSort={handleSort}
                   sort={sortState}
                 />
@@ -317,20 +320,20 @@ export function FinanceListView({ items }: ListViewProps<Snapshot>) {
                     </TableCell>
                     <TableCell className="px-2 py-2">
                       <RowActionsMenu
-                        label={`Actions for snapshot ${dateLabel}`}
+                        label={t("finance.actionsFor", { date: dateLabel })}
                         actions={[
                           {
-                            label: "View",
+                            label: t("common.view"),
                             icon: <Eye className="h-4 w-4" />,
                             onSelect: () => setViewing(snapshot),
                           },
                           {
-                            label: "Edit",
+                            label: t("common.edit"),
                             icon: <Pencil className="h-4 w-4" />,
                             onSelect: () => setEditing(snapshot),
                           },
                           {
-                            label: "Delete",
+                            label: t("common.delete"),
                             icon: <Trash2 className="h-4 w-4" />,
                             destructive: true,
                             onSelect: () =>
@@ -364,7 +367,7 @@ export function FinanceListView({ items }: ListViewProps<Snapshot>) {
                   variant="destructive"
                 >
                   <Trash2 className="h-4 w-4" />
-                  Delete
+                  {t("common.delete")}
                 </Button>
                 <Button
                   className="ml-auto"
@@ -376,7 +379,7 @@ export function FinanceListView({ items }: ListViewProps<Snapshot>) {
                   variant="outline"
                 >
                   <Pencil className="h-4 w-4" />
-                  Edit
+                  {t("common.edit")}
                 </Button>
               </>
             )
@@ -399,13 +402,13 @@ export function FinanceListView({ items }: ListViewProps<Snapshot>) {
 
         {latestSnapshot ? (
           <Button
-            aria-label="Duplicate last snapshot"
+            aria-label={t("finance.duplicateLastLabel")}
             className="absolute bottom-4 right-4 z-20 shadow-lg"
             onClick={startDuplicateLast}
             type="button"
           >
             <Copy className="h-4 w-4" />
-            Duplicate last
+            {t("finance.duplicateLast")}
           </Button>
         ) : null}
       </div>
@@ -432,6 +435,7 @@ export function FinanceDetailView({
   snapshot: Snapshot;
   fx: FinanceFx;
 }) {
+  const { t } = useT();
   const stats = computeSnapshotStats(snapshot, fx);
   const categories = Object.entries(stats.byCategory).sort(
     (a, b) => b[1] - a[1],
@@ -440,7 +444,9 @@ export function FinanceDetailView({
   return (
     <DetailModalBody>
       <DetailModalHero>
-        <p className="text-xs uppercase text-muted-foreground">Snapshot</p>
+        <p className="text-xs uppercase text-muted-foreground">
+          {t("finance.snapshot")}
+        </p>
         <div className="mt-1 flex items-start gap-2">
           <TrendingUp className="mt-1 h-4 w-4 text-primary" />
           <h2 className="min-w-0 flex-1 text-lg font-semibold">
@@ -454,14 +460,17 @@ export function FinanceDetailView({
 
       {stats.missingCurrencies.length > 0 && (
         <p className="mb-4 text-sm text-destructive">
-          No FX rate for {stats.missingCurrencies.join(", ")} — excluded from
-          the total. Add a rate under FX rates.
+          {t("finance.missingFx", {
+            currencies: stats.missingCurrencies.join(", "),
+          })}
         </p>
       )}
 
       <DetailFields>
         <div>
-          <p className="text-xs uppercase text-muted-foreground">By category</p>
+          <p className="text-xs uppercase text-muted-foreground">
+            {t("finance.byCategory")}
+          </p>
           {categories.length === 0 ? (
             <p className="mt-1 text-sm text-muted-foreground">-</p>
           ) : (
@@ -479,7 +488,9 @@ export function FinanceDetailView({
         </div>
 
         <div>
-          <p className="text-xs uppercase text-muted-foreground">Holdings</p>
+          <p className="text-xs uppercase text-muted-foreground">
+            {t("finance.holdings")}
+          </p>
           <ul className="mt-1 space-y-1 text-sm">
             {snapshot.entries.map((entry, index) => (
               <li
@@ -492,7 +503,7 @@ export function FinanceDetailView({
                     {" "}
                     · {entry.holder} · {entry.category}
                     {entry.dueDate
-                      ? ` · due ${formatSnapshotDate(entry.dueDate)}`
+                      ? ` · ${t("todos.dueLower", { date: formatSnapshotDate(entry.dueDate) })}`
                       : ""}
                   </span>
                 </span>
@@ -505,7 +516,7 @@ export function FinanceDetailView({
         </div>
 
         {snapshot.note && (
-          <DetailFieldSpan label="Note" value={snapshot.note} />
+          <DetailFieldSpan label={t("finance.note")} value={snapshot.note} />
         )}
       </DetailFields>
     </DetailModalBody>
@@ -524,6 +535,7 @@ export function FinanceEditView({
   onSave: (item: Snapshot) => void;
   onCancel: () => void;
 }) {
+  const { t } = useT();
   const model = useVaultStore((s) => s.model);
   const taxonomy = useMemo(
     () => readFinanceTaxonomy(model?.settings ?? defaultSettings()),
@@ -579,27 +591,27 @@ export function FinanceEditView({
 
   return (
     <ItemFormShell
-      cancelLabel="Close"
-      description="Record balances across your accounts."
+      cancelLabel={t("common.close")}
+      description={t("finance.formHint")}
       error={error}
       mode={item ? "edit" : "create"}
       onCancel={onCancel}
       onSubmit={submit}
-      title={item ? "Edit snapshot" : "New snapshot"}
+      title={t(item ? "finance.editSnapshot" : "finance.newSnapshot")}
     >
       <label className="space-y-1 text-sm font-medium">
-        Date
+        {t("finance.date")}
         <DatePicker
-          aria-label="Snapshot date"
+          aria-label={t("finance.dateLabel")}
           onChange={(date) => setForm((current) => ({ ...current, date }))}
-          placeholder="Pick a date"
+          placeholder={t("picker.pickDate")}
           value={form.date}
         />
       </label>
       <label className="col-span-2 space-y-1 text-sm font-medium">
-        Note
+        {t("finance.note")}
         <textarea
-          aria-label="Snapshot note"
+          aria-label={t("finance.noteLabel")}
           className="min-h-24 w-full rounded-md border border-input bg-card px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
           onChange={(event) =>
             setForm((current) => ({ ...current, note: event.target.value }))
@@ -610,10 +622,10 @@ export function FinanceEditView({
 
       <div className="col-span-2 space-y-2">
         <div className="flex items-center justify-between">
-          <p className="text-sm font-medium">Holdings</p>
+          <p className="text-sm font-medium">{t("finance.holdings")}</p>
           <Button onClick={addRow} size="sm" type="button" variant="outline">
             <Plus className="h-4 w-4" />
-            Add row
+            {t("finance.addRow")}
           </Button>
         </div>
         {form.entries.map((entry, index) => {
@@ -629,15 +641,15 @@ export function FinanceEditView({
             <div className="space-y-2" key={index}>
               <div className="grid grid-cols-[minmax(0,1.1fr)_minmax(0,0.7fr)_minmax(0,0.9fr)_minmax(0,0.8fr)_5rem_2rem] items-center gap-2">
                 <Input
-                  aria-label={`Entry ${index + 1} place`}
+                  aria-label={t("finance.entryPlace", { n: index + 1 })}
                   onChange={(event) =>
                     updateEntry(index, "place", event.target.value)
                   }
-                  placeholder="Place"
+                  placeholder={t("finance.place")}
                   value={entry.place}
                 />
                 <Select
-                  aria-label={`Entry ${index + 1} holder`}
+                  aria-label={t("finance.entryHolder", { n: index + 1 })}
                   onChange={(event) =>
                     updateEntry(index, "holder", event.target.value)
                   }
@@ -650,7 +662,7 @@ export function FinanceEditView({
                   ))}
                 </Select>
                 <Select
-                  aria-label={`Entry ${index + 1} category`}
+                  aria-label={t("finance.entryCategory", { n: index + 1 })}
                   onChange={(event) =>
                     updateEntry(index, "category", event.target.value)
                   }
@@ -663,25 +675,25 @@ export function FinanceEditView({
                   ))}
                 </Select>
                 <Input
-                  aria-label={`Entry ${index + 1} amount`}
+                  aria-label={t("finance.entryAmount", { n: index + 1 })}
                   min={0}
                   onChange={(event) =>
                     updateEntry(index, "amount", event.target.value)
                   }
-                  placeholder="Amount"
+                  placeholder={t("field.amount")}
                   step="0.01"
                   type="number"
                   value={entry.amount}
                 />
                 <CurrencySelect
-                  aria-label={`Entry ${index + 1} currency`}
+                  aria-label={t("finance.entryCurrency", { n: index + 1 })}
                   onChange={(event) =>
                     updateEntry(index, "currency", event.target.value)
                   }
                   value={entry.currency}
                 />
                 <Button
-                  aria-label={`Remove entry ${index + 1}`}
+                  aria-label={t("finance.removeEntry", { n: index + 1 })}
                   onClick={() => removeRow(index)}
                   size="icon"
                   type="button"
@@ -691,11 +703,11 @@ export function FinanceEditView({
                 </Button>
               </div>
               <DatePicker
-                aria-label={`Entry ${index + 1} due date`}
+                aria-label={t("finance.entryDueDate", { n: index + 1 })}
                 clearable
                 className="max-w-xs"
                 onChange={(date) => updateEntry(index, "dueDate", date)}
-                placeholder="Due date (optional)"
+                placeholder={t("finance.dueDateOptional")}
                 value={entry.dueDate}
               />
             </div>
@@ -707,6 +719,7 @@ export function FinanceEditView({
 }
 
 export function FxRatesView({ onClose }: { onClose: () => void }) {
+  const { t } = useT();
   const model = useVaultStore((s) => s.model);
   const updateFinanceSettings = useVaultStore((s) => s.updateFinanceSettings);
   const fx = readFinanceFx(model?.settings ?? defaultSettings());
@@ -745,7 +758,7 @@ export function FxRatesView({ onClose }: { onClose: () => void }) {
       if (!currency) continue;
       const rate = Number(row.rate);
       if (!Number.isFinite(rate) || rate < 0) {
-        setError(`Rate for ${currency} must be zero or greater.`);
+        setError(t("finance.rateNonNegative", { currency }));
         return;
       }
       rates[currency] = rate;
@@ -763,14 +776,11 @@ export function FxRatesView({ onClose }: { onClose: () => void }) {
     <div className="flex h-full flex-col">
       <header className="flex items-center gap-3 border-b border-border px-6 py-4">
         <div className="min-w-0 flex-1">
-          <h1 className="text-lg font-semibold">FX rates</h1>
-          <p className="text-sm text-muted-foreground">
-            Manual rates: the base-currency value of 1 unit of each currency.
-            Editing re-totals finance snapshots and subscription conversions.
-          </p>
+          <h1 className="text-lg font-semibold">{t("finance.fxRates")}</h1>
+          <p className="text-sm text-muted-foreground">{t("finance.fxHint")}</p>
         </div>
         <Button
-          aria-label="Close FX rates"
+          aria-label={t("finance.closeFx")}
           onClick={onClose}
           size="icon"
           type="button"
@@ -782,9 +792,9 @@ export function FxRatesView({ onClose }: { onClose: () => void }) {
 
       <div className="flex-1 space-y-4 overflow-auto p-6">
         <label className="block max-w-xs space-y-1 text-sm font-medium">
-          Base currency
+          {t("finance.baseCurrency")}
           <CurrencySelect
-            aria-label="Base currency"
+            aria-label={t("finance.baseCurrency")}
             onChange={(event) => setBase(event.target.value)}
             value={base}
           />
@@ -792,10 +802,12 @@ export function FxRatesView({ onClose }: { onClose: () => void }) {
 
         <div className="space-y-2">
           <div className="flex items-center justify-between">
-            <p className="text-sm font-medium">Rates (1 unit → {baseLabel})</p>
+            <p className="text-sm font-medium">
+              {t("finance.ratesHeading", { base: baseLabel })}
+            </p>
             <Button onClick={addRow} size="sm" type="button" variant="outline">
               <Plus className="h-4 w-4" />
-              Add rate
+              {t("finance.addRate")}
             </Button>
           </div>
           {rows.length === 0 && (
@@ -809,25 +821,25 @@ export function FxRatesView({ onClose }: { onClose: () => void }) {
               key={index}
             >
               <CurrencySelect
-                aria-label={`Rate ${index + 1} currency`}
+                aria-label={t("finance.rateCurrency", { n: index + 1 })}
                 onChange={(event) =>
                   updateRow(index, "currency", event.target.value)
                 }
                 value={row.currency}
               />
               <Input
-                aria-label={`Rate ${index + 1} value`}
+                aria-label={t("finance.rateValue", { n: index + 1 })}
                 min={0}
                 onChange={(event) =>
                   updateRow(index, "rate", event.target.value)
                 }
-                placeholder="Rate"
+                placeholder={t("finance.rate")}
                 step="0.0001"
                 type="number"
                 value={row.rate}
               />
               <Button
-                aria-label={`Remove rate ${index + 1}`}
+                aria-label={t("finance.removeRate", { n: index + 1 })}
                 onClick={() => removeRow(index)}
                 size="icon"
                 type="button"
@@ -844,10 +856,10 @@ export function FxRatesView({ onClose }: { onClose: () => void }) {
 
       <footer className="flex justify-end gap-2 border-t border-border px-6 py-4">
         <Button onClick={onClose} type="button" variant="outline">
-          Cancel
+          {t("common.cancel")}
         </Button>
         <Button onClick={() => void save()} type="button">
-          Save rates
+          {t("finance.saveRates")}
         </Button>
       </footer>
     </div>
@@ -856,6 +868,7 @@ export function FxRatesView({ onClose }: { onClose: () => void }) {
 
 /** Finance-only holder and category option lists for snapshot holdings. */
 export function FinanceSettingsView({ onClose }: { onClose: () => void }) {
+  const { t } = useT();
   const model = useVaultStore((s) => s.model);
   const updateFinanceSettings = useVaultStore((s) => s.updateFinanceSettings);
   const taxonomy = readFinanceTaxonomy(model?.settings ?? defaultSettings());
@@ -873,13 +886,13 @@ export function FinanceSettingsView({ onClose }: { onClose: () => void }) {
     const holderOptions = parseFinanceOptionLines(holderOptionsText);
     const categoryOptions = parseFinanceOptionLines(categoryOptionsText);
     if (holderOptions.length === 0 || categoryOptions.length === 0) {
-      setError("Keep at least one holder and one category option.");
+      setError(t("finance.settingsEmpty"));
       return;
     }
     setHolderOptionsText(holderOptions.join("\n"));
     setCategoryOptionsText(categoryOptions.join("\n"));
     await updateFinanceSettings({ holderOptions, categoryOptions });
-    toastSuccess("Finance settings saved");
+    toastSuccess(t("finance.settingsSaved"));
     onClose();
   }
 
@@ -887,13 +900,13 @@ export function FinanceSettingsView({ onClose }: { onClose: () => void }) {
     <div className="flex h-full flex-col">
       <header className="flex items-center gap-3 border-b border-border px-6 py-4">
         <div className="min-w-0 flex-1">
-          <h1 className="text-lg font-semibold">Finance settings</h1>
+          <h1 className="text-lg font-semibold">{t("finance.settings")}</h1>
           <p className="text-sm text-muted-foreground">
-            Configure holders and asset categories used in snapshot holdings.
+            {t("finance.settingsHint")}
           </p>
         </div>
         <Button
-          aria-label="Close finance settings"
+          aria-label={t("finance.closeSettings")}
           onClick={onClose}
           size="icon"
           type="button"
@@ -905,12 +918,12 @@ export function FinanceSettingsView({ onClose }: { onClose: () => void }) {
 
       <div className="flex-1 space-y-6 overflow-auto p-6">
         <label className="grid gap-1 text-sm">
-          <span className="font-medium">Holder options</span>
+          <span className="font-medium">{t("finance.holderOptions")}</span>
           <span className="text-xs text-muted-foreground">
-            One label per line. Shown as the holder select on each holding row.
+            {t("finance.holderOptionsHint")}
           </span>
           <textarea
-            aria-label="Holder options"
+            aria-label={t("finance.holderOptions")}
             className="min-h-28 rounded-md border border-input bg-card px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
             onChange={(event) => setHolderOptionsText(event.target.value)}
             value={holderOptionsText}
@@ -918,13 +931,12 @@ export function FinanceSettingsView({ onClose }: { onClose: () => void }) {
         </label>
 
         <label className="grid gap-1 text-sm">
-          <span className="font-medium">Category options</span>
+          <span className="font-medium">{t("settings.categoryOptions")}</span>
           <span className="text-xs text-muted-foreground">
-            One label per line. Shown as the category select on each holding
-            row.
+            {t("finance.categoryOptionsHint")}
           </span>
           <textarea
-            aria-label="Finance category options"
+            aria-label={t("finance.categoryOptionsLabel")}
             className="min-h-36 rounded-md border border-input bg-card px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
             onChange={(event) => setCategoryOptionsText(event.target.value)}
             value={categoryOptionsText}
@@ -936,10 +948,10 @@ export function FinanceSettingsView({ onClose }: { onClose: () => void }) {
 
       <footer className="flex justify-end gap-2 border-t border-border px-6 py-4">
         <Button onClick={onClose} type="button" variant="outline">
-          Cancel
+          {t("common.cancel")}
         </Button>
         <Button onClick={() => void save()} type="button">
-          Save settings
+          {t("finance.saveSettings")}
         </Button>
       </footer>
     </div>

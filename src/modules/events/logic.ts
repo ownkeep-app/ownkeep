@@ -1,3 +1,4 @@
+import { type MessageKey, t, tp } from "@/i18n";
 import { dateToDateInput, parseDateInput } from "@/lib/date";
 import type { IndexEntry } from "@/modules/types";
 import {
@@ -15,20 +16,26 @@ import {
 
 const DAY_MS = 86_400_000;
 const DEFAULT_TAG_ICON = "tag";
-const TRUE_LABEL = "Y";
-const FALSE_LABEL = "N";
 
-export const STATUS_LABELS: Record<EventStatus, string> = {
-  open: "Open",
-  paused: "Paused",
-  closed: "Closed",
+const STATUS_LABEL_KEYS: Record<EventStatus, MessageKey> = {
+  open: "events.status.open",
+  paused: "events.status.paused",
+  closed: "events.status.closed",
 };
 
-export const TAG_TYPE_LABELS: Record<EventTag["type"], string> = {
-  number: "Number",
-  boolean: "Yes / No",
-  text: "Text",
+const TAG_TYPE_LABEL_KEYS: Record<EventTag["type"], MessageKey> = {
+  number: "events.tagType.number",
+  boolean: "events.tagType.boolean",
+  text: "events.tagType.text",
 };
+
+export function statusLabel(status: EventStatus): string {
+  return t(STATUS_LABEL_KEYS[status]);
+}
+
+export function tagTypeLabel(type: EventTag["type"]): string {
+  return t(TAG_TYPE_LABEL_KEYS[type]);
+}
 
 // ---------------------------------------------------------------------------------------------
 // Guards
@@ -76,7 +83,7 @@ export function buildEventIndex(items: TrackedEvent[]): IndexEntry[] {
     ]
       .filter(Boolean)
       .join(" "),
-    displayLine: `${item.title} — ${STATUS_LABELS[item.status]}`,
+    displayLine: `${item.title} — ${statusLabel(item.status)}`,
   }));
 }
 
@@ -125,12 +132,12 @@ export function createTag(id: string = crypto.randomUUID()): EventTag {
 }
 
 export function validateEventInput(input: EventFormInput): string | null {
-  if (!input.title.trim()) return "Title is required.";
+  if (!input.title.trim()) return t("validation.titleRequired");
   const names = input.tags.map((tag) => tag.name.trim().toLowerCase());
-  if (names.some((name) => !name)) return "Every tag needs a name.";
-  if (new Set(names).size !== names.length) return "Tag names must be unique.";
+  if (names.some((name) => !name)) return t("events.tagNameRequired");
+  if (new Set(names).size !== names.length) return t("events.tagNamesUnique");
   if (input.tags.some((tag) => !TAG_TYPES.includes(tag.type))) {
-    return "Unknown tag type.";
+    return t("events.tagTypeUnknown");
   }
   return null;
 }
@@ -229,7 +236,7 @@ export function tagInputValue(value: TagValue | undefined): string {
 }
 
 export function formatTagValue(tag: EventTag, value: TagValue): string {
-  if (typeof value === "boolean") return value ? TRUE_LABEL : FALSE_LABEL;
+  if (typeof value === "boolean") return t(value ? "events.yes" : "events.no");
   if (typeof value === "number") return `${value}${tag.unit}`;
   return value;
 }
@@ -334,7 +341,7 @@ export function itemValidationError(day: EventDay): string | null {
   const unnamed = day.items.some(
     (item) => !isItemEmpty(item) && !item.label.trim(),
   );
-  return unnamed ? "Every item needs a name." : null;
+  return unnamed ? t("events.itemNameRequired") : null;
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -430,7 +437,7 @@ export function timelineFilterOptions(
     }
   }
   return [
-    { value: "", label: "Everything" },
+    { value: "", label: t("events.everything") },
     ...event.tags.map((tag) => ({
       value: `${TAG_FILTER_PREFIX}${tag.id}`,
       label: tag.name,
@@ -730,10 +737,10 @@ export function addMonths(key: string, amount: number): string {
 }
 
 export const RANGE_PRESETS = [
-  { id: "1m", label: "1个月", months: 1 },
-  { id: "3m", label: "3个月", months: 3 },
-  { id: "6m", label: "6个月", months: 6 },
-  { id: "12m", label: "1年", months: 12 },
+  { id: "1m", months: 1 },
+  { id: "3m", months: 3 },
+  { id: "6m", months: 6 },
+  { id: "12m", months: 12 },
 ] as const;
 export type RangePresetId = (typeof RANGE_PRESETS)[number]["id"];
 
@@ -778,9 +785,17 @@ export function timeSpan(range: DateRange): { years: number; months: number } {
   return { years: Math.floor(total / 12), months: total % 12 };
 }
 
-/** `3年3个月`, `2年`, `10个月`; zero parts are dropped (under a month reads `0个月`). */
+/** `3 years 3 months` / `3年3个月`; zero parts are dropped (under a month reads `0 months`). */
 export function formatTimeSpan(range: DateRange): string {
   const { years, months } = timeSpan(range);
-  if (years === 0) return `${months}个月`;
-  return months === 0 ? `${years}年` : `${years}年${months}个月`;
+  return formatSpan(years, months);
+}
+
+export function formatSpan(years: number, months: number): string {
+  if (years === 0) return tp("events.span.months", months);
+  if (months === 0) return tp("events.span.years", years);
+  return t("events.span.yearsMonths", {
+    years: tp("events.span.years", years),
+    months: tp("events.span.months", months),
+  });
 }

@@ -253,6 +253,32 @@ describe("SettingsPanel auto-lock", () => {
     expect(screen.getByText(/stays unlocked/i)).toBeVisible();
   });
 
+  it("persists the UI language from System → Appearance", async () => {
+    const user = userEvent.setup();
+    render(<SettingsPanel />);
+    await user.click(screen.getByRole("tab", { name: "System" }));
+
+    const language = screen.getByLabelText("Language");
+    expect(language).toHaveValue("system");
+    expect(
+      screen.getAllByRole("option").map((option) => option.textContent),
+    ).toEqual(expect.arrayContaining(["Follow macOS", "English", "简体中文"]));
+
+    await user.selectOptions(language, "zh-CN");
+
+    const saved = JSON.parse(api.saveVault.mock.calls[0][0] as string);
+    expect(saved.settings.language).toBe("zh-CN");
+  });
+
+  it("ignores a language value it does not know", () => {
+    render(<SettingsPanel />);
+    fireEvent.click(screen.getByRole("tab", { name: "System" }));
+    fireEvent.change(screen.getByLabelText("Language"), {
+      target: { value: "fr" },
+    });
+    expect(api.saveVault).not.toHaveBeenCalled();
+  });
+
   it("renders nothing before a model is loaded", () => {
     useVaultStore.setState({ model: null });
 

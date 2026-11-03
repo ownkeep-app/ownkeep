@@ -6,6 +6,7 @@ import { ConfirmDeleteDialog } from "@/components/ConfirmDeleteDialog";
 import { ItemFormShell } from "@/components/ItemFormShell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { t as translate, useT } from "@/i18n";
 import { formatDate, dateInputToIso } from "@/lib/date";
 import { toastError } from "@/lib/toast";
 import { cn } from "@/lib/utils";
@@ -61,7 +62,10 @@ function tagValuesFromInputs(
     if (!input?.trim()) continue;
     const parsed = parseTagInput(tag, input);
     if (parsed === undefined)
-      return { values, error: `${tag.name} must be a number.` };
+      return {
+        values,
+        error: translate("events.mustBeNumber", { name: tag.name }),
+      };
     values[tag.id] = parsed;
   }
   return { values, error: null };
@@ -89,6 +93,7 @@ export function DayEditor({
   onDelete: () => void;
   onCancel: () => void;
 }) {
+  const { t } = useT();
   const existing = dayFor(event, date) ?? emptyDay(date);
   const [tagInputs, setTagInputs] = useState<TagInputs>(() =>
     initialTagInputs(event, existing),
@@ -135,7 +140,7 @@ export function DayEditor({
   return (
     <>
       <ItemFormShell
-        cancelLabel="Cancel"
+        cancelLabel={t("common.cancel")}
         description={event.title}
         error={error}
         mode={isExisting ? "edit" : "create"}
@@ -149,7 +154,7 @@ export function DayEditor({
               variant="destructive"
             >
               <Trash2 className="h-4 w-4" />
-              Delete day
+              {t("events.deleteDay")}
             </Button>
           ) : null
         }
@@ -167,17 +172,15 @@ export function DayEditor({
           type="button"
         >
           <Flag className={cn("h-4 w-4", milestone && "fill-current")} />
-          <span className="font-medium">Milestone day</span>
+          <span className="font-medium">{t("events.milestoneDay")}</span>
           <span className="ml-auto text-xs text-muted-foreground">
-            {milestone
-              ? "Highlighted on the calendar"
-              : "Mark this day as a milestone"}
+            {t(milestone ? "events.milestoneOn" : "events.milestoneOff")}
           </span>
         </button>
 
         {event.tags.length > 0 ? (
           <section className="col-span-2 space-y-2">
-            <h2 className="text-sm font-medium">Tags</h2>
+            <h2 className="text-sm font-medium">{t("field.tags")}</h2>
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
               {event.tags.map((tag) => (
                 <TagField
@@ -193,7 +196,7 @@ export function DayEditor({
 
         <section className="col-span-2 space-y-2">
           <div className="flex items-center justify-between">
-            <h2 className="text-sm font-medium">Items</h2>
+            <h2 className="text-sm font-medium">{t("events.items")}</h2>
             <Button
               onClick={() =>
                 setItems((current) => [...current, createEventItem()])
@@ -203,12 +206,12 @@ export function DayEditor({
               variant="outline"
             >
               <Plus className="h-4 w-4" />
-              Add item
+              {t("events.addItem")}
             </Button>
           </div>
           {items.length === 0 ? (
             <p className="text-sm text-muted-foreground">
-              Add a measurement, a result, or a photo of a report.
+              {t("events.itemsEmpty")}
             </p>
           ) : (
             <ul className="space-y-3">
@@ -239,9 +242,9 @@ export function DayEditor({
         </section>
 
         <label className="col-span-2 space-y-1 text-sm font-medium">
-          Note
+          {t("finance.note")}
           <textarea
-            aria-label="Day note"
+            aria-label={t("events.dayNote")}
             className="flex min-h-20 w-full rounded-md border border-input bg-card px-3 py-2 text-sm font-normal shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
             onChange={(changeEvent) => setNote(changeEvent.target.value)}
             value={note}
@@ -274,6 +277,7 @@ function TagField({
   value: string | boolean | undefined;
   onChange: (value: string | boolean | undefined) => void;
 }) {
+  const { t } = useT();
   return (
     <div className="flex items-center gap-2 rounded-md border border-border bg-muted/30 px-3 py-2">
       <TagIcon className="h-4 w-4 text-muted-foreground" icon={tag.icon} />
@@ -281,8 +285,8 @@ function TagField({
       {tag.type === "boolean" ? (
         <div aria-label={tag.name} className="flex gap-1" role="radiogroup">
           {[
-            { label: "Y", state: true },
-            { label: "N", state: false },
+            { label: t("events.yes"), state: true },
+            { label: t("events.no"), state: false },
           ].map((option) => (
             <button
               aria-checked={value === option.state}
@@ -339,6 +343,7 @@ function ItemRow({
   onRemove: () => void;
   onViewImage: (index: number) => void;
 }) {
+  const { t } = useT();
   const [uploading, setUploading] = useState(false);
   const inputId = useId();
   const position = index + 1;
@@ -356,7 +361,7 @@ function ItemRow({
     if (failed) {
       const reason = (failed as PromiseRejectedResult).reason;
       toastError(
-        reason instanceof Error ? reason.message : "Couldn't add that file.",
+        reason instanceof Error ? reason.message : t("events.fileAddFailed"),
       );
     }
     setUploading(false);
@@ -366,22 +371,22 @@ function ItemRow({
     <li className="space-y-2 rounded-md border border-border p-3">
       <div className="flex items-center gap-2">
         <Input
-          aria-label={`Item ${position} name`}
+          aria-label={t("events.itemName", { n: position })}
           className="flex-1"
           list={labelListId}
           onChange={(event) => onChange({ label: event.target.value })}
-          placeholder="Name, e.g. Height"
+          placeholder={t("events.itemNamePlaceholder")}
           value={item.label}
         />
         <Input
-          aria-label={`Item ${position} value`}
+          aria-label={t("events.itemValue", { n: position })}
           className="flex-1"
           onChange={(event) => onChange({ value: event.target.value })}
-          placeholder="Value, e.g. 147.2 cm"
+          placeholder={t("events.itemValuePlaceholder")}
           value={item.value}
         />
         <label
-          aria-label={`Add photos or PDFs to item ${position}`}
+          aria-label={t("events.itemAttach", { n: position })}
           className="inline-flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-md hover:bg-accent"
           htmlFor={inputId}
         >
@@ -404,7 +409,7 @@ function ItemRow({
           type="file"
         />
         <Button
-          aria-label={`Remove item ${position}`}
+          aria-label={t("events.itemRemove", { n: position })}
           onClick={onRemove}
           size="icon"
           type="button"
@@ -422,7 +427,7 @@ function ItemRow({
                 onOpen={() => onViewImage(imageIndex)}
               />
               <button
-                aria-label={`Remove ${image.name}`}
+                aria-label={t("events.removeNamed", { name: image.name })}
                 className="absolute -right-1.5 -top-1.5 hidden h-5 w-5 items-center justify-center rounded-full bg-foreground text-background group-focus-within:flex group-hover:flex"
                 onClick={() =>
                   onChange({

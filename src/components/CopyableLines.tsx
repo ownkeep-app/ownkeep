@@ -1,5 +1,6 @@
 import { Copy } from "lucide-react";
 
+import { t as translate, useT } from "@/i18n";
 import { writeClipboard } from "@/lib/clipboard";
 import { toastClipboard } from "@/lib/toast";
 import { cn } from "@/lib/utils";
@@ -12,7 +13,7 @@ export function splitCopyableLines(text: string): string[] {
 
 async function copyLine(text: string) {
   const ok = await writeClipboard(text);
-  toastClipboard(ok, "Line copied");
+  toastClipboard(ok, translate("copyable.lineCopied"));
 }
 
 /**
@@ -22,7 +23,7 @@ export function CopyableLines({
   text,
   maxLines,
   className,
-  emptyLabel = "Empty",
+  emptyLabel,
   skipBlankLines = false,
 }: {
   text: string;
@@ -33,6 +34,7 @@ export function CopyableLines({
   /** Drop empty / whitespace-only lines (useful for compact list previews). */
   skipBlankLines?: boolean;
 }) {
+  const { t, tp } = useT();
   const lines = skipBlankLines
     ? splitCopyableLines(text).filter((line) => line.trim().length > 0)
     : splitCopyableLines(text);
@@ -48,7 +50,7 @@ export function CopyableLines({
   if (visible.length === 0) {
     return (
       <p className={cn("text-sm text-muted-foreground", className)}>
-        {emptyLabel}
+        {emptyLabel ?? t("common.empty")}
       </p>
     );
   }
@@ -62,7 +64,7 @@ export function CopyableLines({
           const lastWithMore = isLast && truncated > 0;
           return (
             <button
-              aria-label={`Copy line ${index + 1}`}
+              aria-label={t("copyable.copyLine", { line: index + 1 })}
               className={cn(
                 "group relative flex min-h-[1.5rem] w-full cursor-pointer items-start gap-2 rounded-sm text-left text-muted-foreground hover:bg-accent/60 hover:text-foreground",
                 lastWithMore ? "pr-28" : "pr-8",
@@ -94,7 +96,7 @@ export function CopyableLines({
       </div>
       {truncated > 0 ? (
         <p className="pointer-events-none absolute bottom-0 right-0 text-xs text-muted-foreground">
-          +{truncated} more line{truncated === 1 ? "" : "s"}
+          {tp("copyable.moreLines", truncated)}
         </p>
       ) : null}
     </div>

@@ -3,6 +3,8 @@ import { useEffect, useRef } from "react";
 import uPlot from "uplot";
 import "uplot/dist/uPlot.min.css";
 
+import { useT } from "@/i18n";
+import { localeDateNames } from "@/lib/date";
 import type { TrendPoint } from "./logic";
 
 /** Net-worth trend line over snapshots (spec M3), rendered with uPlot. */
@@ -13,6 +15,7 @@ export function TrendChart({
   points: TrendPoint[];
   currency: string;
 }) {
+  const { t, locale } = useT();
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -29,6 +32,7 @@ export function TrendChart({
         cursor: { show: false },
         legend: { show: false },
         scales: { x: { time: true } },
+        fmtDate: (template) => uPlot.fmtDate(template, localeDateNames(locale)),
         series: [
           {},
           {
@@ -52,12 +56,12 @@ export function TrendChart({
       el,
     );
     return () => chart.destroy();
-  }, [points, currency]);
+  }, [points, currency, locale]);
 
   if (points.length < 2) {
     return (
       <p className="px-6 py-4 text-sm text-muted-foreground">
-        Add at least two snapshots to see the net-worth trend.
+        {t("finance.trendEmpty")}
       </p>
     );
   }

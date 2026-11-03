@@ -9,6 +9,7 @@ import {
 import { DatePicker } from "@/components/date-picker";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
+import { type Locale, useT } from "@/i18n";
 import { dateInputToIso, formatDate } from "@/lib/date";
 import {
   dateTicks,
@@ -21,6 +22,7 @@ import {
   pointsInRange,
   presetRange,
   RANGE_PRESETS,
+  formatSpan,
   sameRange,
   setRangeEnd,
   yearRange,
@@ -55,8 +57,8 @@ function formatChange(change: number, tag: EventTag): string {
   return `${sign}${formatValue(Math.abs(change), tag)}`;
 }
 
-function shortDate(date: string, withYear: boolean): string {
-  return new Date(`${date}T00:00:00`).toLocaleDateString(undefined, {
+function shortDate(date: string, withYear: boolean, locale: Locale): string {
+  return new Date(`${date}T00:00:00`).toLocaleDateString(locale, {
     month: "short",
     day: "numeric",
     ...(withYear ? { year: "2-digit" } : {}),
@@ -70,6 +72,7 @@ export function TrendingView({
   event: TrackedEvent;
   onOpenDay: (date: string) => void;
 }) {
+  const { t } = useT();
   const tags = useMemo(() => numericTags(event), [event]);
   const [tagId, setTagId] = useState(() => tags[0]?.id ?? "");
   const today = todayKey();
@@ -94,8 +97,7 @@ export function TrendingView({
   if (!tag) {
     return (
       <p className="p-6 text-sm text-muted-foreground">
-        Trending charts a number tag over time. Edit this event and add a tag of
-        type Number to start.
+        {t("events.trendNoTag")}
       </p>
     );
   }
@@ -104,7 +106,7 @@ export function TrendingView({
     <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-auto p-4">
       <div className="flex flex-wrap items-center gap-2">
         <Select
-          aria-label="Trend tag"
+          aria-label={t("events.trendTag")}
           className="w-48"
           onChange={(change) => setTagId(change.target.value)}
           value={tag.id}
@@ -116,7 +118,7 @@ export function TrendingView({
           ))}
         </Select>
         <Select
-          aria-label="Recent range"
+          aria-label={t("events.recentRange")}
           className="w-28"
           onChange={(change) => {
             if (change.target.value) {
@@ -127,15 +129,20 @@ export function TrendingView({
           }}
           value={activePreset?.id ?? ""}
         >
-          <option value="">最近</option>
+          <option value="">{t("events.recent")}</option>
           {RANGE_PRESETS.map((preset) => (
             <option key={preset.id} value={preset.id}>
-              最近 {preset.label}
+              {t("events.recentSpan", {
+                span: formatSpan(
+                  Math.floor(preset.months / 12),
+                  preset.months % 12,
+                ),
+              })}
             </option>
           ))}
         </Select>
         <Select
-          aria-label="Year"
+          aria-label={t("events.year")}
           className="w-28"
           onChange={(change) => {
             if (change.target.value)
@@ -143,7 +150,7 @@ export function TrendingView({
           }}
           value={activeYear ?? ""}
         >
-          <option value="">年份</option>
+          <option value="">{t("events.year")}</option>
           {years.map((year) => (
             <option key={year} value={year}>
               {year}
@@ -152,7 +159,7 @@ export function TrendingView({
         </Select>
         <div className="ml-auto flex items-center gap-2">
           <DatePicker
-            aria-label="From date"
+            aria-label={t("events.fromDate")}
             className="w-40"
             onChange={(date) =>
               setRange((current) => setRangeEnd(current, "from", date))
@@ -161,7 +168,7 @@ export function TrendingView({
           />
           <span className="text-sm text-muted-foreground">–</span>
           <DatePicker
-            aria-label="To date"
+            aria-label={t("events.toDate")}
             className="w-40"
             onChange={(date) =>
               setRange((current) => setRangeEnd(current, "to", date))
@@ -175,7 +182,7 @@ export function TrendingView({
               type="button"
               variant="ghost"
             >
-              Reset
+              {t("events.reset")}
             </Button>
           )}
         </div>
@@ -185,10 +192,19 @@ export function TrendingView({
         <>
           <dl className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             {[
-              { label: "Time Spanning", value: formatTimeSpan(range) },
-              { label: "Change", value: formatChange(summary.change, tag) },
-              { label: "Min", value: formatValue(summary.min, tag) },
-              { label: "Max", value: formatValue(summary.max, tag) },
+              { label: t("events.stat.span"), value: formatTimeSpan(range) },
+              {
+                label: t("events.stat.change"),
+                value: formatChange(summary.change, tag),
+              },
+              {
+                label: t("events.stat.min"),
+                value: formatValue(summary.min, tag),
+              },
+              {
+                label: t("events.stat.max"),
+                value: formatValue(summary.max, tag),
+              },
             ].map((stat) => (
               <div
                 className="rounded-md border border-border bg-card px-3 py-2"
@@ -211,9 +227,12 @@ export function TrendingView({
         </>
       ) : (
         <p className="text-sm text-muted-foreground">
-          {allPoints.length === 0
-            ? `No values tracked for ${tag.name} yet. Fill it in on a calendar day.`
-            : `No values for ${tag.name} in this date range.`}
+          {t(
+            allPoints.length === 0
+              ? "events.trendNoValues"
+              : "events.trendNoValuesInRange",
+            { name: tag.name },
+          )}
         </p>
       )}
     </div>
@@ -232,6 +251,7 @@ function TrendChart({
   tag: EventTag;
   onOpenDay: (date: string) => void;
 }) {
+  const { t, locale } = useT();
   const hostRef = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(FALLBACK_WIDTH);
   const [hovered, setHovered] = useState<number | null>(null);
@@ -303,7 +323,7 @@ function TrendChart({
       </figcaption>
       <div className="relative" ref={hostRef}>
         <svg
-          aria-label={`${tag.name} line chart`}
+          aria-label={t("events.lineChart", { name: tag.name })}
           className="block overflow-visible"
           height={CHART_HEIGHT}
           role="img"
@@ -337,7 +357,7 @@ function TrendChart({
               x={xOf(daysBetween(first, date))}
               y={CHART_HEIGHT - 8}
             >
-              {shortDate(date, withYear)}
+              {shortDate(date, withYear, locale)}
             </text>
           ))}
 
@@ -404,15 +424,18 @@ function TrendChart({
 }
 
 function TrendTable({ points, tag }: { points: TrendPoint[]; tag: EventTag }) {
+  const { t } = useT();
   return (
     <details className="rounded-md border border-border bg-card text-sm">
       <summary className="cursor-pointer px-3 py-2 font-medium">
-        Values ({points.length})
+        {t("events.valuesCount", { count: points.length })}
       </summary>
       <table className="w-full border-t border-border">
         <thead className="text-xs text-muted-foreground">
           <tr>
-            <th className="px-3 py-1.5 text-left font-medium">Date</th>
+            <th className="px-3 py-1.5 text-left font-medium">
+              {t("finance.date")}
+            </th>
             <th className="px-3 py-1.5 text-right font-medium">{tag.name}</th>
           </tr>
         </thead>

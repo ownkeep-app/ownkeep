@@ -7,6 +7,8 @@
 
 import { invoke } from "@tauri-apps/api/core";
 
+import type { Locale } from "@/i18n";
+
 /** The one-time Emergency Kit returned by create/regenerate (§4.6). */
 export interface EmergencyKit {
   app: string;
@@ -44,6 +46,8 @@ export const vaultApi = {
   /** Apply the configured global/window hotkeys to the desktop shell. Spec §9/F9. */
   setHotkeys: (globalHotkey: string, dashboardHotkey: string) =>
     invoke<void>("set_hotkeys", { globalHotkey, dashboardHotkey }),
+  /** Tell the Rust shell which locale to use for its tray menu, quit dialog, and reminders. */
+  setLocale: (locale: Locale) => invoke<void>("set_locale", { locale }),
   changeMaster: (newPassword: string) =>
     invoke<void>("change_master", { newPassword }),
   regenerateRecovery: () => invoke<EmergencyKit>("regenerate_recovery"),

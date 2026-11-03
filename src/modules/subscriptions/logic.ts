@@ -1,5 +1,6 @@
 import dayjs from "dayjs";
 
+import { t } from "@/i18n";
 import { dateInputToIso, formatDate, isoToDateInput } from "@/lib/date";
 import { calendarDueStatus } from "@/lib/due-status";
 import { readFinanceFx } from "@/modules/finance/logic";
@@ -26,7 +27,9 @@ const DAY_MS = 86_400_000;
 
 /** Manual renewals are due dates; auto-renew is the next invoice date. */
 export function subscriptionNextDateLabel(autoRenew: boolean): string {
-  return autoRenew ? "Next invoice date" : "Due date";
+  return t(
+    autoRenew ? "subscriptions.nextInvoiceDate" : "subscriptions.dueDate",
+  );
 }
 
 /**
@@ -260,29 +263,31 @@ export function updateSubscriptionEntry(
 export function validateSubscriptionInput(
   input: SubscriptionFormInput,
 ): string | null {
-  if (!input.service.trim()) return "Service is required.";
-  if (!input.category.trim()) return "Category is required.";
+  if (!input.service.trim()) return t("subscriptions.serviceRequired");
+  if (!input.category.trim()) return t("validation.categoryRequired");
   const amount = Number(input.amount);
   if (!Number.isFinite(amount) || amount < 0) {
-    return "Amount must be zero or greater.";
+    return t("validation.amountNonNegative");
   }
-  if (!input.currency.trim()) return "Currency is required.";
-  if (!isSubscriptionCycle(input.cycle)) return "Billing cycle is invalid.";
+  if (!input.currency.trim()) return t("subscriptions.currencyRequired");
+  if (!isSubscriptionCycle(input.cycle)) return t("subscriptions.cycleInvalid");
   if (
     input.cycle === "custom" &&
     (!Number.isInteger(Number(input.customIntervalDays)) ||
       Number(input.customIntervalDays) <= 0)
   ) {
-    return "Custom interval must be a positive whole number of days.";
+    return t("subscriptions.customIntervalInvalid");
   }
   if (!dateInputToIso(input.nextDueDate)) {
-    return `${subscriptionNextDateLabel(input.autoRenew)} is required.`;
+    return t("validation.fieldRequired", {
+      field: subscriptionNextDateLabel(input.autoRenew),
+    });
   }
   if (!Number.isInteger(Number(input.notifyLeadDays))) {
-    return "Reminder lead must be a whole number of days.";
+    return t("subscriptions.leadNotWhole");
   }
   if (Number(input.notifyLeadDays) < 0) {
-    return "Reminder lead cannot be negative.";
+    return t("validation.leadNegative");
   }
   return null;
 }
@@ -362,7 +367,9 @@ export function collectSubscriptionReminders(
       return [
         {
           id: `${item.id}:due:${item.nextDueDate}`,
-          title: `Your subscription on ${item.service} has been automatically renewed. Expect invoice to come`,
+          title: t("native.reminder.subscriptionRenewed", {
+            service: item.service,
+          }),
           body: formatReminderBody(item),
         },
       ];
@@ -374,7 +381,7 @@ export function collectSubscriptionReminders(
       {
         // Include nextDueDate so reschedule / next cycle can notify again once.
         id: `${item.id}:due:${item.nextDueDate}`,
-        title: `Subscription due: ${item.service}`,
+        title: t("native.reminder.subscriptionDue", { service: item.service }),
         body: formatReminderBody(item),
       },
     ];
@@ -481,10 +488,14 @@ function addBillingCycles(
 function formatReminderBody(item: SubscriptionEntry): string {
   const parts = [
     item.autoRenew
-      ? `Invoice ${formatDate(item.nextDueDate)}`
-      : `Due ${formatDate(item.nextDueDate)}`,
+      ? t("subscriptions.invoiceOn", { date: formatDate(item.nextDueDate) })
+      : t("todos.due", { date: formatDate(item.nextDueDate) }),
     formatCurrencyAmount(item.amount, item.currency),
-    item.autoRenew ? "auto-renew" : "manual renewal",
+    t(
+      item.autoRenew
+        ? "subscriptions.autoRenewLower"
+        : "subscriptions.manualRenewalLower",
+    ),
   ];
   return parts.join(" - ");
 }
