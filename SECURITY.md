@@ -64,6 +64,13 @@ credential can unlock the vault without the others being derivable from it.
 a password writes it to the pasteboard from Rust with `org.nspasteboard.ConcealedType` set, so
 clipboard-history tools skip it, and the clipboard auto-clears.
 
+**Stored files.** The Files module keeps file contents as encrypted blobs in a folder beside the
+vault, in 1 MiB chunks sealed with XChaCha20-Poly1305 under a key derived from the vault's key, each
+bound to its position and file so chunks can't be reordered or swapped. Titles, names and types stay
+in the vault, but the **number of files and their approximate sizes are visible on disk**, and
+deleting a file unlinks its ciphertext rather than wiping it. "Save a copy" writes decrypted bytes
+where you choose; nothing else writes plaintext to disk. See `spec.md` §4.8.
+
 **Touch ID.** Opt-in and off by default. It is a *third wrap*, never a replacement: enrolling
 requires an already-unlocked vault, and the master password and recovery code always work. The
 biometric key sits behind `SecAccessControl(BiometryCurrentSet, WhenUnlockedThisDeviceOnly)`,

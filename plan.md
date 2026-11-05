@@ -417,6 +417,33 @@ language in Settings → System (spec §9).*
 - **Exit criteria:** `pnpm check` + `pnpm coverage` green (>95%); `cargo test` green; switching the
   language re-renders both windows and relabels the tray without a restart.
 
+### Phase 16 — 📁 Files module (M6) + streaming backup archive · working release 1.6
+*Stores files of any type and size. Contents can't live in the re-sealed-on-every-save vault document,
+so this is the first change to "one encrypted file": explicitly confirmed by the owner (2026-11-05) along
+with a single-file backup archive. See `spec.md` §3.2, §4.8, §6 M6, §11.*
+
+- [x] `blobs.rs`: chunked XChaCha20-Poly1305 blobs under a DEK-derived key; atomic, streaming, cancelable.
+- [x] `file_protocol.rs`: `ownkeep-file://` range-serving preview scheme; 403 while locked; displayable
+  types only; CSP gains `ownkeep-file:` for `img-src`, `media-src`, `frame-src`.
+- [x] `archive.rs`: streamed `.okbak` backup; `prepare_restore` verifies every chunk into staging without
+  holding the session lock, `commit_restore` swaps; `.dat` backups keep restoring; automatic snapshots
+  hard-link their blobs; erase removes the folder.
+- [x] `filesModule`: list, filter, edit title / description / date, save a copy, delete; `scopePrefix: "fi"`;
+  `searchableByDefault: false`.
+- [x] Viewer: image zoom (shared `components/image-zoom.tsx`, extracted from the Event Tracker viewer),
+  PDF reader, native audio / video.
+- [x] Files category + category filter; grid of preview tiles; invalid files in a collapsed section with
+  stamped previews; pagination.
+- [x] Drag to sort for Files, Event Tracker, Notes and Commands (`hooks/use-drag-sort.ts`, `manualOrder`
+  flag); Notes and Commands lists are now flat, with coloured category badges.
+- [x] Settings: `FeatureModule.SettingsPanel` now renders per enabled module (documented in §3.4 but
+  previously unwired); Files contributes Maximum file size. Progress + Cancel dialog at the app root.
+- **No schema change.** `SCHEMA_VERSION` stays 11 and `container.version` stays 3; reasoning in
+  `spec.md` §11.2. No migration registry entry is required.
+- **Exit criteria:** `pnpm check` + `pnpm coverage` green (>95%); `pnpm coverage:rust` green (>95%);
+  acceptance list in `spec.md` §6 M6 walked through by hand in `pnpm dev`.
+- **Deps:** Phase 2 (registry), Phase 6 (backup/restore), Phase 15 (viewer).
+
 ---
 
 ## Definition of Done — v1.0

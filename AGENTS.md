@@ -13,7 +13,7 @@ backup/restore and configuration. Full details: [`spec.md`](spec.md). Build orde
 ## Stay on track (guardrail)
 
 - Align every change with `spec.md` and the **current `plan.md` phase**.
-- Honor the non-negotiables from `spec.md`: **offline-only** (no network at runtime), **secrets stay in the Rust core** (never in the WebView), **one encrypted file** (no database), and the **feature-module registry** architecture.
+- Honor the non-negotiables from `spec.md`: **offline-only** (no network at runtime), **secrets stay in the Rust core** (never in the WebView), **one encrypted file** (no database) for all structured data, with the Files module's contents as encrypted blobs beside it (`spec.md` §3.2), and the **feature-module registry** architecture.
 - If a request conflicts with `spec.md`/`plan.md`, **flag it, cite the section, explain the tradeoff, and proceed only after explicit confirmation** — don't silently deviate.
 - If a change alters documented behavior or scope, **update `spec.md`/`plan.md` in the same change**.
 - If a change alters the vault/data shape (settings keys, module slices, schema/container versions, stored JSON paths, backup/restore behavior), **update the migration guide / migration registry in the same change** and make `$verify` confirm it against the latest `v*` release tag.

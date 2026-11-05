@@ -7,6 +7,7 @@ import { LockScreen } from "@/features/auth/LockScreen";
 import { OnboardingScreen } from "@/features/auth/OnboardingScreen";
 import { ResetMasterScreen } from "@/features/auth/ResetMasterScreen";
 import { Dashboard } from "@/features/dashboard/Dashboard";
+import { TransferProgress } from "@/features/TransferProgress";
 import {
   IncompatibleVaultScreen,
   MigrationGuideScreen,
@@ -18,7 +19,7 @@ import {
 } from "@/lib/window";
 import { useI18nStore, useT } from "@/i18n";
 import { applyThemeSettings } from "@/lib/theme";
-import { useVaultStore } from "@/stores/vault-store";
+import { useVaultStore, type VaultStatus } from "@/stores/vault-store";
 import { vaultApi } from "@/vault/api";
 
 function Loading() {
@@ -91,10 +92,25 @@ function App() {
     void setMainWindowMode(mainWindowMode(status, pendingKit));
   }, [label, status, pendingKit]);
 
-  if (label === "dashboard") {
-    return <Dashboard />;
-  }
+  return (
+    <>
+      {label === "dashboard" ? (
+        <Dashboard />
+      ) : (
+        <LauncherSurface hasPendingKit={Boolean(pendingKit)} status={status} />
+      )}
+      <TransferProgress />
+    </>
+  );
+}
 
+function LauncherSurface({
+  status,
+  hasPendingKit,
+}: {
+  status: VaultStatus;
+  hasPendingKit: boolean;
+}) {
   switch (status) {
     case "onboarding":
       return <OnboardingScreen />;
@@ -107,7 +123,7 @@ function App() {
     case "incompatible":
       return <IncompatibleVaultScreen />;
     case "unlocked":
-      return pendingKit ? <EmergencyKitScreen /> : <CommandBar />;
+      return hasPendingKit ? <EmergencyKitScreen /> : <CommandBar />;
     default:
       return <Loading />;
   }

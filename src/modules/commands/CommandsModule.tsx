@@ -2,6 +2,7 @@ import { type FormEvent, type ReactNode, useMemo, useState } from "react";
 
 import { Copy, Eye, Pencil, Plus, Trash2 } from "lucide-react";
 
+import { CategoryBadge } from "@/components/CategoryBadge";
 import { CategorySelect } from "@/components/category-select";
 import {
   CategoryFilterSelect,
@@ -9,6 +10,7 @@ import {
 } from "@/components/category-filter-select";
 import { ConfirmDeleteDialog } from "@/components/ConfirmDeleteDialog";
 import { DetailModal } from "@/components/DetailModal";
+import { DragHandle, SORTABLE_ITEM_CLASS } from "@/components/DragHandle";
 import {
   DetailField,
   DetailFields,
@@ -28,12 +30,15 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useT } from "@/i18n";
 import { writeClipboard } from "@/lib/clipboard";
-import { toastClipboard } from "@/lib/toast";
+import { moveItem } from "@/lib/reorder";
+import { toastClipboard, toastError } from "@/lib/toast";
 import { cn } from "@/lib/utils";
 import { useClearFiltersOnEscape } from "@/hooks/use-clear-filters-on-escape";
+import { useDragSort } from "@/hooks/use-drag-sort";
 import { useTaxonomySettings } from "@/hooks/use-taxonomy-settings";
 import type { ListViewProps } from "@/modules/types";
 import { useVaultStore } from "@/stores/vault-store";
+import { hasManualOrder } from "@/vault/model";
 import { FillInForm } from "./FillInForm";
 import { SnippetView } from "./highlight";
 import {
@@ -41,17 +46,26 @@ import {
   createCommandEntry,
   emptyCommandForm,
   formFromCommand,
-  groupByTag,
+  sortCommandsByTitle,
   parsePlaceholders,
   updateCommandEntry,
   validateCommandInput,
 } from "./logic";
-import type { CommandEntry, CommandFormInput } from "./types";
+import {
+  COMMANDS_MODULE_ID,
+  type CommandEntry,
+  type CommandFormInput,
+} from "./types";
 
 export function CommandsListView({ items }: ListViewProps<CommandEntry>) {
   const { t, tp } = useT();
   const saveCommand = useVaultStore((s) => s.saveCommand);
   const deleteCommand = useVaultStore((s) => s.deleteCommand);
+  const reorderItems = useVaultStore((s) => s.reorderItems);
+  const manualOrder = useVaultStore(
+    (s) =>
+      s.model !== null && hasManualOrder(s.model.settings, COMMANDS_MODULE_ID),
+  );
   const { categoryOptions } = useTaxonomySettings();
   const [query, setQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("");
@@ -63,7 +77,10 @@ export function CommandsListView({ items }: ListViewProps<CommandEntry>) {
     name: string;
   } | null>(null);
 
-  const commands = useMemo(() => commandEntries(items), [items]);
+  const commands = useMemo(() => {
+    const stored = commandEntries(items);
+    return manualOrder ? stored : sortCommandsByTitle(stored);
+  }, [items, manualOrder]);
   const filterCategories = useMemo(
     () =>
       categoryFilterOptions(
@@ -96,17 +113,15 @@ export function CommandsListView({ items }: ListViewProps<CommandEntry>) {
         .includes(term),
     );
   }, [commands, query, categoryFilter]);
-  const groups = useMemo(() => groupByTag(filtered), [filtered]);
-  const indexedGroups = useMemo(() => {
-    let next = 0;
-    return groups.map((group) => ({
-      tag: group.tag,
-      commands: group.commands.map((command) => ({
-        command,
-        index: ++next,
-      })),
-    }));
-  }, [groups]);
+  const filteredIds = filtered.map((item) => item.id);
+  const sort = useDragSort((activeId, overId) => {
+    // The whole list, so a drag under a filter keeps the hidden commands in place. Its first drag
+    // freezes the order on screen, which until then was only computed.
+    reorderItems(
+      COMMANDS_MODULE_ID,
+      moveItem(commands, activeId, overId),
+    ).catch(() => toastError(t("common.reorderFailed")));
+  });
 
   const startCreate = () => setEditing(null);
 
@@ -184,7 +199,7 @@ export function CommandsListView({ items }: ListViewProps<CommandEntry>) {
           ) : null}
         </div>
 
-        {indexedGroups.length === 0 ? (
+        {filtered.length === 0 ? (
           query.trim() ? (
             <EmptyState
               title={t("common.noMatches")}
@@ -203,98 +218,114 @@ export function CommandsListView({ items }: ListViewProps<CommandEntry>) {
             />
           )
         ) : (
-          <div className="min-h-0 flex-1 overflow-auto p-4">
-            {indexedGroups.map((group) => (
-              <section className="mb-6" key={group.tag}>
-                <h2 className="mb-2 text-xs font-medium uppercase text-muted-foreground">
-                  {group.tag}
-                </h2>
-                <ul className="space-y-3">
-                  {group.commands.map(({ command, index }) => {
-                    const snippet = command.snippets[0];
-                    return (
-                      <li
-                        className="rounded-md border border-border bg-card p-3 hover:bg-accent/40"
-                        key={`${group.tag}-${command.id}`}
+          <ul className="min-h-0 flex-1 space-y-3 overflow-auto p-4">
+            {filtered.map((command, index) => {
+              const snippet = command.snippets[0];
+              return (
+                <li
+                  className={cn(
+                    "rounded-md border border-border bg-card p-3 hover:bg-accent/40",
+                    SORTABLE_ITEM_CLASS,
+                  )}
+                  key={command.id}
+                  {...sort.itemProps(command.id)}
+                >
+                  <div className="flex items-start gap-2">
+                    <DragHandle
+                      className="-ml-1"
+                      itemName={command.title}
+                      {...sort.handleProps(command.id, filteredIds)}
+                    />
+                    <span
+                      aria-hidden="true"
+                      className="w-6 shrink-0 pt-0.5 text-center text-sm tabular-nums text-muted-foreground"
+                    >
+                      {index + 1}
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <ListItemTitle
+                        className="text-sm"
+                        onOpen={() => setViewing(command)}
                       >
-                        <div className="flex items-start gap-2">
-                          <span
-                            aria-hidden="true"
-                            className="w-6 shrink-0 pt-0.5 text-center text-sm tabular-nums text-muted-foreground"
-                          >
-                            {index}
-                          </span>
-                          <div className="min-w-0 flex-1">
-                            <ListItemTitle
-                              className="text-sm"
-                              onOpen={() => setViewing(command)}
+                        {command.title}
+                      </ListItemTitle>
+                      {command.description && (
+                        <p className="mt-0.5 text-sm text-muted-foreground">
+                          {command.description}
+                        </p>
+                      )}
+                      {command.tags.length > 0 ? (
+                        <div className="mt-1.5 flex flex-wrap gap-1.5">
+                          {command.tags.map((tag) => (
+                            <span
+                              className="rounded bg-secondary px-1.5 py-0.5 text-xs text-secondary-foreground"
+                              key={tag}
                             >
-                              {command.title}
-                            </ListItemTitle>
-                            {command.description && (
-                              <p className="mt-0.5 text-sm text-muted-foreground">
-                                {command.description}
-                              </p>
-                            )}
-                            {snippet && (
-                              <div className="mt-2 overflow-x-auto">
-                                <SnippetView
-                                  arguments={command.arguments}
-                                  code={snippet.code}
-                                  language={snippet.language}
-                                  title={command.title}
-                                />
-                              </div>
-                            )}
-                          </div>
-                          <div className="flex shrink-0 items-center gap-1">
-                            <Button
-                              aria-label={t("commands.copyTitle", {
-                                title: command.title,
-                              })}
-                              onClick={() => startCopy(command)}
-                              size="icon"
-                              type="button"
-                              variant="ghost"
-                            >
-                              <Copy className="h-4 w-4" />
-                            </Button>
-                            <RowActionsMenu
-                              label={t("common.actionsFor", {
-                                name: command.title,
-                              })}
-                              actions={[
-                                {
-                                  label: t("common.view"),
-                                  icon: <Eye className="h-4 w-4" />,
-                                  onSelect: () => setViewing(command),
-                                },
-                                {
-                                  label: t("common.edit"),
-                                  icon: <Pencil className="h-4 w-4" />,
-                                  onSelect: () => setEditing(command),
-                                },
-                                {
-                                  label: t("common.delete"),
-                                  icon: <Trash2 className="h-4 w-4" />,
-                                  destructive: true,
-                                  onSelect: () =>
-                                    setPendingDelete({
-                                      id: command.id,
-                                      name: command.title,
-                                    }),
-                                },
-                              ]}
-                            />
-                          </div>
+                              {tag}
+                            </span>
+                          ))}
                         </div>
-                      </li>
-                    );
-                  })}
-                </ul>
-              </section>
-            ))}
-          </div>
+                      ) : null}
+                      {snippet && (
+                        <div className="mt-2 overflow-x-auto">
+                          <SnippetView
+                            arguments={command.arguments}
+                            code={snippet.code}
+                            language={snippet.language}
+                            title={command.title}
+                          />
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex shrink-0 items-center gap-1">
+                      <CategoryBadge
+                        category={command.category}
+                        className="mr-1"
+                      />
+                      <Button
+                        aria-label={t("commands.copyTitle", {
+                          title: command.title,
+                        })}
+                        onClick={() => startCopy(command)}
+                        size="icon"
+                        type="button"
+                        variant="ghost"
+                      >
+                        <Copy className="h-4 w-4" />
+                      </Button>
+                      <RowActionsMenu
+                        label={t("common.actionsFor", {
+                          name: command.title,
+                        })}
+                        actions={[
+                          {
+                            label: t("common.view"),
+                            icon: <Eye className="h-4 w-4" />,
+                            onSelect: () => setViewing(command),
+                          },
+                          {
+                            label: t("common.edit"),
+                            icon: <Pencil className="h-4 w-4" />,
+                            onSelect: () => setEditing(command),
+                          },
+                          {
+                            label: t("common.delete"),
+                            icon: <Trash2 className="h-4 w-4" />,
+                            destructive: true,
+                            onSelect: () =>
+                              setPendingDelete({
+                                id: command.id,
+                                name: command.title,
+                              }),
+                          },
+                        ]}
+                      />
+                    </div>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
         )}
 
         <DetailModal

@@ -2,12 +2,14 @@ import { type FormEvent, useEffect, useMemo, useState } from "react";
 
 import { Eye, Pencil, Plus, Search, Trash2 } from "lucide-react";
 
+import { CategoryBadge } from "@/components/CategoryBadge";
 import { CategorySelect } from "@/components/category-select";
 import {
   CategoryFilterSelect,
   categoryFilterOptions,
 } from "@/components/category-filter-select";
 import { ConfirmDeleteDialog } from "@/components/ConfirmDeleteDialog";
+import { DragHandle, SORTABLE_ITEM_CLASS } from "@/components/DragHandle";
 import { DetailModal } from "@/components/DetailModal";
 import { EmptyState } from "@/components/EmptyState";
 import { ItemFormShell } from "@/components/ItemFormShell";
@@ -22,21 +24,26 @@ import { RowActionsMenu } from "@/components/RowActionsMenu";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { formatDate } from "@/lib/date";
+import { moveItem } from "@/lib/reorder";
+import { toastError } from "@/lib/toast";
+import { cn } from "@/lib/utils";
 import { useClearFiltersOnEscape } from "@/hooks/use-clear-filters-on-escape";
+import { useDragSort } from "@/hooks/use-drag-sort";
 import { useTaxonomySettings } from "@/hooks/use-taxonomy-settings";
 import type { ListViewProps } from "@/modules/types";
 import { useT } from "@/i18n";
 import { useVaultStore } from "@/stores/vault-store";
+import { hasManualOrder } from "@/vault/model";
 import {
   createNoteEntry,
   emptyNoteForm,
   formFromNote,
-  groupNotesByCategory,
+  sortNotesByUpdated,
   noteEntries,
   updateNoteEntry,
   validateNoteInput,
 } from "./logic";
-import type { NoteEntry, NoteFormInput } from "./types";
+import { NOTES_MODULE_ID, type NoteEntry, type NoteFormInput } from "./types";
 
 export function NotesListView({
   items,
@@ -46,6 +53,11 @@ export function NotesListView({
   const { t, tp } = useT();
   const saveNote = useVaultStore((s) => s.saveNote);
   const deleteNote = useVaultStore((s) => s.deleteNote);
+  const reorderItems = useVaultStore((s) => s.reorderItems);
+  const manualOrder = useVaultStore(
+    (s) =>
+      s.model !== null && hasManualOrder(s.model.settings, NOTES_MODULE_ID),
+  );
   const { categoryOptions } = useTaxonomySettings();
   const [query, setQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("");
@@ -71,11 +83,15 @@ export function NotesListView({
     setCategoryFilter("");
   });
 
+  const ordered = useMemo(
+    () => (manualOrder ? notes : sortNotesByUpdated(notes)),
+    [notes, manualOrder],
+  );
   const filtered = useMemo(() => {
     const term = query.trim().toLowerCase();
     const byCategory = categoryFilter
-      ? notes.filter((item) => item.category === categoryFilter)
-      : notes;
+      ? ordered.filter((item) => item.category === categoryFilter)
+      : ordered;
     if (!term) return byCategory;
     return byCategory.filter((item) =>
       [item.name, item.category, item.content]
@@ -83,9 +99,16 @@ export function NotesListView({
         .toLowerCase()
         .includes(term),
     );
-  }, [notes, query, categoryFilter]);
+  }, [ordered, query, categoryFilter]);
+  const filteredIds = filtered.map((item) => item.id);
 
-  const groups = useMemo(() => groupNotesByCategory(filtered), [filtered]);
+  const sort = useDragSort((activeId, overId) => {
+    // The whole list, so a drag under a filter keeps the hidden notes in place. Its first drag freezes
+    // the order on screen, which until then was only computed.
+    reorderItems(NOTES_MODULE_ID, moveItem(ordered, activeId, overId)).catch(
+      () => toastError(t("common.reorderFailed")),
+    );
+  });
 
   useEffect(() => {
     if (!focusItemId) return;
@@ -161,7 +184,7 @@ export function NotesListView({
           ) : null}
         </div>
 
-        {groups.length === 0 ? (
+        {filtered.length === 0 ? (
           query.trim() || categoryFilter ? (
             <EmptyState
               title={t("common.noMatches")}
@@ -184,79 +207,78 @@ export function NotesListView({
             />
           )
         ) : (
-          <div className="min-h-0 flex-1 overflow-auto p-4">
-            {groups.map((group) => (
-              <section className="mb-6" key={group.category}>
-                <h2 className="mb-2 text-xs font-medium uppercase text-muted-foreground">
-                  {group.category}
-                </h2>
-                <ul className="space-y-3">
-                  {group.notes.map((note) => {
-                    return (
-                      <li
-                        className="rounded-md border border-border bg-card p-3 hover:bg-accent/40"
-                        key={note.id}
-                      >
-                        <div className="min-w-0">
-                          <div className="flex items-center gap-2">
-                            <ListItemTitle
-                              className="min-w-0 flex-1 text-xl leading-7"
-                              onOpen={() => setViewing(note)}
-                            >
-                              {note.name}
-                            </ListItemTitle>
-                            <p className="shrink-0 text-xs leading-5 text-muted-foreground">
-                              {t("notes.updatedOn", {
-                                date: formatDate(note.updatedAt),
-                              })}
-                            </p>
-                            <div className="-mr-1.5 -mt-0.5 shrink-0 [&_button]:h-7 [&_button]:w-7">
-                              <RowActionsMenu
-                                label={t("common.actionsFor", {
-                                  name: note.name,
-                                })}
-                                actions={[
-                                  {
-                                    label: t("common.view"),
-                                    icon: <Eye className="h-4 w-4" />,
-                                    onSelect: () => setViewing(note),
-                                  },
-                                  {
-                                    label: t("common.edit"),
-                                    icon: <Pencil className="h-4 w-4" />,
-                                    onSelect: () => setEditing(note),
-                                  },
-                                  {
-                                    label: t("common.delete"),
-                                    icon: <Trash2 className="h-4 w-4" />,
-                                    destructive: true,
-                                    onSelect: () =>
-                                      setPendingDelete({
-                                        id: note.id,
-                                        name: note.name,
-                                      }),
-                                  },
-                                ]}
-                              />
-                            </div>
-                          </div>
-                          {note.content.trim() ? (
-                            <div className="mt-1">
-                              <CopyableLines
-                                maxLines={3}
-                                skipBlankLines
-                                text={note.content}
-                              />
-                            </div>
-                          ) : null}
-                        </div>
-                      </li>
-                    );
-                  })}
-                </ul>
-              </section>
+          <ul className="min-h-0 flex-1 space-y-3 overflow-auto p-4">
+            {filtered.map((note) => (
+              <li
+                className={cn(
+                  "rounded-md border border-border bg-card p-3 hover:bg-accent/40",
+                  SORTABLE_ITEM_CLASS,
+                )}
+                key={note.id}
+                {...sort.itemProps(note.id)}
+              >
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    <DragHandle
+                      className="-ml-1"
+                      itemName={note.name}
+                      {...sort.handleProps(note.id, filteredIds)}
+                    />
+                    <ListItemTitle
+                      className="min-w-0 flex-1 text-xl leading-7"
+                      onOpen={() => setViewing(note)}
+                    >
+                      {note.name}
+                    </ListItemTitle>
+                    <CategoryBadge category={note.category} />
+                    <p className="shrink-0 text-xs leading-5 text-muted-foreground">
+                      {t("notes.updatedOn", {
+                        date: formatDate(note.updatedAt),
+                      })}
+                    </p>
+                    <div className="-mr-1.5 -mt-0.5 shrink-0 [&_button]:h-7 [&_button]:w-7">
+                      <RowActionsMenu
+                        label={t("common.actionsFor", {
+                          name: note.name,
+                        })}
+                        actions={[
+                          {
+                            label: t("common.view"),
+                            icon: <Eye className="h-4 w-4" />,
+                            onSelect: () => setViewing(note),
+                          },
+                          {
+                            label: t("common.edit"),
+                            icon: <Pencil className="h-4 w-4" />,
+                            onSelect: () => setEditing(note),
+                          },
+                          {
+                            label: t("common.delete"),
+                            icon: <Trash2 className="h-4 w-4" />,
+                            destructive: true,
+                            onSelect: () =>
+                              setPendingDelete({
+                                id: note.id,
+                                name: note.name,
+                              }),
+                          },
+                        ]}
+                      />
+                    </div>
+                  </div>
+                  {note.content.trim() ? (
+                    <div className="mt-1">
+                      <CopyableLines
+                        maxLines={3}
+                        skipBlankLines
+                        text={note.content}
+                      />
+                    </div>
+                  ) : null}
+                </div>
+              </li>
             ))}
-          </div>
+          </ul>
         )}
       </div>
 

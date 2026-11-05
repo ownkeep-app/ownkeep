@@ -9,7 +9,7 @@
 **Target platform:** macOS 13+ (Apple Silicon + Intel)
 **Author:** Shaojiang
 **Status:** Draft v2.6 (OwnKeep identity finalization + container v3)
-**Last updated:** 2026-09-13
+**Last updated:** 2026-11-05
 
 ---
 
@@ -40,7 +40,8 @@ encrypted file, no database; concealed-clipboard copy; auto-lock; native notific
 ## 1. Overview & Design Philosophy
 
 OwnKeep is a personal, offline-first "second brain for dangerous-to-lose stuff." Everything
-lives in **one encrypted file** — no database, no cloud, no telemetry. The app opens on a global
+lives in **one encrypted file** — no database, no cloud, no telemetry — except the contents of files
+stored by the Files module, which are encrypted blobs in a folder beside it (§3.2). The app opens on a global
 hotkey to a single search box; you type, results appear one-per-line, and a numbered hotkey copies
 the right value instantly. A companion **Dashboard window** (left sidebar + full-content pane)
 lets you browse and manage everything in each module when you want more than quick-copy.
@@ -152,6 +153,7 @@ Two test surfaces, matching the two-language architecture:
   `com.shaojiang.ownkeep.biometric.test`; release builds alone use
   `com.shaojiang.ownkeep.biometric`.
 - Self-describing, versioned, **AEAD-encrypted** container (§4.2).
+- **The one exception: Files module contents** (v1.6, deliberate and user-approved). The vault is one JSON document re-sealed and rewritten on every save, so a 2 GB video inside it would add a 2.7 GB re-seal to ticking off a todo. File _contents_ therefore live as immutable encrypted blobs in `vault.files/` beside the vault (`vault-dev.files/` in dev), derived from the vault's path so dev and release stay apart; their _metadata_ (title, description, date, type, size) stays in the vault like every other module's data. Blobs use the same offline, AEAD-encrypted, DEK-rooted model (§4.8), and a backup is still one file (§11). What's lost is that the live data is no longer literally one file, and blob count and sizes are visible on disk (§4.8).
 - **In memory after unlock:** the full decrypted model lives in the **Rust core**. The frontend receives a **redacted projection** (secrets stripped) for its search index and views. Secret fields are handed out only at the moment of an explicit copy action (§4.5).
 - On every mutation: Rust re-encrypts and atomically writes (temp file → `fsync` → rename). The frontend shows the change **before** that write finishes (the whole vault, photos and PDFs included, is re-sealed on each save); if the write fails it reloads the model Rust actually holds and reports the error, so the screen never shows unsaved data. Dev builds compile with `opt-level = 1` (dependencies at 3) because the generic crypto/JSON code is otherwise ~30× slower in `tauri dev` (≈2 s vs ≈70 ms per save of an 11 MB vault).
 
@@ -215,6 +217,7 @@ export const MODULES: FeatureModule[] = [
   subscriptionsModule, // optional
   financeModule, // optional
   eventsModule, // optional, v1.5 — Event Tracker
+  filesModule, // optional, v1.6 — Files
   // future: calendarModule
 ];
 ```
@@ -317,9 +320,10 @@ password hash to store or leak; the AEAD tag _is_ the verification.
 
 ### 4.4 Backup encryption
 
-A backup **is** the encrypted container — already safe at rest. No special export crypto: a backup
-is a copy of the active vault file (`vault-dev.dat` in dev, `vault.dat` in release), openable only
-with the same master password (or recovery code). The one thing a backup **omits** is the optional,
+A backup **is** the encrypted container plus its encrypted file blobs (§4.8) — already safe at rest.
+No special export crypto: a backup is a streamed copy of the active vault file (`vault-dev.dat` in
+dev, `vault.dat` in release) and its blobs, openable only with the same master password (or recovery
+code). The one thing a backup **omits** is the optional,
 device-local Touch ID wrap (`wrapped_biometric`, §4.7) — biometric enrollment never travels in a
 backup and is re-enabled per device after restore. See §11.
 
@@ -400,6 +404,20 @@ the OS Keychain (Secure Enclave-protected). The _vault data_ is still one encryp
 mainstream managers implement it. It stays **fully offline** (LocalAuthentication + Keychain are
 local; no network), honoring offline-first. Users who want zero auxiliary key material simply leave
 Touch ID off (the default).
+
+### 4.8 File blobs (Files module, v1.6)
+
+**Key.** `files_key = HKDF-SHA256(DEK, info = "ownkeep files key v1")`. It hangs off the DEK, so changing the master password or recovery code re-encrypts nothing, and every unlock path reaches it. It is derived on demand and lives only in Rust, like the DEK.
+
+**Format** (`blobs.rs`). One immutable file per stored file: a 40-byte header (`OKBL`, version, chunk size, plaintext length, 16-byte random nonce prefix) then 1 MiB chunks, each sealed separately with XChaCha20-Poly1305. A chunk's nonce is `nonce_prefix || chunk_index`, and each chunk authenticates the blob id and whole header as associated data, so chunks can't be reordered, dropped, truncated or swapped between blobs. An empty file still has one empty chunk, so its header is authenticated too. Chunking is what makes streaming possible: nothing about a file's size affects memory use, and a preview decrypts only what it reads.
+
+**Writes.** Temp file → `fsync` → rename, so an interrupted add leaves no blob. Metadata is saved after the blob exists and removed before the blob is deleted, so a crash can waste disk space (an orphan blob) but can never leave an entry pointing at nothing. Orphans are not garbage-collected: pruning means deleting files based on the frontend's list, and a bug there would destroy data, which is a far worse failure than a little wasted disk.
+
+**Preview scheme** (`file_protocol.rs`). `ownkeep-file://localhost/<id>/<type>/<subtype>` serves byte ranges to the WebView, so `<video>` and `<audio>` seek without the file crossing IPC or entering JS memory. It answers **403 while locked**; serves only the listed displayable types (never `text/html` or anything scriptable, so an opaque file can't execute); sets `nosniff` and `no-store`, and a sandboxing CSP on SVG. Range replies are capped at 4 MiB (players ask again); a request with no range is capped at 512 MiB because it must be held in memory, so a larger image or PDF is offered as Save a copy instead. The app CSP adds `ownkeep-file:` to `img-src`, `media-src` and `frame-src`, and nothing else; scripts remain `'self'` only.
+
+**Trust boundary.** File _contents_ are non-secret by the §3.1 definition, like a note body: the user opened them to look at them, and the WebView can see what it displays. Paths never enter the WebView, though: files are chosen in a Rust-owned native dialog, so a compromised page can't import an arbitrary path from disk. Blob ids reaching Rust are validated against a safe charset (they become file names).
+
+**Limitations, stated plainly.** Blob count and approximate sizes are visible to anyone with disk access; file names, types, titles and contents are not. Deleting a file unlinks its ciphertext rather than wiping it. Save a copy writes decrypted bytes where the user chooses; OwnKeep never writes plaintext anywhere else, which is why there is no "open in default app."
 
 ---
 
@@ -654,7 +672,10 @@ so editing a rate re-totals every snapshot. The `notes` slice added in v1.3 is l
 above. Adding a module slice is **not** a schema change — `ensureModuleDefaults` creates the empty
 slice on first open and preserves slices it does not recognise, so v1.3 reads a v1.2 vault and v1.2
 reads a v1.3 vault without data loss. The v1.5 `events` slice follows the same rule — a bare
-`TrackedEvent[]`, created empty on first open, with no schema bump.)_
+`TrackedEvent[]`, created empty on first open, with no schema bump. The v1.6 `files` slice is the
+same: a bare `FileEntry[]` of `{ id, title, description, date (YYYY-MM-DD), fileName, mime, size,
+createdAt, updatedAt, category, invalid }`. `id` names the file's encrypted blob (§4.8), whose contents are not in this
+document.)_
 
 ---
 
@@ -674,7 +695,7 @@ reads a v1.3 vault without data loss. The v1.5 `events` slice follows the same r
 
 #### F2 — Command library (module `commands`)
 
-- Dashboard `ListView` groups cards **by tag** (a command with multiple tags appears under each; no tags → Untagged). Category remains a field and filter.
+- Dashboard `ListView` is one flat list: the **category as a coloured badge** on the right, **tags as chips** under the title, plus a category filter. Sorted by title until you **drag to sort**, after which your order rules and a new command starts at the top.
 - Each command: a **title** ("Delete a remote branch"), a **category** (git/docker/mongo/…), optional description, and **one or more syntax-highlighted snippets** (Shiki). Snippet language is chosen from a fixed select: TypeScript (default), Bash, SQL, Python, Ruby, CSS, HTML, JavaScript.
 - One-line searchable form: `"<category> command to <title>: <primaryCopyTemplate>"`, e.g. `"Git command to delete a remote branch: git push origin --delete {{branch}}"`.
 - **Placeholders** use `{{name}}` (Warp-aligned). Names: `A-Za-z0-9_-`, not starting with a digit. Same name = same value (reused). Optional typed `arguments` (`text` | `enum` with `values`) enable dropdowns and validation (Warp-style).
@@ -755,9 +776,9 @@ reads a v1.3 vault without data loss. The v1.5 `events` slice follows the same r
 - **Editor:** a plain `textarea` (mono, no third-party editor) with a **formatting toolbar** (bold, italic, headings, lists, quote, inline code, link) driven by `src/lib/markdown-format.ts`, a **Write / Preview** toggle, and a **full-screen** mode for long notes.
 - **Rendering:** `react-markdown` with `remark-gfm` (tables, task lists, strikethrough) and `remark-breaks` (single newline → line break, matching how people actually type notes), sanitized by `rehype-sanitize` with raw HTML disabled (§4.5).
 - **Code blocks** reuse the Commands per-line copy affordance (`CopyableLines`) — hover a line, copy just that line. Notes deliberately do **not** run Shiki: highlighting a note body means shipping language grammars for arbitrary prose, and the value is in copying the line, not colouring it.
-- **List:** grouped by **category** (uncategorised last), and within a group sorted by **`updatedAt` descending** — the note you touched last is the one you want.
+- **List:** one flat list with the **category as a badge** on the right of each note (no badge when it has none), plus a category filter. Most recently edited first until you **drag to sort** (§6, Drag to sort), after which your order rules and a new note starts at the top.
 - Command-bar search is **off by default** (`searchableByDefault: false`) — a note body is long-form prose and would bury logins and commands in the results. Turn it on per module in Settings; scope `n `. An indexed note matches on name, category and full body.
-- **Acceptance:** create/edit/delete a note; Markdown renders sanitized in preview and detail; the toolbar applies formatting to the selection; notes group by category and sort by last edited; a code block copies one line at a time; with searchability off the command bar returns no note hits, and with it on the `n ` scope returns them.
+- **Acceptance:** create/edit/delete a note; Markdown renders sanitized in preview and detail; the toolbar applies formatting to the selection; notes list flat with a category badge and sort by last edited until dragged; a code block copies one line at a time; with searchability off the command bar returns no note hits, and with it on the `n ` scope returns them.
 
 #### M5 — Event Tracker (module `events`) — _new in v1.5_
 
@@ -772,6 +793,26 @@ reads a v1.3 vault without data loss. The v1.5 `events` slice follows the same r
 - **CSV import** (event ⋮ → Import CSV): a header row with a `date` column (`YYYY-MM-DD` or `YYYY/M/D`; `日期` also accepted), one column per **tag name** (matched case-insensitively), and optional `note` / `备注` and `milestone` / `里程碑` (`Y`/`N`, `是`/`否`, `1`/`0`) columns. UTF-8 with or without BOM (Excel's "CSV UTF-8"). A column with no matching tag creates one — Number if every filled cell is numeric, otherwise Text. Rows merge into existing days: a filled cell replaces that tag's value, notes are appended (not duplicated), and a milestone is only ever added. Bad dates or values are listed and skipped, never fatal. A preview shows new/updated day counts, new tags and problems; nothing is saved until **Import**. Items and photos are not part of the CSV format.
 - No secret fields — the slice persists directly (like Notes). Command-bar search is **off by default**; scope `e `. An indexed event matches on title, description, tag names, item labels/values and day notes; activating it opens the event in the Dashboard.
 - **Acceptance:** create/edit/delete an event and its tags; track today's tags in a few clicks from the calendar; add items with photos and inspect them zoomed; the timeline pans, zooms and filters; a number tag charts as a line trend over a chosen range; disabling the module hides it and keeps its data; a backup restored elsewhere carries the photos.
+
+#### M6 — Files (module `files`) — _new in v1.6_
+
+- **Store any file**, of any type and size: chosen in the native picker (multi-select), encrypted into its own blob (§4.8), and listed with a **title** (defaults to the file name without its extension), **description**, and **date** (defaults to the file's modified date, all editable). Adding one file opens its details straight away; adding several adds them all and confirms.
+- **Size limit:** Settings → Files → **Maximum file size (MB)**, stored as `settings.modules.files.maxFileSizeMb`; `0` (the default) means no limit. Enforced in Rust against the file's real size; files over it are skipped and named in a message, without stopping the rest of the batch. No schema change: the key is additive and optional.
+- **Preview** in a full-screen viewer stepping through the list: **images** zoom (wheel, pinch, buttons, `+`/`-`/`0`, double-click) and pan by drag, sharing `components/image-zoom.tsx` with the Event Tracker; **PDFs** open in the WebView's own reader; **audio and video** use native controls and seek at any size. Previewable types: PDF; JPEG, PNG, GIF, WebP, AVIF, HEIC, BMP, TIFF, ICO, SVG; MP3, M4A, AAC, WAV, FLAC, Ogg; MP4, M4V, MOV, WebM. If WebKit can't decode something, the viewer says so and offers Save a copy. Everything else is stored and saved but not rendered, and images or PDFs over 512 MiB are save-only (§4.8).
+- **Invalid:** a file can be marked invalid in its edit form (expired, but kept as a record). Invalid files leave the main list for a collapsible **Invalid (n)** section below the filter, collapsed by default each time the module opens. Their tile previews are dimmed, greyscale and stamped, and the full-screen viewer labels them too. Filters apply to the section as well. Stored as `invalid` on the entry; older entries read as valid. No schema change.
+- **Pagination:** the main list shows 24 files a page (it divides evenly across 2, 3 and 4 columns), with a pager below it only when needed. A filter change returns to page 1. The Invalid section isn't paginated; its previews still load only near the viewport. Preview steps through the file's whole group across pages. Dragging sorts within a page or within the section, not across them.
+- **Category:** each file has one, from the same Settings list as other modules; new files get the default. There's a category filter beside the search, and the tile shows it. Files stored before this field existed read as the default category. No schema change.
+- **Manage:** filter by title, category, description or file name; newest date first until you **drag to sort** (§7.5), with new files then added at the top; edit details; **Save a copy** (streamed, cancelable); delete with confirmation. The header totals count and size.
+- **Long operations** (add, save a copy, backup, restore) run one at a time off the main thread, with a progress dialog and Cancel. A canceled add keeps the files already finished. A transfer counts as activity, so auto-lock doesn't interrupt it, while locking manually stops an add or save at the next chunk and removes its partial output.
+- Command-bar search is **off by default** (`searchableByDefault: false`); scope `fi ` (`f ` is Finance). A hit opens the file's details in the Dashboard.
+- **Grid of preview tiles:** each tile shows the file itself: an image, a video's early frame, or a PDF's first page, cropped to fit a 4:3 picture area, with title, date and size always below it; a full pane scrolls rather than shrinking tiles (the description is a tooltip and in the details). Clicking the picture opens the preview, or the details for a file with no preview. Previews are not stored thumbnails, since generating them would mean decoding or decrypting at import and keeping more data on disk. Instead a tile's preview exists only while it is within 200 px of the viewport, so a large library costs what is on screen. Images and PDFs over **32 MiB** (each tile would decrypt the whole file just by being visible), audio, and anything that fails to load show a kind icon and the file's extension instead.
+- **Acceptance:** add a PDF, MP3, MP4 and image and preview each (zoom the image, seek the video); add a file of another type and save a copy byte-identical to the original; the size limit refuses an oversized file; a backup taken with files restores them all, and a vault with a large file still saves in milliseconds.
+
+#### Drag to sort (Files, Event Tracker, Notes, Commands) — _new in v1.6_
+
+Every item in these lists has a grip handle: drag it to take another item's place, or focus it and use the arrow keys. While dragging, a floating copy follows the pointer, the original stays faded in place and the target is outlined. The target is the **nearest item anywhere in the list**, so a release in a gap still counts, and anywhere below the last row means the end of the list; only leaving the list cancels, which glides the copy home. On drop the list reorders at once: the other items slide to their new places while the copy glides into its own (180 ms, or instantly with reduced motion). Arrow-key moves slide too. The copy never reloads a preview, since that would decrypt the file again: a video keeps its current frame and a PDF shows a blank page. A module keeps its automatic sort (Files by date, Events by status then last touched, Notes by last edited, Commands by title) until the first move. That move freezes the order on screen, and from then on the slice's array order **is** the list order, marked by the additive `settings.modules.<id>.manualOrder` flag (no schema change; an older build ignores it). Sorting under a filter keeps hidden items in place. Built on pointer events (`hooks/use-drag-sort.ts`) rather than HTML5 drag and drop, which the webview's file-drop handling intercepts; dragging near a scrolling list's edge scrolls it each time the pointer moves. There is no way back to automatic sort yet.
+
+Category badges (`components/CategoryBadge.tsx`) are shared by Notes, Commands and Files: a solid colour derived from the category's name, so a category looks the same everywhere and stays readable over a thumbnail.
 
 #### Future candidates (architecture ready, not spec'd here)
 
@@ -874,7 +915,7 @@ Appearance; applies instantly in both windows and the Rust shell; while locked t
 choice stays active, and a cold start follows macOS until the vault is unlocked); result limit; **category/tag option lists** (editable in Settings — one
 label per line; used by item edit forms); **per-module enable + searchable toggles + scope prefixes + module
 settings** (command placeholder/copy mode; todo default lead; subscription default lead days;
-finance base currency + FX table + holder/category option lists); Emergency Kit regeneration; **Touch ID / biometric unlock**
+finance base currency + FX table + holder/category option lists; Files maximum file size); Emergency Kit regeneration; **Touch ID / biometric unlock**
 enable / disable / re-enroll (§4.7 — device-local; state derived in Rust, not stored in the encrypted model).
 
 The default Settings menu stays focused on **Modules**, **Hotkeys**, **Categories**, and **Tags**.
@@ -893,6 +934,7 @@ own `SettingsPanel`.
 - **Command-bar keys:** `↑/↓` navigate, `Enter`/click/`⌥⇧<n>` primary action, `⌥⌘<n>` raw copy (commands), `Cmd+,` settings, `Cmd+L` lock, `Cmd+N` new item (context-aware), `Cmd+F` focus search.
 - **Dashboard keys:** `Cmd+Shift+D` toggle Dashboard, `↑/↓` or `⌥⇧1..9` switch modules in the sidebar, `Cmd+F` filter within a module, `Cmd+N` new item, `Enter` edit selected, `Esc` back / dismiss form.
 - **Aesthetic:** calm dual themes (periwinkle mist light page + white surfaces / midnight navy dark) with one accent (`#5B6CFF` default), generous spacing, high-contrast text.
+- **Date pickers:** every date and date-time picker shares one calendar with **month and year dropdowns** beside the prev/next arrows, so any date is a few clicks away (and a year can be typed in the open menu). Range: 1900 to 30 years ahead.
 - **Component system:** UI built from **shadcn/ui** primitives (Radix + Tailwind, copied into `components/ui/`, à la carte) with **Lucide** icons. Light/dark + accent map to shadcn's CSS-variable tokens, so theming is one token swap (§2.1).
 - **Version visibility:** the Dashboard left-sidebar footer shows the current app version from `APP_VERSION`, which is injected from `package.json.version`, for quick upgrade/debug confirmation.
 - **Onboarding (first run):** cold start **shows and focuses** the main window with the master-password setup form (blur-to-hide is off until the compact command bar). Create master password → **show Emergency Kit (recovery code)** → set global hotkey → done. The form shows the vault file path (`~/Library/Application Support/com.shaojiang.ownkeep/vault.dat` in production; `vault-dev.dat` in debug). No security questions. _(Touch ID is optional and enabled later from Settings → System → Security, §4.7 — not part of first-run setup; it may be offered once after the first successful unlock.)_
@@ -902,9 +944,11 @@ own `SettingsPanel`.
 
 ## 11. Backup, Restore & Upgrades
 
-- **Backup** (`Cmd+B` / menu): choose a destination via file dialog; write a copy of the encrypted container. Already AEAD-encrypted → safe anywhere. Suggested name: `ownkeep-v<appVersion>-<YYYY-MM-DD-HHmm>.dat` (example: `ownkeep-v0.1-2026-07-07-1530.dat`). The copy **omits the device-local Touch ID wrap** (`wrapped_biometric`, §4.7); when Touch ID is enrolled the backup UI shows a **notice** that biometric unlock isn't included and must be re-enabled after restoring on the target Mac. Existing `.dat` backups remain valid because restore is filename-agnostic and the reader retains supported container versions.
-- **Restore** (menu): choose a backup → enter master password (or recovery code) → the app **attempts full decryption**; only on success does it proceed. Prominent warning: _"Restoring will permanently erase all current data. This cannot be undone."_ Optionally auto-create a `pre-restore-<timestamp>.dat` of the current vault first, then atomically replace the live file and reload. Restore also **clears the device-local Touch ID Keychain item**; because backups carry no biometric wrap (§4.7), the restored vault has Touch ID **off** — re-enable it in Settings → System → Security.
-- **Atomicity:** write to a temp file, `fsync`, then rename over the live vault so a crash mid-write can't corrupt data.
+- **Backup** (`Cmd+B` / menu): choose a destination via file dialog; write one **archive** holding the encrypted container and every encrypted file blob (`archive.rs`: `OWNKBAK1`, length-prefixed container, then length-prefixed blobs). Already AEAD-encrypted → safe anywhere, needs no key (so a locked vault can be backed up), and streams: no re-encryption, no base64, nothing held in memory, with a progress dialog and Cancel. It appears at the destination only once complete. Suggested name: `ownkeep-v<appVersion>-<YYYYMMDD-HHmm>.okbak`. The copy **omits the device-local Touch ID wrap** (`wrapped_biometric`, §4.7); when Touch ID is enrolled the backup UI shows a **notice** that biometric unlock isn't included and must be re-enabled after restoring on the target Mac. Existing `.dat` backups remain valid because restore tells the formats apart by content, not name, and the reader retains supported container versions. Measured on a 2 GiB file (release build, Apple Silicon SSD): backup 0.9 s, restore with full verification 6.2 s, add 6.0 s, reading 4 MiB from mid-file 11 ms, and a vault save with the file stored 10 ms.
+- **Restore** (menu): choose a backup (archive or `.dat`) → enter master password (or recovery code) → the app **attempts full decryption**, including authenticating every chunk of every file blob into a staging folder (`vault.files.restoring`); only on success does it proceed, so a wrong password fails before any blob is read and a corrupt or truncated backup changes nothing. The session lock isn't held during this, so the app stays responsive. Prominent warning: _"Restoring will permanently erase all current data. This cannot be undone."_ Auto-create a `pre-restore-<timestamp>.dat` of the current vault first, then atomically replace the live file, swap in the staged blobs, and reload. Restoring a backup without files (any pre-1.6 `.dat`) leaves the Files module empty. Restore also **clears the device-local Touch ID Keychain item**; because backups carry no biometric wrap (§4.7), the restored vault has Touch ID **off** — re-enable it in Settings → System → Security.
+- **Automatic snapshots** (pre-migration, pre-restore) stay plain `.dat` files with their blobs **hard-linked** into a `<snapshot-name>.files` folder beside them: instant and no extra disk at first, since blobs are immutable. The space is only held once the live vault deletes a blob, and restoring such a `.dat` finds its folder automatically. A snapshot of a large library that has since changed therefore holds disk space until its `.dat` and `.files` are deleted by hand; snapshots are not pruned.
+- **Atomicity:** write to a temp file, `fsync`, then rename over the live vault so a crash mid-write can't corrupt data. The vault file and the blob folder are swapped by two separate renames at the end of a restore, so a crash in that instant can pair the new vault with the old blobs; the pre-restore snapshot, written first, still holds everything.
+- **Erase** removes the vault file and its blob folder together.
 - **Version in backups:** backups are normal vault containers. The clear container header stores `container.version`; the encrypted vault body stores `meta.appVersion` and `meta.schemaVersion`, so the backup itself knows which app/data format wrote it once unlocked.
 
 ### 11.1 Manual app upgrades
@@ -983,6 +1027,8 @@ Touch ID uses the matching Keychain service. There is **no `APP_SCHEMA_VERSION` 
 migration-registry step** because the encrypted model is unchanged; Rust container/KDF regression
 tests cover the format transition and backup restore remains filename-agnostic.
 
+**Files module and backup archive decision (working release 1.6; baseline `v1.5`):** **no `APP_SCHEMA_VERSION` bump, no `container.version` bump, and no migration-registry step.** The `files` slice is created by `ensureModuleDefaults` like every module slice (§5), and `settings.modules.files.maxFileSizeMb` is additive and optional. The container format is untouched: blobs live outside it. User-chosen backups change format (`.okbak` archive), which builds before v1.6 can't restore; they report an invalid container and change nothing. That's the existing rule anyway, since a 1.6 vault is refused by older builds at the `meta.appVersion` check (§11.2 step 3). Every older `.dat` keeps restoring in v1.6. An older build opening a data folder that has a `vault.files/` ignores it, and `$verify` should confirm this reasoning against the latest `v*` tag.
+
 **Conceptual shape**
 
 ```ts
@@ -1040,7 +1086,8 @@ modules round-trip their data to JS freely.
 - **Biometric unlock key custody (§4.7)** — enabling Touch ID stores a device-local wrapping key in the macOS Keychain, the one exception to "one encrypted file." It's opt-in and offline, but (a) ties unlock to anyone who can satisfy Touch ID while the macOS session is unlocked, (b) is invalidated by a fingerprint-set change or a code-signing-identity change (→ re-enroll; the password still works), and (c) is **excluded from every backup** and cleared on restore/erase, so it never travels with the vault — a restored vault re-enrolls Touch ID from scratch. Keep it off by default and documented honestly in-app.
 - **Argon2 params on old Intel Macs** — 256 MiB / 3 iters may make unlock sluggish; expose or auto-calibrate.
 - **FX rates for net worth** — manual table (v1) vs online fetch (breaks offline). Manual for v1.
-- **Single file + large data** — v1 is text-only; attachments/large finance history would bloat the single blob (revisit if needed).
+- **Single file + large data** — resolved for stored files in v1.6 by the encrypted blob folder (§3.2, §4.8), a user-approved exception to "one encrypted file." Event Tracker attachments remain inline in the vault, so many of them still slow every save; moving them to blobs would be a schema migration, not attempted here.
+- **Files: orphans and snapshots use disk silently** — an interrupted add can orphan a blob, and pre-restore / pre-migration snapshots hold deleted blobs (§4.8, §11). Harmless to data, but invisible in the app. No Settings view of total disk use yet.
 - **Todo recurrence scope creep** — keep to none/daily/weekly; resist growing a calendar inside todos (that's a separate future module).
 - **Migration-guide drift** — the guide is user-facing safety UI, so every data-shape change after the latest `v*` tag must update the migration registry/change list and tests; `$verify` must flag missing guide updates.
 - **shadcn CLI is dev-time only** — it fetches component source once when you run `add`; nothing networked at runtime. Commit the generated `components/ui/` so builds stay fully offline.

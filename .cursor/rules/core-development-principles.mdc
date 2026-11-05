@@ -15,7 +15,7 @@ All code — human-written or AI-generated — must follow them. They are intent
 (the *how & when*: phased build order, exit criteria) are the source of truth. Before writing or
 changing code:
 
-1. **Read the relevant part of `spec.md`** — confirm the feature, data shape, module boundaries, and security rules (e.g. secrets stay in the Rust core; one encrypted file; offline-only).
+1. **Read the relevant part of `spec.md`** — confirm the feature, data shape, module boundaries, and security rules (e.g. secrets stay in the Rust core; one encrypted file plus the Files module's encrypted blobs, §3.2; offline-only).
 2. **Read `plan.md`** — work the **current phase** and meet its exit criteria; do not build later phases ahead of time (see YAGNI).
 3. **Honor the architecture** — the feature-module registry, the two surfaces (command bar + Dashboard), and the offline-first constraint are non-negotiable unless the spec itself changes.
 4. **If a request conflicts with `spec.md`/`plan.md`** — do **not** silently deviate. Flag it, cite the section, explain the tradeoff, and proceed only after the user explicitly confirms.

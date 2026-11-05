@@ -7,7 +7,7 @@ import {
   createCommandEntry,
   fillTemplate,
   formFromCommand,
-  groupByTag,
+  sortCommandsByTitle,
   parseArguments,
   parsePlaceholders,
   updateCommandEntry,
@@ -109,30 +109,14 @@ describe("buildCommandIndex", () => {
   });
 });
 
-describe("groupByTag", () => {
-  it("groups by tag and sorts tags + titles", () => {
-    const groups = groupByTag([
-      entry({ id: "b", tags: ["git"], title: "Zeta" }),
-      entry({ id: "a", tags: ["git"], title: "Alpha" }),
-      entry({ id: "d", tags: ["docker"], title: "Compose" }),
-    ]);
-    expect(groups.map((g) => g.tag)).toEqual(["docker", "git"]);
-    expect(groups[1].commands.map((c) => c.title)).toEqual(["Alpha", "Zeta"]);
-  });
-
-  it("lists a multi-tag command under each tag and falls back to Untagged", () => {
-    const shared = entry({
-      id: "shared",
-      title: "Shared",
-      tags: ["git", "docker"],
-    });
-    const groups = groupByTag([shared, entry({ id: "plain", tags: [] })]);
-    expect(groups.map((g) => g.tag)).toEqual(["docker", "git", "Untagged"]);
-    expect(groups.find((g) => g.tag === "git")?.commands).toHaveLength(1);
-    expect(groups.find((g) => g.tag === "docker")?.commands).toHaveLength(1);
-    expect(groups.find((g) => g.tag === "Untagged")?.commands[0].id).toBe(
-      "plain",
-    );
+describe("sortCommandsByTitle", () => {
+  it("sorts by title without mutating", () => {
+    const input = [
+      entry({ id: "z", title: "Zeta" }),
+      entry({ id: "a", title: "Alpha" }),
+    ];
+    expect(sortCommandsByTitle(input).map((c) => c.id)).toEqual(["a", "z"]);
+    expect(input[0].id).toBe("z");
   });
 });
 

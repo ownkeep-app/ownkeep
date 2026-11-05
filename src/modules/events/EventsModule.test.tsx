@@ -15,7 +15,8 @@ import {
   confirmDelete,
 } from "@/test/row-actions";
 import { useVaultStore } from "@/stores/vault-store";
-import { createDefaultModel } from "@/vault/model";
+import * as toasts from "@/lib/toast";
+import { createDefaultModel, setModuleSettings } from "@/vault/model";
 import { EventsListView } from "./EventsModule";
 import { readAttachment } from "./attachment";
 import type { TrackedEvent } from "./types";
@@ -787,5 +788,72 @@ describe("EventsListView", () => {
     expect(
       screen.getByRole("img", { name: "安眠药 line chart" }),
     ).toBeVisible();
+  });
+});
+
+describe("EventsListView drag to sort", () => {
+  const original = useVaultStore.getState().reorderItems;
+  const reorderItems = vi.fn(async () => {});
+  const event = (id: string, title: string, overrides = {}): TrackedEvent => ({
+    ...sleepEvent,
+    id,
+    title,
+    ...overrides,
+  });
+  const open = event("open", "Open one");
+  const closed = event("closed", "Closed one", { status: "closed" });
+  const handleFor = (title: string) =>
+    screen.getByRole("button", { name: `Drag to reorder ${title}` });
+  const savedIds = () =>
+    (reorderItems.mock.lastCall as unknown as [string, TrackedEvent[]])[1].map(
+      (item) => item.id,
+    );
+
+  beforeEach(() => {
+    reorderItems.mockClear();
+    useVaultStore.setState({
+      model: createDefaultModel("2026-10-01T00:00:00.000Z"),
+      reorderItems,
+    });
+  });
+
+  afterEach(() => {
+    useVaultStore.setState({ reorderItems: original });
+  });
+
+  it("first freezes the status order on screen, then applies the move", () => {
+    render(<EventsListView items={[closed, open]} />);
+
+    fireEvent.keyDown(handleFor("Closed one"), { key: "ArrowUp" });
+
+    expect(reorderItems).toHaveBeenCalledWith("events", expect.any(Array));
+    expect(savedIds()).toEqual(["closed", "open"]);
+  });
+
+  it("shows the saved order once hand-sorted, ignoring status", () => {
+    useVaultStore.setState({
+      model: setModuleSettings(
+        createDefaultModel("2026-10-01T00:00:00.000Z"),
+        "events",
+        { manualOrder: true },
+      ),
+    });
+    render(<EventsListView items={[closed, open]} />);
+    const titles = screen
+      .getAllByRole("listitem")
+      .map((row) => within(row).getAllByRole("button")[1].textContent);
+    expect(titles).toEqual(["Closed one", "Open one"]);
+  });
+
+  it("reports a failed save", async () => {
+    const toast = vi.spyOn(toasts, "toastError");
+    reorderItems.mockRejectedValueOnce(new Error("disk full"));
+    render(<EventsListView items={[closed, open]} />);
+
+    fireEvent.keyDown(handleFor("Closed one"), { key: "ArrowUp" });
+
+    await waitFor(() =>
+      expect(toast).toHaveBeenCalledWith("Couldn't save the new order."),
+    );
   });
 });

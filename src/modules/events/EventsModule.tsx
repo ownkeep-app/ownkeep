@@ -19,6 +19,7 @@ import { ClearFiltersButton } from "@/components/ClearFiltersButton";
 import { ConfirmDeleteDialog } from "@/components/ConfirmDeleteDialog";
 import { EmptyState } from "@/components/EmptyState";
 import { ItemFormShell } from "@/components/ItemFormShell";
+import { DragHandle, SORTABLE_ITEM_CLASS } from "@/components/DragHandle";
 import { ListItemTitle } from "@/components/ListItemTitle";
 import { MarkdownEditor, MarkdownPreview } from "@/components/MarkdownEditor";
 import { RowActionsMenu } from "@/components/RowActionsMenu";
@@ -28,11 +29,14 @@ import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { dateInputToIso, formatDate } from "@/lib/date";
 import { useClearFiltersOnEscape } from "@/hooks/use-clear-filters-on-escape";
+import { useDragSort } from "@/hooks/use-drag-sort";
+import { moveItem } from "@/lib/reorder";
 import { toastError } from "@/lib/toast";
 import { cn } from "@/lib/utils";
 import type { ListViewProps } from "@/modules/types";
 import { t, tp, useT } from "@/i18n";
 import { useVaultStore } from "@/stores/vault-store";
+import { hasManualOrder } from "@/vault/model";
 import { CalendarView } from "./CalendarView";
 import { CsvImportDialog } from "./CsvImportDialog";
 import { DayEditor } from "./DayEditor";
@@ -58,6 +62,7 @@ import {
 import { TimelineView } from "./TimelineView";
 import { TrendingView } from "./TrendingView";
 import {
+  EVENTS_MODULE_ID,
   EVENT_STATUSES,
   TAG_TYPES,
   type EventFormInput,
@@ -106,13 +111,21 @@ export function EventsListView({
   const { t, tp } = useT();
   const saveEvent = useVaultStore((s) => s.saveEvent);
   const deleteEvent = useVaultStore((s) => s.deleteEvent);
+  const reorderItems = useVaultStore((s) => s.reorderItems);
+  const manualOrder = useVaultStore(
+    (s) =>
+      s.model !== null && hasManualOrder(s.model.settings, EVENTS_MODULE_ID),
+  );
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<EventStatus | "">("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [editing, setEditing] = useState<TrackedEvent | null | undefined>();
   const [pendingDelete, setPendingDelete] = useState<TrackedEvent | null>(null);
 
-  const events = useMemo(() => sortEvents(trackedEvents(items)), [items]);
+  const events = useMemo(() => {
+    const stored = trackedEvents(items);
+    return manualOrder ? stored : sortEvents(stored);
+  }, [items, manualOrder]);
   const selected = events.find((event) => event.id === selectedId) ?? null;
   const filtersActive = Boolean(query.trim()) || Boolean(statusFilter);
   useClearFiltersOnEscape(filtersActive && !selected, () => {
@@ -132,6 +145,12 @@ export function EventsListView({
             .includes(term)),
     );
   }, [events, query, statusFilter]);
+
+  const sort = useDragSort((activeId, overId) => {
+    reorderItems(EVENTS_MODULE_ID, moveItem(events, activeId, overId)).catch(
+      () => toastError(t("common.reorderFailed")),
+    );
+  });
 
   useEffect(() => {
     if (!focusItemId) return;
@@ -273,10 +292,22 @@ export function EventsListView({
           <ul className="min-h-0 flex-1 space-y-3 overflow-auto p-4">
             {filtered.map((event) => (
               <li
-                className="rounded-md border border-border bg-card p-3 hover:bg-accent/40"
+                className={cn(
+                  "rounded-md border border-border bg-card p-3 hover:bg-accent/40",
+                  SORTABLE_ITEM_CLASS,
+                )}
                 key={event.id}
+                {...sort.itemProps(event.id)}
               >
                 <div className="flex items-center gap-2">
+                  <DragHandle
+                    className="-ml-1"
+                    itemName={event.title}
+                    {...sort.handleProps(
+                      event.id,
+                      filtered.map((item) => item.id),
+                    )}
+                  />
                   <ListItemTitle
                     className="min-w-0 flex-1 truncate text-xl leading-7"
                     onOpen={() => setSelectedId(event.id)}

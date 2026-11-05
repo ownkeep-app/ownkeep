@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   createDefaultModel,
   ensureModuleDefaults,
+  hasManualOrder,
   isModuleEnabled,
   isModuleSearchable,
   parseVaultJson,
@@ -13,6 +14,7 @@ import {
   SCHEMA_VERSION,
   type ModuleDefaults,
   type VaultModel,
+  withManualOrder,
   withUpdatedAt,
 } from "./model";
 
@@ -32,6 +34,24 @@ const stubModules: ModuleDefaults[] = [
     createEmpty: () => ({ snapshots: [] }),
   },
 ];
+
+describe("manual order", () => {
+  const model = () => createDefaultModel("2026-07-08T00:00:00.000Z");
+
+  it("is off until a module is hand-sorted", () => {
+    expect(hasManualOrder(model().settings, "notes")).toBe(false);
+  });
+
+  it("stores the slice and the flag together, leaving other modules alone", () => {
+    const start = { ...model(), modules: { todos: [{ id: "t" }] } };
+    const next = withManualOrder(start, "notes", [{ id: "b" }, { id: "a" }]);
+
+    expect(hasManualOrder(next.settings, "notes")).toBe(true);
+    expect(hasManualOrder(next.settings, "todos")).toBe(false);
+    expect(next.modules.notes).toEqual([{ id: "b" }, { id: "a" }]);
+    expect(next.modules.todos).toEqual([{ id: "t" }]);
+  });
+});
 
 describe("createDefaultModel", () => {
   it("has the current schema and empty settings/modules", () => {

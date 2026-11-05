@@ -24,6 +24,23 @@ export interface BiometricStatus {
   enrolled: boolean;
 }
 
+/** A file `importFiles` encrypted into the blob folder; the frontend adds its metadata (spec §4.8). */
+export interface ImportedFile {
+  id: string;
+  fileName: string;
+  mime: string;
+  size: number;
+  /** The file's own last-modified time (ms since the epoch), when the OS reports one. */
+  modifiedMs: number | null;
+}
+
+/** The result of one add-files batch: what was added, skipped for size, or failed. */
+export interface ImportOutcome {
+  imported: ImportedFile[];
+  tooLarge: string[];
+  failed: { fileName: string; error: string }[];
+}
+
 export const vaultApi = {
   /** Whether a vault file exists (onboarding vs. unlock on launch). */
   vaultExists: () => invoke<boolean>("vault_exists"),
@@ -103,6 +120,18 @@ export const vaultApi = {
       preRestoreFileName,
     }),
   eraseVault: () => invoke<void>("erase_vault"),
+  /**
+   * Pick files in the native dialog and encrypt them into the blob folder. Paths never reach the
+   * WebView. `maxBytes` is the configured per-file limit (`0` = none); null if the dialog is dismissed.
+   */
+  importFiles: (maxBytes: number) =>
+    invoke<ImportOutcome | null>("import_files", { maxBytes }),
+  /** Choose a location and save a decrypted copy of a file; null if canceled. */
+  exportFile: (id: string, fileName: string) =>
+    invoke<string | null>("export_file", { id, fileName }),
+  deleteFile: (id: string) => invoke<void>("delete_file", { id }),
+  /** Ask the running file transfer to stop at its next chunk. */
+  cancelTransfer: () => invoke<void>("cancel_transfer"),
   quitApp: () => invoke<void>("quit_app"),
 };
 

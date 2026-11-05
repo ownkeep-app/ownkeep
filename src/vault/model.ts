@@ -233,6 +233,23 @@ export function setModuleSettings(
   };
 }
 
+/** Settings key set once the user has hand-sorted a module, whose slice order then rules its list. */
+const MANUAL_ORDER_KEY = "manualOrder";
+
+export function hasManualOrder(settings: VaultSettings, id: string): boolean {
+  return settings.modules[id]?.[MANUAL_ORDER_KEY] === true;
+}
+
+/** Store a hand-sorted slice and stop the module's automatic sort from overriding it. */
+export function withManualOrder(
+  model: VaultModel,
+  id: string,
+  items: unknown[],
+): VaultModel {
+  const next = setModuleSettings(model, id, { [MANUAL_ORDER_KEY]: true });
+  return { ...next, modules: { ...next.modules, [id]: items } };
+}
+
 /**
  * Record one use of a command-bar item, bumping its frecency (spec §7.2): increment the count and
  * refresh `lastUsedAt` so habitual items rank higher next time. Pure; the store persists the result.

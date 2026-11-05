@@ -676,8 +676,10 @@ describe("backup names", () => {
       "ownkeep-pre-restore-20260707-1530.dat",
     );
     expect(abandonedVaultBackupName(date)).toBe(
-      "ownkeep-abandoned-20260707-1530.dat",
+      "ownkeep-abandoned-20260707-1530.okbak",
     );
-    expect(vaultBackupName("0.1", date)).toBe("ownkeep-v0.1-20260707-1530.dat");
+    expect(vaultBackupName("0.1", date)).toBe(
+      "ownkeep-v0.1-20260707-1530.okbak",
+    );
   });
 });

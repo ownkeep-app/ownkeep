@@ -8,6 +8,7 @@ use std::fs::{self, File, OpenOptions};
 use std::io::Write;
 use std::path::{Path, PathBuf};
 
+use crate::blobs;
 use crate::container::Container;
 use crate::error::{Error, Result};
 
@@ -54,11 +55,14 @@ pub fn write_container(path: &Path, container: &Container) -> Result<()> {
     write_atomic(path, &bytes)
 }
 
-/// Copy the encrypted vault file to a sibling backup file and fsync the copy.
+/// Snapshot the encrypted vault to a sibling file (automatic pre-migration / pre-restore safety net).
+/// Its file blobs are hard-linked beside it, so the snapshot stays complete at almost no cost.
 pub fn backup_vault_file(path: &Path, file_name: &str) -> Result<PathBuf> {
     validate_backup_file_name(file_name)?;
     let dir = path.parent().unwrap_or_else(|| Path::new("."));
-    backup_vault_to_path(path, &dir.join(file_name))
+    let backup_path = backup_vault_to_path(path, &dir.join(file_name))?;
+    blobs::snapshot_dir(&blobs::dir_for(path), &blobs::dir_for(&backup_path))?;
+    Ok(backup_path)
 }
 
 /// Copy the encrypted vault to an explicit backup destination (fsynced), stripping the device-local
@@ -74,13 +78,14 @@ pub fn backup_vault_to_path(path: &Path, backup_path: &Path) -> Result<PathBuf> 
     Ok(backup_path.to_path_buf())
 }
 
-/// Remove the active vault file. Missing files are already "fresh start" and are ignored.
+/// Remove the active vault file and its file blobs. Missing ones are already "fresh start".
 pub fn remove_vault_file(path: &Path) -> Result<()> {
     match fs::remove_file(path) {
-        Ok(()) => Ok(()),
-        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(()),
-        Err(e) => Err(e.into()),
+        Ok(()) => {}
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
+        Err(e) => return Err(e.into()),
     }
+    blobs::remove_dir(&blobs::dir_for(path))
 }
 
 pub fn validate_backup_file_name(file_name: &str) -> Result<()> {
@@ -132,14 +137,31 @@ fn temp_path(path: &Path) -> PathBuf {
     path.with_file_name(name)
 }
 
-/// Create a fresh unique temporary directory (shared by the storage and session tests).
+/// Create a fresh, empty, unique temporary directory for a test. It is removed when the test's thread
+/// ends. A stale folder from an earlier run that had the same process id is cleared first.
 #[cfg(test)]
 pub(crate) fn unique_temp_dir() -> PathBuf {
+    use std::cell::RefCell;
     use std::sync::atomic::{AtomicU64, Ordering};
+
+    struct RemoveOnDrop(Vec<PathBuf>);
+    impl Drop for RemoveOnDrop {
+        fn drop(&mut self) {
+            for dir in &self.0 {
+                let _ = fs::remove_dir_all(dir);
+            }
+        }
+    }
+    thread_local! {
+        static CREATED: RefCell<RemoveOnDrop> = const { RefCell::new(RemoveOnDrop(Vec::new())) };
+    }
+
     static COUNTER: AtomicU64 = AtomicU64::new(0);
     let n = COUNTER.fetch_add(1, Ordering::Relaxed);
     let dir = std::env::temp_dir().join(format!("ownkeep-test-{}-{}", std::process::id(), n));
+    let _ = fs::remove_dir_all(&dir);
     fs::create_dir_all(&dir).unwrap();
+    CREATED.with(|created| created.borrow_mut().0.push(dir.clone()));
     dir
 }
 
@@ -259,6 +281,40 @@ mod tests {
         remove_vault_file(&path).unwrap();
         assert!(!path.exists());
         remove_vault_file(&path).unwrap();
+        fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
+    fn removing_the_vault_also_removes_its_files() {
+        let dir = unique_temp_dir();
+        let path = dir.join(VAULT_FILE);
+        fs::write(&path, b"encrypted bytes").unwrap();
+        let files = blobs::dir_for(&path);
+        fs::create_dir_all(&files).unwrap();
+        fs::write(files.join("a.blob"), b"blob").unwrap();
+
+        remove_vault_file(&path).unwrap();
+
+        assert!(!path.exists());
+        assert!(!files.exists());
+        fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
+    fn a_snapshot_keeps_its_files_beside_it() {
+        let dir = unique_temp_dir();
+        let path = dir.join(VAULT_FILE);
+        write_container(&path, &sample()).unwrap();
+        let files = blobs::dir_for(&path);
+        fs::create_dir_all(&files).unwrap();
+        fs::write(files.join("a.blob"), b"blob").unwrap();
+
+        let backup = backup_vault_file(&path, "ownkeep-pre-restore-20260707-1530.dat").unwrap();
+
+        assert_eq!(
+            fs::read(blobs::dir_for(&backup).join("a.blob")).unwrap(),
+            b"blob"
+        );
         fs::remove_dir_all(&dir).ok();
     }
 

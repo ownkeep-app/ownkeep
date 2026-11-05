@@ -20,6 +20,8 @@ pub const SALT_LEN: usize = 16;
 pub const NONCE_LEN: usize = 24;
 /// HKDF context used for every recovery code created by OwnKeep.
 const RECOVERY_KDF_INFO: &[u8] = b"ownkeep recovery kek v1";
+/// HKDF context separating the file-blob key (spec §4.8) from the DEK that seals the vault body.
+const FILES_KDF_INFO: &[u8] = b"ownkeep files key v1";
 /// Pre-1.2 recovery context retained as bytes so existing Emergency Kits keep working.
 const RECOVERY_KDF_INFO_V0: &[u8] = &[
     0x6b, 0x65, 0x79, 0x73, 0x74, 0x61, 0x73, 0x68, 0x20, 0x72, 0x65, 0x63, 0x6f, 0x76, 0x65, 0x72,
@@ -92,6 +94,12 @@ pub(crate) fn derive_kek_hkdf_v0(ikm: &[u8], salt: &[u8]) -> Result<Key> {
     derive_kek_hkdf_with_info(ikm, salt, RECOVERY_KDF_INFO_V0)
 }
 
+/// Derive the key that seals file blobs from the DEK. Changing the master password re-wraps the DEK
+/// without changing it, so this stays stable and no file ever needs re-encrypting.
+pub fn derive_files_key(dek: &[u8; KEY_LEN]) -> Result<Key> {
+    derive_kek_hkdf_with_info(dek, &[], FILES_KDF_INFO)
+}
+
 fn derive_kek_hkdf_with_info(ikm: &[u8], salt: &[u8], info: &[u8]) -> Result<Key> {
     let hk = Hkdf::<Sha256>::new(Some(salt), ikm);
     let mut kek = Zeroizing::new([0u8; KEY_LEN]);
@@ -141,6 +149,15 @@ pub(crate) const TEST_ARGON: Argon2Params = Argon2Params {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_files_key_is_stable_and_differs_from_the_dek() {
+        let dek = [1u8; KEY_LEN];
+        let key = derive_files_key(&dek).unwrap();
+        assert_eq!(*key, *derive_files_key(&dek).unwrap());
+        assert_ne!(*key, dek);
+        assert_ne!(*key, *derive_files_key(&[2u8; KEY_LEN]).unwrap());
+    }
 
     #[test]
     fn seal_open_round_trip() {

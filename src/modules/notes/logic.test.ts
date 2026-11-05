@@ -5,7 +5,6 @@ import {
   createNoteEntry,
   emptyNoteForm,
   formFromNote,
-  groupNotesByCategory,
   noteEntries,
   notePreview,
   sortNotesByUpdated,
@@ -68,15 +67,6 @@ describe("notes module logic", () => {
       "mid-work",
       "old",
     ]);
-    expect(
-      groupNotesByCategory(items).map((group) => [
-        group.category,
-        group.notes.map((item) => item.id),
-      ]),
-    ).toEqual([
-      ["Work", ["new-work", "mid-work"]],
-      ["Personal", ["old"]],
-    ]);
   });
 
   it("creates, updates, and validates notes", () => {
@@ -130,17 +120,6 @@ describe("notes module logic", () => {
     const [entry] = buildNoteIndex([loose]);
     expect(entry.displayLine).toBe("Loose thought");
     expect(entry.searchString).toBe("Loose thought just a line");
-
-    expect(groupNotesByCategory([loose])).toEqual([
-      { category: "Uncategorized", notes: [loose] },
-    ]);
-  });
-
-  it("treats a whitespace-only category as uncategorized", () => {
-    expect(
-      groupNotesByCategory([note({ id: "blank", category: "   " })])[0]
-        .category,
-    ).toBe("Uncategorized");
   });
 
   it("breaks ties alphabetically when timestamps are identical", () => {
@@ -162,9 +141,6 @@ describe("notes module logic", () => {
       "a",
       "b",
     ]);
-    expect(
-      groupNotesByCategory([beta, alpha]).map((group) => group.category),
-    ).toEqual(["Alpha", "Zeta"]);
   });
 
   it("backfills a missing createdAt when an old note is edited", () => {

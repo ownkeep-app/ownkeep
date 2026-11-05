@@ -1,13 +1,19 @@
-import { render, screen, waitFor, within } from "@testing-library/react";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { writeClipboard } from "@/lib/clipboard";
-import { toastClipboard } from "@/lib/toast";
+import { toastClipboard, toastError } from "@/lib/toast";
 import { chooseRowAction, confirmDelete } from "@/test/row-actions";
 import { useVaultStore } from "@/stores/vault-store";
 import { vaultApi } from "@/vault/api";
-import { createDefaultModel } from "@/vault/model";
+import { createDefaultModel, setModuleSettings } from "@/vault/model";
 import {
   CommandDetailView,
   CommandEditView,
@@ -33,7 +39,10 @@ vi.mock("shiki", () => ({
   })),
 }));
 vi.mock("@/lib/clipboard", () => ({ writeClipboard: vi.fn(async () => true) }));
-vi.mock("@/lib/toast", () => ({ toastClipboard: vi.fn() }));
+vi.mock("@/lib/toast", () => ({
+  toastClipboard: vi.fn(),
+  toastError: vi.fn(),
+}));
 vi.mock("@/vault/api", () => ({
   vaultApi: {
     saveVault: vi.fn(async () => {}),
@@ -96,14 +105,100 @@ describe("CommandsListView", () => {
         ]}
       />,
     );
-    expect(screen.getByRole("heading", { name: "vcs" })).toBeInTheDocument();
-    expect(
-      screen.getByRole("heading", { name: "containers" }),
-    ).toBeInTheDocument();
+    // Tags show as chips rather than group headings.
+    expect(screen.queryByRole("heading", { level: 2 })).toBeNull();
+    expect(screen.getByText("vcs")).toBeInTheDocument();
+    expect(screen.getByText("containers")).toBeInTheDocument();
     expect(screen.getByText("Show status")).toBeInTheDocument();
     expect(screen.getByText("Start a container")).toBeInTheDocument();
     expect(screen.getByText("git status")).toBeInTheDocument();
     expect(screen.getByText("docker run")).toBeInTheDocument();
+  });
+
+  describe("flat list and drag to sort", () => {
+    const original = useVaultStore.getState().reorderItems;
+    const reorderItems = vi.fn(async () => {});
+    const alpha = cmd({ id: "a", title: "Alpha", category: "Dev", tags: [] });
+    const beta = cmd({
+      id: "b",
+      title: "Beta",
+      category: "Work",
+      tags: ["x", "y"],
+    });
+    const gamma = cmd({ id: "g", title: "Gamma", category: "Dev", tags: [] });
+    const handleFor = (title: string) =>
+      screen.getByRole("button", { name: `Drag to reorder ${title}` });
+    const titles = () =>
+      screen
+        .getAllByRole("listitem")
+        .map((row) => within(row).getAllByRole("button")[1].textContent);
+    const savedIds = () =>
+      (
+        reorderItems.mock.lastCall as unknown as [string, CommandEntry[]]
+      )[1].map((item) => item.id);
+
+    beforeEach(() => {
+      reorderItems.mockClear();
+      useVaultStore.setState({ reorderItems });
+    });
+
+    afterEach(() => {
+      useVaultStore.setState({ reorderItems: original });
+    });
+
+    it("lists each command once, by title, with its badge, tags and number", () => {
+      render(<CommandsListView items={[gamma, beta, alpha]} />);
+
+      expect(titles()).toEqual(["Alpha", "Beta", "Gamma"]);
+      const row = screen.getAllByRole("listitem")[1];
+      expect(within(row).getByText("Work")).toHaveClass("text-white");
+      expect(within(row).getByText("x")).toBeVisible();
+      expect(within(row).getByText("y")).toBeVisible();
+      expect(within(row).getByText("2")).toBeVisible();
+    });
+
+    it("first freezes the title order on screen, then applies the move", () => {
+      render(<CommandsListView items={[gamma, beta, alpha]} />);
+
+      fireEvent.keyDown(handleFor("Gamma"), { key: "ArrowUp" });
+
+      expect(reorderItems).toHaveBeenCalledWith("commands", expect.any(Array));
+      expect(savedIds()).toEqual(["a", "g", "b"]);
+    });
+
+    it("shows the saved order once hand-sorted", () => {
+      useVaultStore.setState({
+        model: setModuleSettings(createDefaultModel(NOW), "commands", {
+          manualOrder: true,
+        }),
+      });
+      render(<CommandsListView items={[gamma, alpha, beta]} />);
+      expect(titles()).toEqual(["Gamma", "Alpha", "Beta"]);
+    });
+
+    it("keeps hidden commands in place when sorting under a filter", async () => {
+      const user = userEvent.setup();
+      render(<CommandsListView items={[alpha, beta, gamma]} />);
+
+      await user.selectOptions(
+        screen.getByLabelText("Filter by category"),
+        "Dev",
+      );
+      fireEvent.keyDown(handleFor("Gamma"), { key: "ArrowUp" });
+
+      expect(savedIds()).toEqual(["g", "a", "b"]);
+    });
+
+    it("reports a failed save", async () => {
+      reorderItems.mockRejectedValueOnce(new Error("disk full"));
+      render(<CommandsListView items={[alpha, beta]} />);
+
+      fireEvent.keyDown(handleFor("Beta"), { key: "ArrowUp" });
+
+      await waitFor(() =>
+        expect(toastError).toHaveBeenCalledWith("Couldn't save the new order."),
+      );
+    });
   });
 
   it("filters commands", async () => {

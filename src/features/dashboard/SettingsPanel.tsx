@@ -385,6 +385,20 @@ export function SettingsPanel() {
                   </label>
                 </div>
               </section>
+
+              {MODULES.filter(
+                (m) => m.SettingsPanel && model.settings.modules[m.id]?.enabled,
+              ).map((m) => {
+                const ModuleSettingsPanel = m.SettingsPanel!;
+                return (
+                  <section key={m.id}>
+                    <h2 className="mb-3 text-sm font-medium text-muted-foreground">
+                      {t(m.titleKey)}
+                    </h2>
+                    <ModuleSettingsPanel />
+                  </section>
+                );
+              })}
             </>
           ) : (
             <>
@@ -581,6 +595,9 @@ export function SettingsPanel() {
                     <Download className="h-4 w-4" />
                     {t("settings.backup")}
                   </Button>
+                  <p className="text-xs text-muted-foreground">
+                    {t("settings.backupIncludesFiles")}
+                  </p>
                   {biometric?.enrolled && (
                     <p className="flex items-start gap-2 text-xs text-muted-foreground">
                       <Fingerprint className="mt-0.5 h-3.5 w-3.5 shrink-0" />

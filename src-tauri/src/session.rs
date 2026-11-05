@@ -9,7 +9,9 @@ use std::time::{Duration, Instant};
 
 use zeroize::Zeroizing;
 
+use crate::archive;
 use crate::biometric::{self, BiometricKeyStore, BiometricStatus};
+use crate::blobs::{self, Progress};
 use crate::clipboard;
 use crate::container::Container;
 use crate::crypto::{self, Argon2Params, Key};
@@ -151,63 +153,30 @@ impl Session {
         Ok(())
     }
 
-    /// Restore a selected backup after proving the supplied master password can fully decrypt it.
-    pub fn restore_password(
-        &mut self,
-        path: &Path,
-        backup_path: &Path,
-        password: &str,
-        pre_restore_file_name: &str,
-    ) -> Result<()> {
-        self.restore_verified(path, backup_path, pre_restore_file_name, |container| {
-            envelope::unlock_with_password(container, password)
-        })
+    /// Count a rejected restore credential towards the unlock backoff (§4.3).
+    pub fn record_restore_failure(&mut self) {
+        self.record_failure();
     }
 
-    /// Restore a selected backup after proving the supplied recovery code can fully decrypt it.
-    pub fn restore_recovery(
+    /// Switch to a verified backup: snapshot the current vault, atomically replace the live file, swap
+    /// in the staged file blobs, and unlock. The two steps can't be one atomic rename, so a crash
+    /// between them leaves the new vault with the old blobs; the snapshot written first still holds
+    /// everything, and this window is two renames long.
+    pub fn commit_restore(
         &mut self,
         path: &Path,
-        backup_path: &Path,
-        phrase: &str,
+        prepared: PreparedRestore,
         pre_restore_file_name: &str,
     ) -> Result<()> {
-        self.restore_verified(path, backup_path, pre_restore_file_name, |container| {
-            envelope::unlock_with_recovery(container, phrase)
-        })
-    }
-
-    /// Shared restore path: read the chosen backup, derive its DEK, decrypt the vault body, then
-    /// snapshot and atomically replace the active file. Nothing is written before decrypt succeeds.
-    fn restore_verified<F>(
-        &mut self,
-        path: &Path,
-        backup_path: &Path,
-        pre_restore_file_name: &str,
-        derive: F,
-    ) -> Result<()>
-    where
-        F: FnOnce(&Container) -> Result<Key>,
-    {
-        storage::validate_backup_file_name(pre_restore_file_name)?;
-        let container = storage::read_container(backup_path)?;
-        let dek = match derive(&container) {
-            Ok(dek) => dek,
-            Err(e) => {
-                self.record_failure();
-                return Err(e);
-            }
-        };
-        let vault = envelope::decrypt_vault(&container, &dek)?;
-
         if storage::vault_exists(path) {
             storage::backup_vault_file(path, pre_restore_file_name)?;
         }
-        storage::write_container(path, &container)?;
+        storage::write_container(path, &prepared.container)?;
+        blobs::replace_dir(&prepared.staged_files, &blobs::dir_for(path))?;
         self.unlocked = Some(UnlockedVault {
-            container,
-            dek,
-            vault,
+            container: prepared.container,
+            dek: prepared.dek,
+            vault: prepared.vault,
             last_activity: Instant::now(),
         });
         self.reset_failures();
@@ -286,6 +255,22 @@ impl Session {
         })
     }
 
+    /// The key that seals file blobs (spec §4.8). Asking for it counts as activity, so previewing or
+    /// transferring a file keeps the vault from auto-locking underneath it. Requires unlocked.
+    pub fn files_key(&mut self) -> Result<Key> {
+        let unlocked = self.unlocked.as_mut().ok_or(Error::Locked)?;
+        unlocked.last_activity = Instant::now();
+        crypto::derive_files_key(&unlocked.dek)
+    }
+
+    /// Mark a long-running background transfer as activity if unlocked; a no-op while locked, since a
+    /// locked vault can still be backed up.
+    pub fn touch(&mut self) {
+        if let Some(unlocked) = self.unlocked.as_mut() {
+            unlocked.last_activity = Instant::now();
+        }
+    }
+
     /// Return the decrypted vault model as a redacted JSON projection. Requires unlocked.
     pub fn vault_json(&mut self) -> Result<String> {
         let unlocked = self.unlocked.as_mut().ok_or(Error::Locked)?;
@@ -352,6 +337,76 @@ impl Session {
     }
 }
 
+/// A fully verified backup, ready to become the live vault.
+pub struct PreparedRestore {
+    container: Container,
+    dek: Key,
+    vault: Zeroizing<Vec<u8>>,
+    staged_files: std::path::PathBuf,
+}
+
+/// Verify a backup without touching the live vault: read it, derive its DEK with `derive`, decrypt the
+/// body, and authenticate every file blob into a staging folder (spec §11). Nothing live is written
+/// before this succeeds. Deliberately not a `Session` method: unpacking can take minutes, and holding
+/// the session lock that long would freeze the app. Accepts both the archive format and a plain `.dat`
+/// (older backups, whose blobs if any are in a sibling folder).
+pub fn prepare_restore<F>(
+    path: &Path,
+    backup_path: &Path,
+    derive: F,
+    progress: Progress<'_>,
+) -> Result<PreparedRestore>
+where
+    F: FnOnce(&Container) -> Result<Key>,
+{
+    let staged_files = blobs::staging_dir_for(path);
+    // A crash during an earlier restore may have left a partial staging folder.
+    blobs::remove_dir(&staged_files)?;
+    std::fs::create_dir_all(&staged_files)?;
+
+    let prepared = stage_backup(backup_path, &staged_files, derive, progress);
+    if prepared.is_err() {
+        let _ = blobs::remove_dir(&staged_files);
+    }
+    let (container, dek, vault) = prepared?;
+    Ok(PreparedRestore {
+        container,
+        dek,
+        vault,
+        staged_files,
+    })
+}
+
+fn stage_backup<F>(
+    backup_path: &Path,
+    staged_files: &Path,
+    derive: F,
+    progress: Progress<'_>,
+) -> Result<(Container, Key, Zeroizing<Vec<u8>>)>
+where
+    F: FnOnce(&Container) -> Result<Key>,
+{
+    if archive::is_archive(backup_path)? {
+        let opened = archive::open(backup_path)?;
+        let container = opened.container.clone();
+        let dek = derive(&container)?;
+        let vault = envelope::decrypt_vault(&container, &dek)?;
+        opened.extract_verified(&*crypto::derive_files_key(&dek)?, staged_files, progress)?;
+        Ok((container, dek, vault))
+    } else {
+        let container = storage::read_container(backup_path)?;
+        let dek = derive(&container)?;
+        let vault = envelope::decrypt_vault(&container, &dek)?;
+        blobs::link_verified(
+            &*crypto::derive_files_key(&dek)?,
+            &blobs::dir_for(backup_path),
+            staged_files,
+            progress,
+        )?;
+        Ok((container, dek, vault))
+    }
+}
+
 /// Compute the Touch ID status for the vault at `path` (spec §4.7). Reads only the public container
 /// header, so it needs no unlock and never triggers a Touch ID prompt. Pure over the store.
 pub fn biometric_status<S: BiometricKeyStore>(path: &Path, store: &S) -> BiometricStatus {
@@ -393,6 +448,60 @@ mod tests {
 
     fn session() -> Session {
         Session::new(Some(DEFAULT_AUTO_LOCK))
+    }
+
+    /// The production restore sequence, as `commands::restore_selected_vault` runs it.
+    impl Session {
+        fn restore_with<F>(
+            &mut self,
+            path: &Path,
+            backup_path: &Path,
+            pre_restore_file_name: &str,
+            derive: F,
+        ) -> Result<()>
+        where
+            F: FnOnce(&Container) -> Result<Key>,
+        {
+            let mut rejected = false;
+            let prepared = prepare_restore(
+                path,
+                backup_path,
+                |container| {
+                    let key = derive(container);
+                    rejected = key.is_err();
+                    key
+                },
+                &mut blobs::no_progress(),
+            );
+            if rejected {
+                self.record_restore_failure();
+            }
+            self.commit_restore(path, prepared?, pre_restore_file_name)
+        }
+
+        fn restore_password(
+            &mut self,
+            path: &Path,
+            backup_path: &Path,
+            password: &str,
+            pre_restore_file_name: &str,
+        ) -> Result<()> {
+            self.restore_with(path, backup_path, pre_restore_file_name, |container| {
+                envelope::unlock_with_password(container, password)
+            })
+        }
+
+        fn restore_recovery(
+            &mut self,
+            path: &Path,
+            backup_path: &Path,
+            phrase: &str,
+            pre_restore_file_name: &str,
+        ) -> Result<()> {
+            self.restore_with(path, backup_path, pre_restore_file_name, |container| {
+                envelope::unlock_with_recovery(container, phrase)
+            })
+        }
     }
 
     #[test]
@@ -644,6 +753,261 @@ mod tests {
             crate::storage::read_container(&path).unwrap().magic,
             crate::container::MAGIC
         );
+        fs::remove_dir_all(&dir).ok();
+    }
+
+    /// Add a file to a vault through the session, as the Files module does. Returns its blob id.
+    fn add_file(session: &mut Session, path: &Path, contents: &[u8]) -> String {
+        let source = path.with_file_name("incoming-file");
+        fs::write(&source, contents).unwrap();
+        let key = session.files_key().unwrap();
+        let (id, _) = blobs::import_file(
+            &key,
+            &blobs::dir_for(path),
+            &source,
+            &mut blobs::no_progress(),
+        )
+        .unwrap();
+        id
+    }
+
+    fn read_file(session: &mut Session, path: &Path, id: &str) -> Vec<u8> {
+        let key = session.files_key().unwrap();
+        let dir = blobs::dir_for(path);
+        let len = blobs::plain_len(&dir, id).unwrap();
+        blobs::read_range(&key, &dir, id, 0, len).unwrap()
+    }
+
+    #[test]
+    fn files_key_requires_unlocked_and_is_stable_across_a_password_change() {
+        let dir = unique_temp_dir();
+        let path = dir.join(VAULT_FILE);
+        let mut s = session();
+        assert!(matches!(s.files_key(), Err(Error::Locked)));
+
+        s.create(&path, "master pw", TEST_ARGON).unwrap();
+        let id = add_file(&mut s, &path, b"keep me readable");
+
+        s.change_master(&path, "new master pw", TEST_ARGON).unwrap();
+        s.lock();
+        s.unlock_password(&path, "new master pw").unwrap();
+
+        assert_eq!(read_file(&mut s, &path, &id), b"keep me readable");
+        fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
+    fn touching_keeps_a_transfer_from_auto_locking() {
+        let dir = unique_temp_dir();
+        let path = dir.join(VAULT_FILE);
+        let mut s = Session::new(Some(Duration::from_secs(60)));
+        s.touch(); // locked: a no-op, since a locked vault can still be backed up
+        s.create(&path, "pw", TEST_ARGON).unwrap();
+
+        s.unlocked.as_mut().unwrap().last_activity = Instant::now() - Duration::from_secs(120);
+        assert!(s.is_idle_expired(Instant::now()));
+        s.touch();
+        assert!(!s.is_idle_expired(Instant::now()));
+        fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
+    fn an_archive_restores_the_vault_and_its_files_under_the_backups_key() {
+        let dir = unique_temp_dir();
+        let active_path = dir.join(VAULT_FILE);
+        let backup_vault = dir.join("source-vault.dat");
+        let archive_path = dir.join("backup.okbak");
+        let pre_restore = "ownkeep-pre-restore-20260707-1530.dat";
+
+        let mut source = session();
+        source
+            .create(&backup_vault, "backup pw", TEST_ARGON)
+            .unwrap();
+        source
+            .save_vault(&backup_vault, r#"{"settings":{"theme":"light"}}"#)
+            .unwrap();
+        let backed_up = add_file(&mut source, &backup_vault, b"from the backup");
+        archive::write_archive(&backup_vault, &archive_path, &mut blobs::no_progress()).unwrap();
+
+        let mut active = session();
+        active
+            .create(&active_path, "active pw", TEST_ARGON)
+            .unwrap();
+        let current = add_file(&mut active, &active_path, b"current file");
+
+        active
+            .restore_password(&active_path, &archive_path, "backup pw", pre_restore)
+            .unwrap();
+
+        assert!(active.vault_json().unwrap().contains("light"));
+        assert_eq!(
+            read_file(&mut active, &active_path, &backed_up),
+            b"from the backup"
+        );
+        // The current file left the live folder but survives in the pre-restore snapshot.
+        let live = blobs::list(&blobs::dir_for(&active_path)).unwrap();
+        assert_eq!(live.len(), 1);
+        let snapshot = dir.join(pre_restore);
+        assert!(blobs::list(&blobs::dir_for(&snapshot))
+            .unwrap()
+            .iter()
+            .any(|(id, _)| *id == current));
+        assert!(!blobs::staging_dir_for(&active_path).exists());
+
+        // The snapshot itself restores, files included, with the password it was taken under.
+        active
+            .restore_password(
+                &active_path,
+                &snapshot,
+                "active pw",
+                "ownkeep-pre-restore-20260707-1531.dat",
+            )
+            .unwrap();
+        assert_eq!(
+            read_file(&mut active, &active_path, &current),
+            b"current file"
+        );
+        fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
+    fn an_old_plain_backup_restores_and_clears_the_current_files() {
+        let dir = unique_temp_dir();
+        let active_path = dir.join(VAULT_FILE);
+        let backup_path = dir.join("ownkeep-v1.5-20260707-1530.dat");
+
+        let mut old = session();
+        old.create(&backup_path, "backup pw", TEST_ARGON).unwrap();
+
+        let mut active = session();
+        active
+            .create(&active_path, "active pw", TEST_ARGON)
+            .unwrap();
+        add_file(&mut active, &active_path, b"current file");
+
+        active
+            .restore_password(
+                &active_path,
+                &backup_path,
+                "backup pw",
+                "ownkeep-pre-restore-20260707-1530.dat",
+            )
+            .unwrap();
+
+        assert!(blobs::list(&blobs::dir_for(&active_path))
+            .unwrap()
+            .is_empty());
+        fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
+    fn a_wrong_password_leaves_the_archive_unpacked_and_counts_a_failure() {
+        let dir = unique_temp_dir();
+        let active_path = dir.join(VAULT_FILE);
+        let backup_vault = dir.join("source-vault.dat");
+        let archive_path = dir.join("backup.okbak");
+        let pre_restore = "ownkeep-pre-restore-20260707-1530.dat";
+
+        let mut source = session();
+        source
+            .create(&backup_vault, "backup pw", TEST_ARGON)
+            .unwrap();
+        add_file(&mut source, &backup_vault, b"from the backup");
+        archive::write_archive(&backup_vault, &archive_path, &mut blobs::no_progress()).unwrap();
+
+        let mut active = session();
+        active
+            .create(&active_path, "active pw", TEST_ARGON)
+            .unwrap();
+        let current = add_file(&mut active, &active_path, b"current file");
+
+        for _ in 0..4 {
+            assert!(active
+                .restore_password(&active_path, &archive_path, "wrong", pre_restore)
+                .is_err());
+        }
+
+        assert!(active.backoff_delay() > Duration::ZERO);
+        assert!(!dir.join(pre_restore).exists());
+        assert!(!blobs::staging_dir_for(&active_path).exists());
+        assert_eq!(
+            read_file(&mut active, &active_path, &current),
+            b"current file"
+        );
+        fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
+    fn a_corrupt_file_in_the_archive_aborts_before_anything_live_changes() {
+        let dir = unique_temp_dir();
+        let active_path = dir.join(VAULT_FILE);
+        let backup_vault = dir.join("source-vault.dat");
+        let archive_path = dir.join("backup.okbak");
+        let pre_restore = "ownkeep-pre-restore-20260707-1530.dat";
+
+        let mut source = session();
+        source
+            .create(&backup_vault, "backup pw", TEST_ARGON)
+            .unwrap();
+        add_file(&mut source, &backup_vault, b"from the backup");
+        archive::write_archive(&backup_vault, &archive_path, &mut blobs::no_progress()).unwrap();
+        let mut bytes = fs::read(&archive_path).unwrap();
+        let last = bytes.len() - 1;
+        bytes[last] ^= 1;
+        fs::write(&archive_path, bytes).unwrap();
+
+        let mut active = session();
+        active
+            .create(&active_path, "active pw", TEST_ARGON)
+            .unwrap();
+        let current = add_file(&mut active, &active_path, b"current file");
+        let before = fs::read(&active_path).unwrap();
+
+        assert!(active
+            .restore_password(&active_path, &archive_path, "backup pw", pre_restore)
+            .is_err());
+
+        assert_eq!(fs::read(&active_path).unwrap(), before);
+        assert!(!dir.join(pre_restore).exists());
+        assert!(!blobs::staging_dir_for(&active_path).exists());
+        assert_eq!(
+            read_file(&mut active, &active_path, &current),
+            b"current file"
+        );
+        // A correct credential, so the failure isn't counted against the unlock backoff.
+        assert_eq!(active.backoff_delay(), Duration::ZERO);
+        fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
+    fn a_stale_staging_folder_from_a_crash_is_discarded() {
+        let dir = unique_temp_dir();
+        let active_path = dir.join(VAULT_FILE);
+        let backup_path = dir.join("ownkeep-v1.5-20260707-1530.dat");
+
+        let mut old = session();
+        old.create(&backup_path, "backup pw", TEST_ARGON).unwrap();
+
+        let staging = blobs::staging_dir_for(&active_path);
+        fs::create_dir_all(&staging).unwrap();
+        fs::write(staging.join("leftover.blob"), b"junk").unwrap();
+
+        let mut active = session();
+        active
+            .create(&active_path, "active pw", TEST_ARGON)
+            .unwrap();
+        active
+            .restore_password(
+                &active_path,
+                &backup_path,
+                "backup pw",
+                "ownkeep-pre-restore-20260707-1530.dat",
+            )
+            .unwrap();
+
+        assert!(blobs::list(&blobs::dir_for(&active_path))
+            .unwrap()
+            .is_empty());
         fs::remove_dir_all(&dir).ok();
     }
 

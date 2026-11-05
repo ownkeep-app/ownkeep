@@ -1,11 +1,22 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { toastSuccess } from "@/lib/toast";
 import { useVaultStore } from "@/stores/vault-store";
 import { vaultApi } from "@/vault/api";
-import { createDefaultModel } from "@/vault/model";
+import { MODULES } from "@/modules/registry";
+import {
+  createDefaultModel,
+  ensureModuleDefaults,
+  setModuleEnabled,
+} from "@/vault/model";
 import { SettingsPanel } from "./SettingsPanel";
 
 vi.mock("@/vault/api", () => ({
@@ -41,6 +52,40 @@ vi.mock("@/lib/toast", () => ({
 
 const api = vi.mocked(vaultApi);
 const successToast = vi.mocked(toastSuccess);
+
+describe("SettingsPanel module panels", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    useVaultStore.setState({
+      status: "unlocked",
+      model: ensureModuleDefaults(
+        createDefaultModel("2026-07-07T00:00:00.000Z"),
+        MODULES,
+      ),
+      busy: false,
+      error: null,
+    });
+  });
+
+  it("shows an enabled module's own settings, and hides them when disabled", () => {
+    render(<SettingsPanel />);
+    expect(screen.getByLabelText("Maximum file size (MB)")).toBeVisible();
+
+    const model = useVaultStore.getState().model!;
+    act(() =>
+      useVaultStore.setState({
+        model: setModuleEnabled(model, "files", false),
+      }),
+    );
+    expect(screen.queryByLabelText("Maximum file size (MB)")).toBeNull();
+  });
+
+  it("says backups include stored files", () => {
+    render(<SettingsPanel />);
+    fireEvent.click(screen.getByRole("tab", { name: "System" }));
+    expect(screen.getByText(/all your stored files/)).toBeVisible();
+  });
+});
 
 describe("SettingsPanel auto-lock", () => {
   beforeEach(() => {

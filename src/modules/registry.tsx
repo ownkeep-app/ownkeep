@@ -7,6 +7,7 @@
 
 import { commandsModule } from "./commands/module";
 import { eventsModule } from "./events/module";
+import { filesModule } from "./files/module";
 import { financeModule } from "./finance/module";
 import { notesModule } from "./notes/module";
 import { passwordsModule } from "./passwords/module";
@@ -23,4 +24,5 @@ export const MODULES: FeatureModule[] = [
   subscriptionsModule,
   financeModule,
   eventsModule,
+  filesModule,
 ];

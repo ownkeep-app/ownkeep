@@ -1,16 +1,24 @@
-import { render, screen, waitFor, within } from "@testing-library/react";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import * as toasts from "@/lib/toast";
 import { chooseRowAction, confirmDelete } from "@/test/row-actions";
 import { useVaultStore } from "@/stores/vault-store";
-import { createDefaultModel } from "@/vault/model";
+import { createDefaultModel, setModuleSettings } from "@/vault/model";
 import { NotesListView } from "./NotesModule";
 import type { NoteEntry } from "./types";
 
 const actions = {
   saveNote: useVaultStore.getState().saveNote,
   deleteNote: useVaultStore.getState().deleteNote,
+  reorderItems: useVaultStore.getState().reorderItems,
 };
 
 const item: NoteEntry = {
@@ -25,15 +33,18 @@ const item: NoteEntry = {
 describe("NotesListView", () => {
   const saveNote = vi.fn(async () => {});
   const deleteNote = vi.fn(async () => {});
+  const reorderItems = vi.fn(async () => {});
 
   beforeEach(() => {
     saveNote.mockClear();
     deleteNote.mockClear();
+    reorderItems.mockClear();
     useVaultStore.setState({
       ...useVaultStore.getState(),
       model: createDefaultModel("2026-07-08T12:00:00.000Z"),
       saveNote,
       deleteNote,
+      reorderItems,
     });
   });
 
@@ -42,10 +53,122 @@ describe("NotesListView", () => {
       ...useVaultStore.getState(),
       saveNote: actions.saveNote,
       deleteNote: actions.deleteNote,
+      reorderItems: actions.reorderItems,
     });
   });
 
-  it("groups notes and filters by query/category", async () => {
+  describe("drag to sort", () => {
+    const older = {
+      ...item,
+      id: "note-2",
+      name: "Older",
+      updatedAt: "2026-07-01T00:00:00.000Z",
+    };
+    const other = {
+      ...item,
+      id: "note-3",
+      name: "Other group",
+      category: "Personal",
+      updatedAt: "2026-07-02T00:00:00.000Z",
+    };
+    const handleFor = (name: string) =>
+      screen.getByRole("button", { name: `Drag to reorder ${name}` });
+    const savedIds = () =>
+      (reorderItems.mock.lastCall as unknown as [string, NoteEntry[]])[1].map(
+        (note) => note.id,
+      );
+
+    it("first freezes the newest-first order on screen, then moves across categories", () => {
+      render(<NotesListView items={[older, other, item]} />);
+
+      fireEvent.keyDown(handleFor("Older"), { key: "ArrowUp" });
+
+      expect(reorderItems).toHaveBeenCalledWith("notes", expect.any(Array));
+      expect(savedIds()).toEqual(["note-1", "note-2", "note-3"]);
+    });
+
+    it("stops at the ends of the list", () => {
+      render(<NotesListView items={[older, other, item]} />);
+      fireEvent.keyDown(handleFor("Shipping checklist"), { key: "ArrowUp" });
+      fireEvent.keyDown(handleFor("Older"), { key: "ArrowDown" });
+      expect(reorderItems).not.toHaveBeenCalled();
+    });
+
+    it("keeps hidden notes in place when sorting under a filter", async () => {
+      const user = userEvent.setup();
+      const other2 = { ...other, id: "note-4", name: "Second personal" };
+      render(<NotesListView items={[item, other, other2]} />);
+
+      await user.selectOptions(
+        screen.getByLabelText("Filter by category"),
+        "Personal",
+      );
+      fireEvent.keyDown(handleFor("Second personal"), { key: "ArrowUp" });
+
+      expect(savedIds()).toEqual(["note-1", "note-4", "note-3"]);
+    });
+
+    it("shows the saved order once hand-sorted, ignoring edit times", () => {
+      useVaultStore.setState({
+        model: setModuleSettings(
+          createDefaultModel("2026-07-08T12:00:00.000Z"),
+          "notes",
+          { manualOrder: true },
+        ),
+      });
+      render(<NotesListView items={[older, item]} />);
+      const names = screen
+        .getAllByRole("listitem")
+        .map((row) => within(row).getAllByRole("button")[1].textContent);
+      expect(names).toEqual(["Older", "Shipping checklist"]);
+    });
+
+    it("reports a failed save", async () => {
+      const toast = vi.spyOn(toasts, "toastError");
+      reorderItems.mockRejectedValueOnce(new Error("disk full"));
+      render(<NotesListView items={[older, item]} />);
+
+      fireEvent.keyDown(handleFor("Older"), { key: "ArrowUp" });
+
+      await waitFor(() =>
+        expect(toast).toHaveBeenCalledWith("Couldn't save the new order."),
+      );
+    });
+  });
+
+  it("lists every note flat, newest first, each with a category badge", () => {
+    render(
+      <NotesListView
+        items={[
+          {
+            ...item,
+            id: "old",
+            name: "Old",
+            updatedAt: "2026-07-01T00:00:00.000Z",
+          },
+          { ...item, id: "new", name: "New", category: "Personal" },
+          {
+            ...item,
+            id: "none",
+            name: "No category",
+            category: "  ",
+            updatedAt: "2026-06-01T00:00:00.000Z",
+          },
+        ]}
+      />,
+    );
+
+    expect(screen.queryByRole("heading", { level: 2 })).toBeNull();
+    const rows = screen.getAllByRole("listitem");
+    expect(
+      rows.map((row) => within(row).getAllByRole("button")[1].textContent),
+    ).toEqual(["New", "Old", "No category"]);
+    expect(within(rows[0]).getByText("Personal")).toBeVisible();
+    expect(within(rows[1]).getByText("Work")).toBeVisible();
+    expect(rows[2].querySelector(".rounded-full")).toBeNull();
+  });
+
+  it("filters by query/category", async () => {
     const user = userEvent.setup();
     render(
       <NotesListView
@@ -63,8 +186,8 @@ describe("NotesListView", () => {
       />,
     );
 
-    expect(screen.getByRole("heading", { name: "Work" })).toBeVisible();
-    expect(screen.getByRole("heading", { name: "Personal" })).toBeVisible();
+    expect(screen.getByText("Shipping checklist")).toBeVisible();
+    expect(screen.getByText("Grocery list")).toBeVisible();
     expect(screen.getByText("Shipping checklist")).toBeVisible();
 
     await user.type(screen.getByLabelText("Filter notes"), "grocery");

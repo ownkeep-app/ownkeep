@@ -22,7 +22,7 @@ Read these files before editing:
 
 - Stay within the current `plan.md` phase unless the user explicitly asks to update the plan.
 - If the requested change conflicts with `spec.md` or `plan.md`, stop, cite the conflict, explain the tradeoff, and ask for explicit confirmation.
-- Preserve the non-negotiables: offline-only runtime, secrets in Rust, one encrypted file, and the feature-module registry.
+- Preserve the non-negotiables: offline-only runtime, secrets in Rust, one encrypted file (plus the Files module's encrypted blobs, spec §3.2), and the feature-module registry.
 - Keep changes small and direct. Prefer existing patterns over new abstractions.
 - Separate pure logic from UI and side effects so the Vitest and Rust test strategy in `spec.md` section 2.2 stays practical.
 - Update `spec.md` or `plan.md` in the same change if behavior, scope, or phase commitments change.

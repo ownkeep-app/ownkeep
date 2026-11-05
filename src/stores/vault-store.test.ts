@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { vaultApi } from "@/vault/api";
 import { APP_VERSION, createDefaultModel, SCHEMA_VERSION } from "@/vault/model";
 import { useVaultStore } from "./vault-store";
+import type { FileEntry } from "@/modules/files/types";
 import type { NoteEntry } from "@/modules/notes/types";
 import type { TrackedEvent } from "@/modules/events/types";
 import type { SubscriptionEntry } from "@/modules/subscriptions/types";
@@ -28,6 +29,8 @@ vi.mock("@/vault/api", () => ({
     ),
     eraseVault: vi.fn(async () => {}),
     quitApp: vi.fn(async () => {}),
+    importFiles: vi.fn(async () => null),
+    deleteFile: vi.fn(async () => {}),
     createVault: vi.fn(async () => ({
       app: "OwnKeep",
       recovery_code: "a b c",
@@ -384,7 +387,7 @@ describe("vault store", () => {
 
     expect(path).toBe("/tmp/chosen-backup.dat");
     expect(api.backupVaultToChosenLocation).toHaveBeenCalledWith(
-      expect.stringMatching(/^ownkeep-abandoned-\d{8}-\d{4}\.dat$/),
+      expect.stringMatching(/^ownkeep-abandoned-\d{8}-\d{4}\.okbak$/),
     );
     expect(api.eraseVault).toHaveBeenCalled();
     expect(useVaultStore.getState().status).toBe("onboarding");
@@ -1049,6 +1052,273 @@ describe("vault store", () => {
     category: "Work",
     content: "# Ship",
   };
+
+  describe("files", () => {
+    const stored: FileEntry = {
+      id: "blob-1",
+      title: "Report",
+      category: "Work",
+      invalid: false,
+      description: "",
+      date: "2026-07-01",
+      fileName: "report.pdf",
+      mime: "application/pdf",
+      size: 10,
+      createdAt: "2026-07-01T00:00:00.000Z",
+      updatedAt: "2026-07-01T00:00:00.000Z",
+    };
+    const incoming = {
+      id: "blob-2",
+      fileName: "clip.mp4",
+      mime: "video/mp4",
+      size: 20,
+      modifiedMs: Date.UTC(2020, 5, 15, 12),
+    };
+
+    function withFiles(files: unknown = [stored]) {
+      const model = createDefaultModel("2026-07-07T00:00:00.000Z");
+      useVaultStore.setState({
+        status: "unlocked",
+        model: { ...model, modules: { ...model.modules, files } },
+      });
+    }
+
+    const savedFiles = () =>
+      JSON.parse(api.saveVault.mock.lastCall![0]).modules.files;
+
+    it("adds imported files above the existing ones, in the default category", async () => {
+      withFiles();
+      api.importFiles.mockResolvedValueOnce({
+        imported: [incoming],
+        tooLarge: ["huge.iso"],
+        failed: [{ fileName: "bad", error: "nope" }],
+      });
+
+      const outcome = await useVaultStore.getState().importFiles();
+
+      expect(savedFiles().map((file: FileEntry) => file.id)).toEqual([
+        "blob-2",
+        "blob-1",
+      ]);
+      expect(outcome?.entries[0]).toMatchObject({
+        id: "blob-2",
+        title: "clip",
+        category: "Personal",
+        date: "2020-06-15",
+      });
+      expect(outcome?.tooLarge).toEqual(["huge.iso"]);
+      expect(outcome?.failed).toEqual([{ fileName: "bad", error: "nope" }]);
+    });
+
+    it("passes the configured size limit to the import", async () => {
+      withFiles();
+      const model = useVaultStore.getState().model!;
+      useVaultStore.setState({
+        model: {
+          ...model,
+          settings: {
+            ...model.settings,
+            modules: {
+              ...model.settings.modules,
+              files: { enabled: true, maxFileSizeMb: 2 },
+            },
+          },
+        },
+      });
+
+      await useVaultStore.getState().importFiles();
+
+      expect(api.importFiles).toHaveBeenCalledWith(2 * 1024 * 1024);
+    });
+
+    it("does nothing when the picker is dismissed or the vault is locked", async () => {
+      await expect(useVaultStore.getState().importFiles()).resolves.toBeNull();
+      expect(api.importFiles).not.toHaveBeenCalled();
+
+      withFiles();
+      await expect(useVaultStore.getState().importFiles()).resolves.toBeNull();
+      expect(api.saveVault).not.toHaveBeenCalled();
+    });
+
+    it("saves nothing when every file was skipped", async () => {
+      withFiles();
+      api.importFiles.mockResolvedValueOnce({
+        imported: [],
+        tooLarge: ["huge.iso"],
+        failed: [],
+      });
+
+      const outcome = await useVaultStore.getState().importFiles();
+
+      expect(outcome?.entries).toEqual([]);
+      expect(api.saveVault).not.toHaveBeenCalled();
+    });
+
+    it("starts a files slice when the stored one is unusable", async () => {
+      withFiles("not an array");
+      api.importFiles.mockResolvedValueOnce({
+        imported: [incoming],
+        tooLarge: [],
+        failed: [],
+      });
+
+      await useVaultStore.getState().importFiles();
+
+      expect(savedFiles()).toHaveLength(1);
+    });
+
+    it("removes the new blobs if saving their metadata fails", async () => {
+      withFiles();
+      api.importFiles.mockResolvedValueOnce({
+        imported: [incoming],
+        tooLarge: [],
+        failed: [],
+      });
+      api.saveVault.mockRejectedValueOnce(new Error("disk full"));
+      api.getVault.mockResolvedValueOnce(
+        JSON.stringify(useVaultStore.getState().model),
+      );
+
+      await expect(useVaultStore.getState().importFiles()).rejects.toThrow(
+        "disk full",
+      );
+      expect(api.deleteFile).toHaveBeenCalledWith("blob-2");
+    });
+
+    it("updates a file's details", async () => {
+      withFiles();
+      await useVaultStore.getState().saveFile({ ...stored, title: "Renamed" });
+      expect(savedFiles()[0].title).toBe("Renamed");
+
+      withFiles("not an array");
+      await useVaultStore.getState().saveFile(stored);
+      expect(savedFiles()).toEqual([]);
+    });
+
+    it("deletes the metadata first, then the blob", async () => {
+      withFiles();
+      const order: string[] = [];
+      api.saveVault.mockImplementationOnce(async () => {
+        order.push("metadata");
+      });
+      api.deleteFile.mockImplementationOnce(async () => {
+        order.push("blob");
+      });
+
+      await useVaultStore.getState().deleteFile("blob-1");
+
+      expect(savedFiles()).toEqual([]);
+      expect(order).toEqual(["metadata", "blob"]);
+    });
+
+    it("treats a failed blob delete as harmless", async () => {
+      withFiles("not an array");
+      api.deleteFile.mockRejectedValueOnce(new Error("gone"));
+      await expect(
+        useVaultStore.getState().deleteFile("blob-1"),
+      ).resolves.toBeUndefined();
+    });
+
+    it("keeps the blob if removing the metadata fails", async () => {
+      withFiles();
+      api.saveVault.mockRejectedValueOnce(new Error("disk full"));
+      api.getVault.mockResolvedValueOnce(
+        JSON.stringify(useVaultStore.getState().model),
+      );
+
+      await expect(
+        useVaultStore.getState().deleteFile("blob-1"),
+      ).rejects.toThrow("disk full");
+      expect(api.deleteFile).not.toHaveBeenCalled();
+    });
+
+    it("persists the size limit in the module settings", async () => {
+      withFiles();
+      await useVaultStore.getState().updateFilesSettings({ maxFileSizeMb: 5 });
+      const saved = JSON.parse(api.saveVault.mock.lastCall![0]);
+      expect(saved.settings.modules.files.maxFileSizeMb).toBe(5);
+    });
+
+    it("file actions are no-ops while locked", async () => {
+      await useVaultStore.getState().saveFile(stored);
+      await useVaultStore.getState().deleteFile("blob-1");
+      await useVaultStore.getState().updateFilesSettings({ maxFileSizeMb: 5 });
+      expect(api.saveVault).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("reorderItems", () => {
+    it("saves the dragged order and switches the module to it", async () => {
+      useVaultStore.setState({
+        status: "unlocked",
+        model: createDefaultModel("2026-07-07T00:00:00.000Z"),
+      });
+
+      await useVaultStore.getState().reorderItems("notes", [{ id: "b" }]);
+
+      const saved = JSON.parse(api.saveVault.mock.lastCall![0]);
+      expect(saved.modules.notes).toEqual([{ id: "b" }]);
+      expect(saved.settings.modules.notes.manualOrder).toBe(true);
+    });
+
+    it("does nothing while locked", async () => {
+      await useVaultStore.getState().reorderItems("notes", []);
+      expect(api.saveVault).not.toHaveBeenCalled();
+    });
+  });
+
+  it("puts a new command first, for hand-sorted lists", async () => {
+    const model = createDefaultModel("2026-07-07T00:00:00.000Z");
+    const older = {
+      id: "older",
+      category: "Dev",
+      title: "Older",
+      description: "",
+      snippets: [{ language: "bash", code: "ls" }],
+      primaryCopyTemplate: "ls",
+      arguments: [],
+      tags: [],
+      updatedAt: "2026-07-07T00:00:00.000Z",
+    };
+    useVaultStore.setState({
+      status: "unlocked",
+      model: { ...model, modules: { ...model.modules, commands: [older] } },
+    });
+    api.getVault.mockResolvedValueOnce(
+      JSON.stringify(useVaultStore.getState().model),
+    );
+
+    await useVaultStore.getState().saveCommand({ ...older, id: "newer" });
+
+    const saved = JSON.parse(api.saveVault.mock.lastCall![0]);
+    expect(
+      saved.modules.commands.map((item: { id: string }) => item.id),
+    ).toEqual(["newer", "older"]);
+  });
+
+  it("puts a new note and a new event first, for hand-sorted lists", async () => {
+    const model = createDefaultModel("2026-07-07T00:00:00.000Z");
+    useVaultStore.setState({
+      status: "unlocked",
+      model: {
+        ...model,
+        modules: {
+          ...model.modules,
+          notes: [{ ...noteFixture, id: "older" }],
+          events: [{ ...eventFixture, id: "older" }],
+        },
+      },
+    });
+
+    await useVaultStore.getState().saveNote(noteFixture);
+    await useVaultStore.getState().saveEvent(eventFixture);
+
+    const saved = JSON.parse(api.saveVault.mock.lastCall![0]);
+    expect(saved.modules.notes[1].id).toBe("older");
+    expect(saved.modules.events[1].id).toBe("older");
+    expect(saved.modules.notes[0].id).toBe(noteFixture.id);
+    expect(saved.modules.events[0].id).toBe(eventFixture.id);
+  });
 
   it("saveNote adds and updates notes", async () => {
     api.getVault.mockResolvedValue("{}");

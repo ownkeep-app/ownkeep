@@ -35,7 +35,7 @@ A password manager should show its construction before it asks you for anything.
 
 | | |
 |---|---|
-| **Encryption** | The whole vault is one file sealed with **XChaCha20-Poly1305**, under a key derived from your master password by **Argon2id** (256 MiB, t=3, p=4). Fresh nonce on every write. |
+| **Encryption** | The vault is one file sealed with **XChaCha20-Poly1305**, under a key derived from your master password by **Argon2id** (256 MiB, t=3, p=4). Fresh nonce on every write. |
 | **No custom crypto** | The primitives come from the audited `argon2` and `chacha20poly1305` crates. Nothing here is hand-rolled. |
 | **Secrets never enter the WebView** | Decrypted values stay in the Rust core. A copy goes straight from Rust to the pasteboard as *concealed*, so clipboard-history tools skip it, and it auto-clears. |
 | **Signed and notarized** | Developer ID signature, hardened runtime, notarized and stapled by Apple — so Gatekeeper opens it without a warning. [Verify it yourself](#install) before you open the DMG. |
@@ -252,7 +252,7 @@ Light / dark / system and the accent color are set in **Settings → Appearance*
 OwnKeep upgrades by **manual replacement** — download a new `.dmg` and drag the new app over the old
 OwnKeep app. Your data is untouched because the vault lives outside the app bundle.
 
-Existing `.dat` backups remain restorable regardless of their filename prefix. If you are coming
+Backups are one `.okbak` file holding your vault and any stored files. Existing `.dat` backups remain restorable regardless of their filename prefix. If you are coming
 from a build older than v1.2, regenerate the Emergency Kit once from Settings to move its recovery
 wrap to the current OwnKeep derivation context; the reader still accepts the existing code until you
 do.

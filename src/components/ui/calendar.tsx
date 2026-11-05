@@ -17,11 +17,24 @@ const DAY_PICKER_LOCALES: Record<Locale, typeof enUS> = {
   "zh-CN": zhCN,
 };
 
+/**
+ * What the month and year dropdowns can reach. Set explicitly because the dropdown layout otherwise
+ * stops at the end of this year, which would block future dates like due dates and renewals.
+ */
+const EARLIEST_MONTH = new Date(1900, 0);
+const YEARS_AHEAD = 30;
+
+function latestMonth(): Date {
+  return new Date(new Date().getFullYear() + YEARS_AHEAD, 11);
+}
+
 function Calendar({
   className,
   classNames,
   showOutsideDays = true,
-  captionLayout = "label",
+  captionLayout = "dropdown",
+  startMonth = EARLIEST_MONTH,
+  endMonth = latestMonth(),
   buttonVariant = "ghost",
   formatters,
   components,
@@ -43,6 +56,8 @@ function Calendar({
         className,
       )}
       captionLayout={captionLayout}
+      startMonth={startMonth}
+      endMonth={endMonth}
       formatters={{
         formatMonthDropdown: (date) =>
           date.toLocaleString(locale, { month: "short" }),
@@ -78,11 +93,11 @@ function Calendar({
           defaultClassNames.dropdowns,
         ),
         dropdown_root: cn(
-          "has-focus:border-ring border-input shadow-xs has-focus:ring-ring/50 has-focus:ring-[3px] relative rounded-md border",
+          "has-[:focus]:border-ring border-input shadow-sm has-[:focus]:ring-ring/50 has-[:focus]:ring-[3px] relative rounded-md border",
           defaultClassNames.dropdown_root,
         ),
         dropdown: cn(
-          "bg-popover absolute inset-0 opacity-0",
+          "bg-popover absolute inset-0 w-full cursor-pointer opacity-0",
           defaultClassNames.dropdown,
         ),
         caption_label: cn(

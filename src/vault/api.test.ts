@@ -50,6 +50,10 @@ describe("vaultApi", () => {
     );
     await vaultApi.eraseVault();
     await vaultApi.quitApp();
+    await vaultApi.importFiles(1024);
+    await vaultApi.exportFile("blob-1", "a.pdf");
+    await vaultApi.deleteFile("blob-1");
+    await vaultApi.cancelTransfer();
 
     expect(mockInvoke.mock.calls).toEqual([
       ["vault_exists"],
@@ -90,6 +94,10 @@ describe("vaultApi", () => {
       ],
       ["erase_vault"],
       ["quit_app"],
+      ["import_files", { maxBytes: 1024 }],
+      ["export_file", { id: "blob-1", fileName: "a.pdf" }],
+      ["delete_file", { id: "blob-1" }],
+      ["cancel_transfer"],
     ]);
   });
 });

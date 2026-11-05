@@ -1,10 +1,13 @@
+mod archive;
 mod biometric;
+mod blobs;
 mod clipboard;
 mod commands;
 mod container;
 mod crypto;
 mod envelope;
 mod error;
+mod file_protocol;
 mod i18n;
 mod notifications;
 mod recovery;
@@ -285,9 +288,20 @@ pub fn run() {
         ))))
         // Blur-to-hide stays off until the compact command bar enables it — otherwise startup
         // focus churn (tray/hotkeys) hides onboarding / lock before React can resize.
+        .manage(commands::Transfers::default())
         .manage(MainWindowBehavior(std::sync::Mutex::new(false)))
         .manage(PendingDashboardModule(std::sync::Mutex::new(None)))
         .manage(PendingDashboardItem(std::sync::Mutex::new(None)))
+        .register_asynchronous_uri_scheme_protocol(
+            file_protocol::SCHEME,
+            |ctx, request, responder| {
+                let app = ctx.app_handle().clone();
+                // File reads and decryption must not run on the WebView's thread.
+                tauri::async_runtime::spawn_blocking(move || {
+                    responder.respond(commands::preview_response(&app, &request));
+                });
+            },
+        )
         .invoke_handler(tauri::generate_handler![
             commands::vault_exists,
             commands::vault_path,
@@ -316,6 +330,10 @@ pub fn run() {
             commands::restore_vault_from_chosen_location_with_password,
             commands::restore_vault_from_chosen_location_with_recovery,
             commands::erase_vault,
+            commands::import_files,
+            commands::export_file,
+            commands::delete_file,
+            commands::cancel_transfer,
             commands::quit_app,
             set_hotkeys,
             set_locale,

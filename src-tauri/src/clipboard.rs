@@ -34,6 +34,25 @@ fn copy_concealed_with<P: Pasteboard>(
 
 #[cfg(target_os = "macos")]
 pub fn copy_concealed(secret: &str, clear_after: Duration) -> Result<(), String> {
+    copy_concealed_on(
+        objc2_app_kit::NSPasteboard::generalPasteboard,
+        secret,
+        clear_after,
+    )
+}
+
+/// The AppKit write, taking how to reach the pasteboard because the clear timer needs it again on its
+/// own thread (`NSPasteboard` can't be sent there). Tests pass a private pasteboard, so running them
+/// never touches the clipboard of whoever runs them.
+#[cfg(target_os = "macos")]
+fn copy_concealed_on<G>(
+    get_pasteboard: G,
+    secret: &str,
+    clear_after: Duration,
+) -> Result<(), String>
+where
+    G: Fn() -> objc2::rc::Retained<objc2_app_kit::NSPasteboard> + Send + 'static,
+{
     use objc2_app_kit::NSPasteboard;
     use objc2_foundation::NSString;
 
@@ -55,7 +74,7 @@ pub fn copy_concealed(secret: &str, clear_after: Duration) -> Result<(), String>
         }
     }
 
-    let pasteboard = MacPasteboard(NSPasteboard::generalPasteboard());
+    let pasteboard = MacPasteboard(get_pasteboard());
 
     copy_concealed_with(
         &pasteboard,
@@ -64,7 +83,7 @@ pub fn copy_concealed(secret: &str, clear_after: Duration) -> Result<(), String>
         move |delay, change_count| {
             std::thread::spawn(move || {
                 std::thread::sleep(delay);
-                let pasteboard = NSPasteboard::generalPasteboard();
+                let pasteboard = get_pasteboard();
                 if pasteboard.changeCount() == change_count {
                     pasteboard.clearContents();
                 }
@@ -163,17 +182,91 @@ mod tests {
         );
     }
 
+    /// The real AppKit path on a private pasteboard: never the system clipboard, and not shared with
+    /// tests running in parallel, whose `clearContents` would make another test's write fail.
     #[cfg(target_os = "macos")]
-    #[test]
-    fn copy_concealed_hits_the_macos_pasteboard_path() {
-        // Best-effort: this should be available in the unit test harness on macOS.
-        copy_concealed("ownkeep-test", Duration::ZERO).expect("pasteboard write succeeds");
-    }
+    mod appkit {
+        use super::super::copy_concealed_on;
+        use objc2::rc::Retained;
+        use objc2_app_kit::NSPasteboard;
+        use objc2_foundation::NSString;
+        use std::time::{Duration, Instant};
 
-    #[cfg(target_os = "macos")]
-    #[test]
-    fn copy_concealed_can_schedule_a_clear_timer() {
-        copy_concealed("ownkeep-test", Duration::from_millis(1))
-            .expect("pasteboard write succeeds");
+        const PLAIN_TEXT: &str = "public.utf8-plain-text";
+        const CLEAR_TIMEOUT: Duration = Duration::from_secs(5);
+
+        struct PrivatePasteboard(String);
+
+        impl PrivatePasteboard {
+            fn new() -> Self {
+                Self(NSPasteboard::pasteboardWithUniqueName().name().to_string())
+            }
+
+            fn getter(&self) -> impl Fn() -> Retained<NSPasteboard> + Send + 'static {
+                let name = self.0.clone();
+                move || NSPasteboard::pasteboardWithName(&NSString::from_str(&name))
+            }
+
+            fn read(&self, pasteboard_type: &str) -> Option<String> {
+                (self.getter())()
+                    .stringForType(&NSString::from_str(pasteboard_type))
+                    .map(|value| value.to_string())
+            }
+
+            fn wait_until_cleared(&self) -> bool {
+                let started = Instant::now();
+                while started.elapsed() < CLEAR_TIMEOUT {
+                    if self.read(PLAIN_TEXT).is_none() {
+                        return true;
+                    }
+                    std::thread::sleep(Duration::from_millis(5));
+                }
+                false
+            }
+        }
+
+        impl Drop for PrivatePasteboard {
+            fn drop(&mut self) {
+                let pasteboard = (self.getter())();
+                // objc2-app-kit doesn't expose this method. Private pasteboards otherwise last until logout.
+                let _: () = unsafe { objc2::msg_send![&*pasteboard, releaseGlobally] };
+            }
+        }
+
+        #[test]
+        fn writes_the_secret_marked_concealed_and_transient() {
+            let board = PrivatePasteboard::new();
+
+            copy_concealed_on(board.getter(), "ownkeep-test", Duration::ZERO).unwrap();
+
+            assert_eq!(board.read(PLAIN_TEXT).as_deref(), Some("ownkeep-test"));
+            assert!(board.read("org.nspasteboard.ConcealedType").is_some());
+            assert!(board.read("org.nspasteboard.TransientType").is_some());
+        }
+
+        #[test]
+        fn clears_the_secret_after_the_delay() {
+            let board = PrivatePasteboard::new();
+
+            copy_concealed_on(board.getter(), "ownkeep-test", Duration::from_millis(1)).unwrap();
+
+            assert!(board.wait_until_cleared(), "secret was never cleared");
+        }
+
+        #[test]
+        fn leaves_anything_copied_after_the_secret_alone() {
+            let board = PrivatePasteboard::new();
+
+            copy_concealed_on(board.getter(), "ownkeep-test", Duration::from_millis(100)).unwrap();
+            let pasteboard = (board.getter())();
+            pasteboard.clearContents();
+            pasteboard.setString_forType(
+                &NSString::from_str("copied later"),
+                &NSString::from_str(PLAIN_TEXT),
+            );
+
+            std::thread::sleep(Duration::from_millis(300));
+            assert_eq!(board.read(PLAIN_TEXT).as_deref(), Some("copied later"));
+        }
     }
 }

@@ -11,6 +11,21 @@ class ResizeObserverStub {
 globalThis.ResizeObserver ??= ResizeObserverStub;
 Element.prototype.scrollIntoView ??= () => {};
 
+// jsdom has no layout, so treat everything as on screen. Tests of off-screen behaviour stub their own.
+class IntersectionObserverStub {
+  constructor(private readonly callback: IntersectionObserverCallback) {}
+  observe() {
+    this.callback(
+      [{ isIntersecting: true } as IntersectionObserverEntry],
+      this as unknown as IntersectionObserver,
+    );
+  }
+  unobserve() {}
+  disconnect() {}
+}
+globalThis.IntersectionObserver ??=
+  IntersectionObserverStub as unknown as typeof IntersectionObserver;
+
 // jsdom has no PointerEvent, so fireEvent.pointer* would drop clientX / pointerId.
 if (typeof window.PointerEvent === "undefined") {
   class PointerEventPolyfill extends MouseEvent {

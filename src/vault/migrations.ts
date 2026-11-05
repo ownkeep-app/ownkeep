@@ -770,6 +770,9 @@ export function prepareVaultModel(
   return { model: ensureModuleDefaults(model, modules), migration: null };
 }
 
+/** User-chosen backups are one archive holding the vault and its files (spec §11). */
+const BACKUP_ARCHIVE_EXTENSION = "okbak";
+
 export function preMigrationBackupName(
   oldAppVersion: string,
   newAppVersion = APP_VERSION,
@@ -784,11 +787,11 @@ export function preRestoreBackupName(date = new Date()): string {
 
 /** Suggested name when backing up a locked vault before erasing it (lost credentials). */
 export function abandonedVaultBackupName(date = new Date()): string {
-  return `ownkeep-abandoned-${backupTimestamp(date)}.dat`;
+  return `ownkeep-abandoned-${backupTimestamp(date)}.${BACKUP_ARCHIVE_EXTENSION}`;
 }
 
 export function vaultBackupName(appVersion: string, date = new Date()): string {
-  return `ownkeep-v${appVersion}-${backupTimestamp(date)}.dat`;
+  return `ownkeep-v${appVersion}-${backupTimestamp(date)}.${BACKUP_ARCHIVE_EXTENSION}`;
 }
 
 function backupTimestamp(date: Date): string {

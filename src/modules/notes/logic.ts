@@ -35,31 +35,6 @@ export function buildNoteIndex(items: NoteEntry[]): IndexEntry[] {
   }));
 }
 
-export interface NoteGroup {
-  category: string;
-  notes: NoteEntry[];
-}
-
-/** Group notes by category; within each group sort by updatedAt descending. */
-export function groupNotesByCategory(items: NoteEntry[]): NoteGroup[] {
-  const groups = new Map<string, NoteEntry[]>();
-  for (const item of sortNotesByUpdated(items)) {
-    const key = item.category.trim() || t("notes.uncategorized");
-    const list = groups.get(key) ?? [];
-    list.push(item);
-    groups.set(key, list);
-  }
-
-  return [...groups.entries()]
-    .map(([category, notes]) => ({ category, notes }))
-    .sort((left, right) => {
-      const leftLatest = Date.parse(left.notes[0]?.updatedAt ?? "");
-      const rightLatest = Date.parse(right.notes[0]?.updatedAt ?? "");
-      if (leftLatest !== rightLatest) return rightLatest - leftLatest;
-      return left.category.localeCompare(right.category);
-    });
-}
-
 export function sortNotesByUpdated(items: NoteEntry[]): NoteEntry[] {
   return [...items].sort((left, right) => {
     const leftTime = Date.parse(left.updatedAt);

@@ -32,7 +32,18 @@ import { noteEntries } from "@/modules/notes/logic";
 import { NOTES_MODULE_ID, type NoteEntry } from "@/modules/notes/types";
 import { trackedEvents } from "@/modules/events/logic";
 import { EVENTS_MODULE_ID, type TrackedEvent } from "@/modules/events/types";
-import { type BiometricStatus, type EmergencyKit, vaultApi } from "@/vault/api";
+import {
+  fileEntries,
+  fileEntryFromImport,
+  maxFileSizeBytes,
+} from "@/modules/files/logic";
+import { FILES_MODULE_ID, type FileEntry } from "@/modules/files/types";
+import {
+  type BiometricStatus,
+  type EmergencyKit,
+  type ImportOutcome,
+  vaultApi,
+} from "@/vault/api";
 import {
   abandonedVaultBackupName,
   preMigrationBackupName,
@@ -49,10 +60,12 @@ import {
   setModuleEnabled,
   setModuleSearchable,
   setModuleSettings,
+  withManualOrder,
   withUpdatedAt,
   type VaultSettings,
   type VaultModel,
 } from "@/vault/model";
+import { defaultCategory } from "@/vault/taxonomy";
 
 export type VaultStatus =
   | "loading"
@@ -114,6 +127,15 @@ interface VaultState {
   deleteNote: (id: string) => Promise<void>;
   saveEvent: (entry: TrackedEvent) => Promise<void>;
   deleteEvent: (id: string) => Promise<void>;
+  /** Add files through the native picker; null if the dialog was dismissed. */
+  importFiles: () => Promise<
+    (Omit<ImportOutcome, "imported"> & { entries: FileEntry[] }) | null
+  >;
+  /** Save a module's items in the order the user dragged them into. */
+  reorderItems: (moduleId: string, items: unknown[]) => Promise<void>;
+  saveFile: (entry: FileEntry) => Promise<void>;
+  deleteFile: (id: string) => Promise<void>;
+  updateFilesSettings: (patch: { maxFileSizeMb: number }) => Promise<void>;
   saveSubscription: (entry: SubscriptionEntry) => Promise<void>;
   deleteSubscription: (id: string) => Promise<void>;
   saveSnapshot: (entry: Snapshot) => Promise<void>;
@@ -697,7 +719,7 @@ export const useVaultStore = create<VaultState>((set, get) => ({
     const exists = current.some((item) => item.id === entry.id);
     const nextItems = exists
       ? current.map((item) => (item.id === entry.id ? entry : item))
-      : [...current, entry];
+      : [entry, ...current];
     await saveThenReloadProjection(
       {
         ...model,
@@ -798,7 +820,7 @@ export const useVaultStore = create<VaultState>((set, get) => ({
     const exists = current.some((item) => item.id === entry.id);
     const nextItems = exists
       ? current.map((item) => (item.id === entry.id ? entry : item))
-      : [...current, entry];
+      : [entry, ...current];
     // Notes have no secret fields — persist the slice directly so Markdown body is kept
     // exactly as edited (no getVault projection round-trip).
     await get().save({
@@ -835,7 +857,7 @@ export const useVaultStore = create<VaultState>((set, get) => ({
     const exists = current.some((item) => item.id === entry.id);
     const nextItems = exists
       ? current.map((item) => (item.id === entry.id ? entry : item))
-      : [...current, entry];
+      : [entry, ...current];
     // Events have no secret fields — persist the slice directly (images included) rather than
     // re-reading the whole projection after every tracked day.
     await get().save({
@@ -859,6 +881,97 @@ export const useVaultStore = create<VaultState>((set, get) => ({
         [EVENTS_MODULE_ID]: current.filter((item) => item.id !== id),
       },
     });
+  },
+
+  importFiles: async () => {
+    const before = get().model;
+    if (!before) return null;
+    const outcome = await vaultApi.importFiles(
+      maxFileSizeBytes(before.settings),
+    );
+    if (!outcome) return null;
+
+    const { imported, ...rest } = outcome;
+    const entries = imported.map((file) =>
+      fileEntryFromImport(file, new Date(), defaultCategory(before.settings)),
+    );
+    // Re-read the model: a long import may have let other changes land since it started.
+    const model = get().model;
+    if (model && entries.length > 0) {
+      try {
+        await get().save({
+          ...model,
+          modules: {
+            ...model.modules,
+            [FILES_MODULE_ID]: [
+              ...entries,
+              ...fileEntries(
+                Array.isArray(model.modules[FILES_MODULE_ID])
+                  ? model.modules[FILES_MODULE_ID]
+                  : [],
+              ),
+            ],
+          },
+        });
+      } catch (error) {
+        // No metadata was saved for these, so nothing would ever find their blobs again.
+        await Promise.allSettled(
+          entries.map((entry) => vaultApi.deleteFile(entry.id)),
+        );
+        throw error;
+      }
+    }
+    return { ...rest, entries };
+  },
+
+  reorderItems: async (moduleId, items) => {
+    const model = get().model;
+    if (!model) return;
+    await get().save(withManualOrder(model, moduleId, items));
+  },
+
+  saveFile: async (entry) => {
+    const model = get().model;
+    if (!model) return;
+    const current = fileEntries(
+      Array.isArray(model.modules[FILES_MODULE_ID])
+        ? model.modules[FILES_MODULE_ID]
+        : [],
+    );
+    await get().save({
+      ...model,
+      modules: {
+        ...model.modules,
+        [FILES_MODULE_ID]: current.map((item) =>
+          item.id === entry.id ? entry : item,
+        ),
+      },
+    });
+  },
+
+  deleteFile: async (id) => {
+    const model = get().model;
+    if (!model) return;
+    const current = fileEntries(
+      Array.isArray(model.modules[FILES_MODULE_ID])
+        ? model.modules[FILES_MODULE_ID]
+        : [],
+    );
+    // Metadata first: a blob without an entry only wastes disk, an entry without a blob is broken.
+    await get().save({
+      ...model,
+      modules: {
+        ...model.modules,
+        [FILES_MODULE_ID]: current.filter((item) => item.id !== id),
+      },
+    });
+    await vaultApi.deleteFile(id).catch(() => {});
+  },
+
+  updateFilesSettings: async (patch) => {
+    const model = get().model;
+    if (!model) return;
+    await get().save(setModuleSettings(model, FILES_MODULE_ID, patch));
   },
 
   saveSubscription: async (entry) => {
