@@ -730,5 +730,15 @@
   "pagination.previous": "Previous page",
   "pagination.next": "Next page",
   "pagination.goTo": "Page {page}",
-  "pagination.range": "{from}–{to} of {total}"
+  "pagination.range": "{from}–{to} of {total}",
+  "settings.masterPassword": "Master password",
+  "settings.masterPasswordChange": "Change",
+  "settings.masterPasswordCurrent": "Current master password",
+  "settings.masterPasswordNew": "New master password",
+  "settings.masterPasswordSubmit": "Change password",
+  "settings.masterPasswordChanging": "Changing…",
+  "settings.masterPasswordChanged": "Master password changed.",
+  "settings.masterPasswordWrong": "That isn't your current master password.",
+  "settings.masterPasswordSame": "The new password is the same as the current one.",
+  "settings.masterPasswordHint": "Your recovery code and Touch ID keep working. Backups you've already made still open with the password they were made with, so keep it or make a new backup."
 }

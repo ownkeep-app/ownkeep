@@ -687,6 +687,7 @@ document.)_
 
 - Fields: **name** (memorable label), **username**, **password**, **login URL**, **recovery URL**, optional notes + **category**.
 - **Create form:** a **Generate** button beside the password field fills a cryptographically random 16-character password from digits, lower/upper letters, and `!@#$%^&*()_+-=~[];',.?|{}:"<>/` (via `crypto.getRandomValues`). Each generated password includes **≥1 digit, ≥1 lowercase, ≥1 uppercase, and ≥2 specials**, with character classes **interleaved** (adjacent characters use different classes). It copies the value to the clipboard and toasts **Password generated and copied** (or a clipboard error). The value is still only in the create form until Save (not yet a vault secret served via `copy_secret`).
+- **List:** a sortable table showing 25 entries a page, with a pager below it only when needed. Row numbers continue across pages, sorting covers the whole list, and changing a filter or sort returns to page 1.
 - `secretFields: ["password"]` — the password is never sent to the WebView; it renders masked `••••••`.
 - **Copy** pulls the value from Rust, writes it to a concealed pasteboard, schedules auto-clear. An explicit "reveal" toggle shows plaintext temporarily (fetched on demand, not held).
 - Login/recovery URLs are click-to-open in the **system browser** via Tauri's opener plugin (WebView `window.open` is blocked).
@@ -711,6 +712,7 @@ document.)_
 #### Master-password gate + recovery (F7)
 
 - Every launch requires the **master password** before any decryption.
+- **Change it** from Settings → System → Security (current password, new password, confirm). Rust verifies the current password first, since being unlocked isn't proof of being the owner, and a wrong one counts towards the same backoff as the lock screen. Only the password's wrap of the DEK changes, so nothing is re-encrypted; the recovery code, Touch ID and stored files keep working. Existing backups keep the password they were made with, and the Settings form says so.
 - If forgotten, enter the **recovery code** → recovery-path unlock → **force a new master password** (§4.1). Emergency Kit is re-generatable from Settings.
 - If **both** the master password and recovery code are lost: from the lock screen, **save a copy** of the encrypted vault file to a chosen location, then **erase the local vault** and return to onboarding to create a new empty vault. The saved copy stays encrypted and is unreadable without credentials.
 - **Acceptance:** wrong password/code reveals nothing; recovery flow works end-to-end; regenerating the kit re-wraps the recovery key; lost-credentials path requires an explicit backup before erase.

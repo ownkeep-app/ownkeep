@@ -1,4 +1,10 @@
-import { type FormEvent, type ReactNode, useMemo, useState } from "react";
+import {
+  type FormEvent,
+  type ReactNode,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 
 import {
   Copy,
@@ -30,6 +36,7 @@ import { EmptyState } from "@/components/EmptyState";
 import { ItemFormShell } from "@/components/ItemFormShell";
 import { InlineSelect } from "@/components/inline-select";
 import { ListItemTitle } from "@/components/ListItemTitle";
+import { Pagination } from "@/components/Pagination";
 import { RowActionsMenu } from "@/components/RowActionsMenu";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -55,6 +62,7 @@ import {
 } from "@/lib/table-sort";
 import { useT } from "@/i18n";
 import { writeClipboard } from "@/lib/clipboard";
+import { pageCountFor, pageSlice } from "@/lib/pagination";
 import { toastClipboard, toastError, toastSecretCopied } from "@/lib/toast";
 import { isHttpUrl, openExternalUrl } from "@/lib/url";
 import { cn } from "@/lib/utils";
@@ -79,6 +87,8 @@ import {
   type PasswordFormInput,
 } from "./types";
 
+const PASSWORDS_PER_PAGE = 25;
+
 export function PasswordsListView({ items }: ListViewProps<PasswordEntry>) {
   const { t, tp } = useT();
   const savePassword = useVaultStore((s) => s.savePassword);
@@ -99,6 +109,7 @@ export function PasswordsListView({ items }: ListViewProps<PasswordEntry>) {
   } | null>(null);
   const [sortState, setSortState] =
     useState<SortState<PasswordSortColumn> | null>(null);
+  const [requestedPage, setRequestedPage] = useState(1);
 
   const passwords = useMemo(() => passwordEntries(items), [items]);
   const filterCategories = useMemo(
@@ -139,6 +150,14 @@ export function PasswordsListView({ items }: ListViewProps<PasswordEntry>) {
       ? stableSortBy(visible, sortState, passwordSortValue)
       : visible;
   }, [passwords, query, categoryFilter, sortState]);
+  // Derived, so deleting the last entry on the last page lands on the page before it.
+  const page = Math.min(
+    requestedPage,
+    pageCountFor(filtered.length, PASSWORDS_PER_PAGE),
+  );
+  const firstRowOffset = (page - 1) * PASSWORDS_PER_PAGE;
+  // A changed filter or sort is a new list, so its page number no longer means anything.
+  useEffect(() => setRequestedPage(1), [query, categoryFilter, sortState]);
   const handleSort = (column: PasswordSortColumn) =>
     setSortState((current) => nextSortState(current, column));
 
@@ -259,166 +278,193 @@ export function PasswordsListView({ items }: ListViewProps<PasswordEntry>) {
             />
           )
         ) : (
-          <Table className="table-fixed" wrapperClassName="min-h-0 flex-1">
-            <TableHeader className="sticky top-0 bg-background text-xs uppercase text-muted-foreground">
-              <TableRow>
-                <IndexTableHead />
-                <SortableTableHead
-                  className="w-[22%] px-4"
-                  column="name"
-                  label={t("field.name")}
-                  onSort={handleSort}
-                  sort={sortState}
-                />
-                <SortableTableHead
-                  className="w-[32%] px-4"
-                  column="username"
-                  label={t("field.username")}
-                  onSort={handleSort}
-                  sort={sortState}
-                />
-                <SortableTableHead
-                  className="w-[14%] px-4"
-                  column="password"
-                  label={t("field.password")}
-                  onSort={handleSort}
-                  sort={sortState}
-                />
-                <SortableTableHead
-                  className="w-[14%] px-4"
-                  column="category"
-                  label={t("field.category")}
-                  onSort={handleSort}
-                  sort={sortState}
-                />
-                <TableHead className="w-12 px-2 text-right" scope="col">
-                  <span className="sr-only">{t("field.loginUrl")}</span>
-                </TableHead>
-                <ActionsTableHead />
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filtered.map((item, index) => (
-                <TableRow
-                  className="border-b border-border hover:bg-accent/40"
-                  key={item.id}
-                >
-                  <IndexTableCell index={index + 1} />
-                  <TableCell className="break-words px-4 py-3 whitespace-normal">
-                    <ListItemTitle
-                      className="break-words whitespace-normal"
-                      onOpen={() => setViewing(item)}
-                    >
-                      {item.name}
-                    </ListItemTitle>
-                  </TableCell>
-                  <TableCell className="px-4 py-3 text-muted-foreground">
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="min-w-0 flex-1 truncate">
-                        {item.username || "-"}
-                      </span>
-                      {item.username.trim() ? (
-                        <Button
-                          aria-label={t("passwords.copyUsernameFor", {
-                            name: item.name,
-                          })}
-                          onClick={() => void handleCopyUsername(item.username)}
-                          size="icon"
-                          type="button"
-                          variant="ghost"
-                        >
-                          <Copy className="h-4 w-4" />
-                        </Button>
-                      ) : null}
-                    </div>
-                  </TableCell>
-                  <TableCell className="px-4 py-3">
-                    <div className="flex items-center gap-1">
-                      <button
-                        aria-label={t("passwords.revealFor", {
-                          name: item.name,
-                        })}
-                        className="font-mono text-sm text-muted-foreground hover:text-foreground"
-                        onClick={() => void handleReveal(item.id)}
-                        type="button"
-                      >
-                        {MASKED_PASSWORD}
-                      </button>
-                      <Button
-                        aria-label={t("passwords.copyFor", { name: item.name })}
-                        onClick={() => void handleCopy(item.id)}
-                        size="icon"
-                        type="button"
-                        variant="ghost"
-                      >
-                        <Copy className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </TableCell>
-                  <TableCell className="truncate px-4 py-3 text-muted-foreground">
-                    <InlineSelect
-                      aria-label={t("common.categoryFor", { name: item.name })}
-                      className="truncate text-muted-foreground"
-                      display={item.category || "-"}
-                      onChange={(category) =>
-                        void handleCategoryChange(item, category)
-                      }
-                      options={optionsWithExtras(
-                        categoryOptions,
-                        item.category,
-                      )}
-                      value={item.category || DEFAULT_CATEGORY}
-                    />
-                  </TableCell>
-                  <TableCell className="px-2 py-2">
-                    <div className="flex justify-end">
-                      {isHttpUrl(item.loginUrl) ? (
-                        <Button
-                          aria-label={t("passwords.openLoginUrlFor", {
-                            name: item.name,
-                          })}
-                          onClick={() => void openExternalUrl(item.loginUrl)}
-                          size="icon"
-                          title={item.loginUrl}
-                          type="button"
-                          variant="ghost"
-                        >
-                          <ExternalLink className="h-4 w-4" />
-                        </Button>
-                      ) : null}
-                    </div>
-                  </TableCell>
-                  <TableCell className="px-2 py-2">
-                    <RowActionsMenu
-                      label={t("common.actionsFor", { name: item.name })}
-                      actions={[
-                        {
-                          label: t("common.view"),
-                          icon: <Eye className="h-4 w-4" />,
-                          onSelect: () => setViewing(item),
-                        },
-                        {
-                          label: t("common.edit"),
-                          icon: <Pencil className="h-4 w-4" />,
-                          onSelect: () => setEditing(item),
-                        },
-                        {
-                          label: t("common.delete"),
-                          icon: <Trash2 className="h-4 w-4" />,
-                          destructive: true,
-                          onSelect: () =>
-                            setPendingDelete({
-                              id: item.id,
-                              name: item.name,
-                            }),
-                        },
-                      ]}
-                    />
-                  </TableCell>
+          <>
+            {/* Keyed by page so a new page starts scrolled to the top. */}
+            <Table
+              className="table-fixed"
+              key={page}
+              wrapperClassName="min-h-0 flex-1"
+            >
+              <TableHeader className="sticky top-0 bg-background text-xs uppercase text-muted-foreground">
+                <TableRow>
+                  <IndexTableHead />
+                  <SortableTableHead
+                    className="w-[22%] px-4"
+                    column="name"
+                    label={t("field.name")}
+                    onSort={handleSort}
+                    sort={sortState}
+                  />
+                  <SortableTableHead
+                    className="w-[32%] px-4"
+                    column="username"
+                    label={t("field.username")}
+                    onSort={handleSort}
+                    sort={sortState}
+                  />
+                  <SortableTableHead
+                    className="w-[14%] px-4"
+                    column="password"
+                    label={t("field.password")}
+                    onSort={handleSort}
+                    sort={sortState}
+                  />
+                  <SortableTableHead
+                    className="w-[14%] px-4"
+                    column="category"
+                    label={t("field.category")}
+                    onSort={handleSort}
+                    sort={sortState}
+                  />
+                  <TableHead className="w-12 px-2 text-right" scope="col">
+                    <span className="sr-only">{t("field.loginUrl")}</span>
+                  </TableHead>
+                  <ActionsTableHead />
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {pageSlice(filtered, page, PASSWORDS_PER_PAGE).map(
+                  (item, index) => (
+                    <TableRow
+                      className="border-b border-border hover:bg-accent/40"
+                      key={item.id}
+                    >
+                      <IndexTableCell index={firstRowOffset + index + 1} />
+                      <TableCell className="break-words px-4 py-3 whitespace-normal">
+                        <ListItemTitle
+                          className="break-words whitespace-normal"
+                          onOpen={() => setViewing(item)}
+                        >
+                          {item.name}
+                        </ListItemTitle>
+                      </TableCell>
+                      <TableCell className="px-4 py-3 text-muted-foreground">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="min-w-0 flex-1 truncate">
+                            {item.username || "-"}
+                          </span>
+                          {item.username.trim() ? (
+                            <Button
+                              aria-label={t("passwords.copyUsernameFor", {
+                                name: item.name,
+                              })}
+                              onClick={() =>
+                                void handleCopyUsername(item.username)
+                              }
+                              size="icon"
+                              type="button"
+                              variant="ghost"
+                            >
+                              <Copy className="h-4 w-4" />
+                            </Button>
+                          ) : null}
+                        </div>
+                      </TableCell>
+                      <TableCell className="px-4 py-3">
+                        <div className="flex items-center gap-1">
+                          <button
+                            aria-label={t("passwords.revealFor", {
+                              name: item.name,
+                            })}
+                            className="font-mono text-sm text-muted-foreground hover:text-foreground"
+                            onClick={() => void handleReveal(item.id)}
+                            type="button"
+                          >
+                            {MASKED_PASSWORD}
+                          </button>
+                          <Button
+                            aria-label={t("passwords.copyFor", {
+                              name: item.name,
+                            })}
+                            onClick={() => void handleCopy(item.id)}
+                            size="icon"
+                            type="button"
+                            variant="ghost"
+                          >
+                            <Copy className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                      <TableCell className="truncate px-4 py-3 text-muted-foreground">
+                        <InlineSelect
+                          aria-label={t("common.categoryFor", {
+                            name: item.name,
+                          })}
+                          className="truncate text-muted-foreground"
+                          display={item.category || "-"}
+                          onChange={(category) =>
+                            void handleCategoryChange(item, category)
+                          }
+                          options={optionsWithExtras(
+                            categoryOptions,
+                            item.category,
+                          )}
+                          value={item.category || DEFAULT_CATEGORY}
+                        />
+                      </TableCell>
+                      <TableCell className="px-2 py-2">
+                        <div className="flex justify-end">
+                          {isHttpUrl(item.loginUrl) ? (
+                            <Button
+                              aria-label={t("passwords.openLoginUrlFor", {
+                                name: item.name,
+                              })}
+                              onClick={() =>
+                                void openExternalUrl(item.loginUrl)
+                              }
+                              size="icon"
+                              title={item.loginUrl}
+                              type="button"
+                              variant="ghost"
+                            >
+                              <ExternalLink className="h-4 w-4" />
+                            </Button>
+                          ) : null}
+                        </div>
+                      </TableCell>
+                      <TableCell className="px-2 py-2">
+                        <RowActionsMenu
+                          label={t("common.actionsFor", { name: item.name })}
+                          actions={[
+                            {
+                              label: t("common.view"),
+                              icon: <Eye className="h-4 w-4" />,
+                              onSelect: () => setViewing(item),
+                            },
+                            {
+                              label: t("common.edit"),
+                              icon: <Pencil className="h-4 w-4" />,
+                              onSelect: () => setEditing(item),
+                            },
+                            {
+                              label: t("common.delete"),
+                              icon: <Trash2 className="h-4 w-4" />,
+                              destructive: true,
+                              onSelect: () =>
+                                setPendingDelete({
+                                  id: item.id,
+                                  name: item.name,
+                                }),
+                            },
+                          ]}
+                        />
+                      </TableCell>
+                    </TableRow>
+                  ),
+                )}
+              </TableBody>
+            </Table>
+            {filtered.length > PASSWORDS_PER_PAGE ? (
+              <div className="shrink-0 border-t border-border px-4 py-2">
+                <Pagination
+                  onPageChange={setRequestedPage}
+                  page={page}
+                  pageSize={PASSWORDS_PER_PAGE}
+                  total={filtered.length}
+                />
+              </div>
+            ) : null}
+          </>
         )}
 
         <DetailModal

@@ -11,6 +11,7 @@ import {
   Upload,
 } from "lucide-react";
 
+import { ChangeMasterPassword } from "./ChangeMasterPassword";
 import { Button } from "@/components/ui/button";
 import {
   ButtonGroup,
@@ -445,6 +446,7 @@ export function SettingsPanel() {
                       ))}
                     </Select>
                   </label>
+                  <ChangeMasterPassword />
                   <div className="flex items-center gap-3 px-3 py-2.5">
                     <span className="flex-1 text-sm">
                       {t("lock.unlockTouchId")}

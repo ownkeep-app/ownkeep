@@ -23,6 +23,7 @@ describe("vaultApi", () => {
     await vaultApi.unlockRecovery("words");
     await vaultApi.lock();
     await vaultApi.changeMaster("new master");
+    await vaultApi.changeMasterVerified("old master", "new master");
     await vaultApi.setAutoLock(15);
     await vaultApi.setHotkeys("Cmd+Shift+Space", "Cmd+Shift+D");
     await vaultApi.regenerateRecovery();
@@ -64,6 +65,10 @@ describe("vaultApi", () => {
       ["unlock_recovery", { code: "words" }],
       ["lock"],
       ["change_master", { newPassword: "new master" }],
+      [
+        "change_master_verified",
+        { currentPassword: "old master", newPassword: "new master" },
+      ],
       ["set_auto_lock", { minutes: 15 }],
       [
         "set_hotkeys",

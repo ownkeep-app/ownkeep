@@ -67,6 +67,9 @@ export const vaultApi = {
   setLocale: (locale: Locale) => invoke<void>("set_locale", { locale }),
   changeMaster: (newPassword: string) =>
     invoke<void>("change_master", { newPassword }),
+  /** Change the master password from Settings; Rust verifies the current one first. */
+  changeMasterVerified: (currentPassword: string, newPassword: string) =>
+    invoke<void>("change_master_verified", { currentPassword, newPassword }),
   regenerateRecovery: () => invoke<EmergencyKit>("regenerate_recovery"),
   /** Touch ID status: whether the sensor is available and this vault has it enrolled (§4.7). */
   biometricStatus: () => invoke<BiometricStatus>("biometric_status"),

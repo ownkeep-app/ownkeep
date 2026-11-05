@@ -313,6 +313,7 @@ pub fn run() {
             commands::lock,
             commands::set_auto_lock,
             commands::change_master,
+            commands::change_master_verified,
             commands::regenerate_recovery,
             commands::biometric_status,
             commands::enable_biometric_unlock,

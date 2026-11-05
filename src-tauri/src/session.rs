@@ -197,6 +197,25 @@ impl Session {
         Ok(())
     }
 
+    /// Change the master password from an unlocked session, proving the current one first: being
+    /// unlocked isn't enough, or anyone at an unattended Mac could lock the owner out. A wrong password
+    /// counts towards the same backoff as the lock screen. Requires unlocked.
+    pub fn change_master_verified(
+        &mut self,
+        path: &Path,
+        current_password: &str,
+        new_password: &str,
+        argon: Argon2Params,
+    ) -> Result<()> {
+        let unlocked = self.unlocked.as_ref().ok_or(Error::Locked)?;
+        if let Err(e) = envelope::unlock_with_password(&unlocked.container, current_password) {
+            self.record_failure();
+            return Err(e);
+        }
+        self.reset_failures();
+        self.change_master(path, new_password, argon)
+    }
+
     /// Regenerate the recovery code (re-wrap the DEK) and persist. Requires unlocked.
     pub fn regenerate_recovery(&mut self, path: &Path) -> Result<EmergencyKit> {
         let unlocked = self.unlocked.as_mut().ok_or(Error::Locked)?;
@@ -442,6 +461,7 @@ pub fn backoff_delay(failed_attempts: u32) -> Duration {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::container::SealedBlob;
     use crate::crypto::TEST_ARGON;
     use crate::storage::{unique_temp_dir, VAULT_FILE};
     use std::fs;
@@ -632,6 +652,98 @@ mod tests {
             Err(Error::Locked)
         ));
         assert!(matches!(s.regenerate_recovery(&path), Err(Error::Locked)));
+        fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
+    fn verified_change_requires_being_unlocked() {
+        let dir = unique_temp_dir();
+        let path = dir.join(VAULT_FILE);
+        let mut s = session();
+        assert!(matches!(
+            s.change_master_verified(&path, "old pw", "new pw", TEST_ARGON),
+            Err(Error::Locked)
+        ));
+        fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
+    fn verified_change_refuses_a_wrong_current_password_and_changes_nothing() {
+        let dir = unique_temp_dir();
+        let path = dir.join(VAULT_FILE);
+        let mut s = session();
+        s.create(&path, "old pw", TEST_ARGON).unwrap();
+        let before = fs::read(&path).unwrap();
+
+        for _ in 0..4 {
+            assert!(matches!(
+                s.change_master_verified(&path, "wrong", "new pw", TEST_ARGON),
+                Err(Error::Aead)
+            ));
+        }
+
+        assert_eq!(fs::read(&path).unwrap(), before);
+        assert!(s.is_unlocked());
+        assert!(s.backoff_delay() > Duration::ZERO);
+
+        // The right password clears the backoff and goes through.
+        s.change_master_verified(&path, "old pw", "new pw", TEST_ARGON)
+            .unwrap();
+        assert_eq!(s.backoff_delay(), Duration::ZERO);
+        fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
+    fn verified_change_keeps_the_recovery_code_touch_id_wrap_and_files_working() {
+        let dir = unique_temp_dir();
+        let path = dir.join(VAULT_FILE);
+        let mut s = session();
+        let kit = s.create(&path, "old pw", TEST_ARGON).unwrap();
+        s.save_vault(&path, r#"{"settings":{"theme":"light"}}"#)
+            .unwrap();
+        let id = add_file(&mut s, &path, b"keep me readable");
+        let store_wrap = SealedBlob {
+            nonce: crate::container::encode_bytes(&[9u8; crate::crypto::NONCE_LEN]),
+            ct: crate::container::encode_bytes(&[9u8; 48]),
+        };
+        s.unlocked.as_mut().unwrap().container.wrapped_biometric = Some(store_wrap.clone());
+
+        s.change_master_verified(&path, "old pw", "new pw", TEST_ARGON)
+            .unwrap();
+
+        // Still unlocked, and the on-disk vault no longer opens with the old password.
+        assert!(s.is_unlocked());
+        s.lock();
+        assert!(s.unlock_password(&path, "old pw").is_err());
+        s.unlock_password(&path, "new pw").unwrap();
+
+        assert!(s.vault_json().unwrap().contains("light"));
+        assert_eq!(read_file(&mut s, &path, &id), b"keep me readable");
+        assert_eq!(
+            storage::read_container(&path).unwrap().wrapped_biometric,
+            Some(store_wrap)
+        );
+
+        s.lock();
+        s.unlock_recovery(&path, &kit.recovery_code).unwrap();
+        fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
+    fn a_backup_keeps_the_password_it_was_made_with() {
+        let dir = unique_temp_dir();
+        let path = dir.join(VAULT_FILE);
+        let backup = dir.join("backup.okbak");
+        let mut s = session();
+        s.create(&path, "old pw", TEST_ARGON).unwrap();
+        archive::write_archive(&path, &backup, &mut blobs::no_progress()).unwrap();
+
+        s.change_master_verified(&path, "old pw", "new pw", TEST_ARGON)
+            .unwrap();
+
+        let opened = archive::open(&backup).unwrap();
+        assert!(envelope::unlock_with_password(&opened.container, "old pw").is_ok());
+        assert!(envelope::unlock_with_password(&opened.container, "new pw").is_err());
         fs::remove_dir_all(&dir).ok();
     }
 

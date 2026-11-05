@@ -71,6 +71,95 @@ describe("PasswordsListView", () => {
     useVaultStore.setState(actions);
   });
 
+  describe("pagination", () => {
+    const many = (count: number) =>
+      Array.from({ length: count }, (_, index) => ({
+        ...item,
+        id: `p${index}`,
+        name: `Login ${String(index + 1).padStart(3, "0")}`,
+        category: index % 2 === 0 ? "Personal" : "Work",
+      }));
+    /** Table rows below the header. */
+    const rows = () => screen.getAllByRole("row").slice(1);
+
+    it("isn't shown while everything fits on one page", () => {
+      render(<PasswordsListView items={many(25)} />);
+      expect(rows()).toHaveLength(25);
+      expect(screen.queryByRole("navigation", { name: "Pages" })).toBeNull();
+    });
+
+    it("shows one page at a time, numbering rows across pages", async () => {
+      const user = userEvent.setup();
+      render(<PasswordsListView items={many(30)} />);
+
+      expect(rows()).toHaveLength(25);
+      expect(screen.getByText("1–25 of 30")).toBeVisible();
+
+      await user.click(screen.getByRole("button", { name: "Page 2" }));
+
+      expect(rows()).toHaveLength(5);
+      expect(screen.getByText("26–30 of 30")).toBeVisible();
+      expect(within(rows()[0]).getByText("26")).toBeVisible();
+      expect(within(rows()[0]).getByText("Login 026")).toBeVisible();
+    });
+
+    it("pages through the sorted order, not the stored one", async () => {
+      const user = userEvent.setup();
+      render(<PasswordsListView items={[...many(30)].reverse()} />);
+
+      expect(within(rows()[0]).getByText("Login 001")).toBeVisible();
+      await user.click(screen.getByRole("button", { name: "Next page" }));
+      expect(within(rows()[0]).getByText("Login 026")).toBeVisible();
+    });
+
+    it("goes back to the first page when a filter changes", async () => {
+      const user = userEvent.setup();
+      render(<PasswordsListView items={many(60)} />);
+      await user.click(screen.getByRole("button", { name: "Page 2" }));
+
+      await user.type(screen.getByLabelText("Filter passwords"), "Login");
+
+      expect(screen.getByText("1–25 of 60")).toBeVisible();
+    });
+
+    it("goes back to the first page when the sort changes", async () => {
+      const user = userEvent.setup();
+      render(<PasswordsListView items={many(60)} />);
+      await user.click(screen.getByRole("button", { name: "Page 2" }));
+
+      await user.click(
+        screen.getByRole("button", { name: /sort name ascending/i }),
+      );
+
+      expect(screen.getByText("1–25 of 60")).toBeVisible();
+    });
+
+    it("counts only what the filter leaves", async () => {
+      const user = userEvent.setup();
+      render(<PasswordsListView items={many(30)} />);
+
+      await user.selectOptions(
+        screen.getByLabelText("Filter by category"),
+        "Work",
+      );
+
+      expect(rows()).toHaveLength(15);
+      expect(screen.queryByRole("navigation", { name: "Pages" })).toBeNull();
+    });
+
+    it("lands on the last page left when the current one empties", async () => {
+      const user = userEvent.setup();
+      const items = many(26);
+      const { rerender } = render(<PasswordsListView items={items} />);
+      await user.click(screen.getByRole("button", { name: "Page 2" }));
+      expect(rows()).toHaveLength(1);
+
+      rerender(<PasswordsListView items={items.slice(0, 25)} />);
+
+      expect(rows()).toHaveLength(25);
+    });
+  });
+
   it("renders metadata and never renders the password value", () => {
     render(<PasswordsListView items={[item]} />);
 

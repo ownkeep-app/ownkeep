@@ -158,6 +158,36 @@ pub fn change_master(
         .map_err(|e| e.to_string())
 }
 
+/// Change the master password from Settings, proving the current one first (spec F7). Off the main
+/// thread, because Argon2 runs twice and would otherwise freeze the window.
+#[tauri::command]
+pub async fn change_master_verified(
+    app: AppHandle,
+    current_password: String,
+    new_password: String,
+) -> Result<(), String> {
+    let path = resolve_vault_path(&app)?;
+    let delay = app.state::<SharedSession>().lock().unwrap().backoff_delay();
+    let app = app.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        if !delay.is_zero() {
+            std::thread::sleep(delay);
+        }
+        app.state::<SharedSession>()
+            .lock()
+            .unwrap()
+            .change_master_verified(
+                &path,
+                &current_password,
+                &new_password,
+                Argon2Params::PRODUCTION,
+            )
+            .map_err(|e| e.to_string())
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
 /// Regenerate the recovery code; returns a fresh Emergency Kit (requires unlocked).
 #[tauri::command]
 pub fn regenerate_recovery(

@@ -433,7 +433,7 @@ with a single-file backup archive. See `spec.md` §3.2, §4.8, §6 M6, §11.*
 - [x] Viewer: image zoom (shared `components/image-zoom.tsx`, extracted from the Event Tracker viewer),
   PDF reader, native audio / video.
 - [x] Files category + category filter; grid of preview tiles; invalid files in a collapsed section with
-  stamped previews; pagination.
+  stamped previews; pagination (Files, and the Passwords table).
 - [x] Drag to sort for Files, Event Tracker, Notes and Commands (`hooks/use-drag-sort.ts`, `manualOrder`
   flag); Notes and Commands lists are now flat, with coloured category badges.
 - [x] Settings: `FeatureModule.SettingsPanel` now renders per enabled module (documented in §3.4 but
