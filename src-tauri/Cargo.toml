@@ -1,6 +1,6 @@
 [package]
 name = "ownkeep"
-version = "1.6.0"
+version = "1.7.0"
 description = "Offline-first macOS vault and command launcher"
 authors = ["Shaojiang"]
 edition = "2021"
