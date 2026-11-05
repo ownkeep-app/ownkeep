@@ -5,8 +5,9 @@ read almost anything else, and they have no way to check the binary except what 
 release note that says only "Features delivered: …" fails that reader.
 
 Full signing and notarization mechanics live in [`code-signing.md`](code-signing.md). This page is
-the release checklist and the note format. To run the whole process with an AI tool, invoke
-[`/release`](.agents/skills/release/SKILL.md) (`$release` in Codex).
+the release checklist and the note format. To run the whole process with an AI tool, open the parent
+`ownkeep-app/` folder and invoke `/release-app`, then `/release-web` for the website (`$release-app` and
+`$release-web` in Codex). Those skills and the release scripts live in that folder, outside this repo.
 
 ## Checklist
 

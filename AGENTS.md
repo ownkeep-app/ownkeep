@@ -33,6 +33,6 @@ Tool-specific entry points:
 - **Claude Code:** use the matching project commands in `.claude/commands/` (`/plan-feature`, `/implement`, `/verify`, `/coverage`) plus `.claude/agents/verifier.md`.
 - **Cursor:** follows `.cursor/rules/core-development-principles.mdc`; use `/coverage` (`.cursor/skills/coverage`) to measure and fix the >95% bar; ask it to follow the same Plan -> Implement -> Verify loop explicitly.
 
-To ship a release, all three use one shared procedure, `.agents/skills/release/SKILL.md`: `$release` in Codex, `/release` in Claude Code and Cursor. It publishes publicly, so it only runs when explicitly invoked.
+Release skills aren't in this repo. They live in the parent `ownkeep-app/` folder next to `release.sh` and `publish.sh`, so open that folder in your tool to use them: `/release-app` and `/release-web` in Claude Code and Cursor, `$release-app` and `$release-web` in Codex. They publish publicly, so they only run when explicitly invoked.
 
 Keep rules general; concrete stack, versions, and per-module details live in `spec.md`.
