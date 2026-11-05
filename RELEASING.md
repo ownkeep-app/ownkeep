@@ -5,7 +5,8 @@ read almost anything else, and they have no way to check the binary except what 
 release note that says only "Features delivered: …" fails that reader.
 
 Full signing and notarization mechanics live in [`code-signing.md`](code-signing.md). This page is
-the release checklist and the note format.
+the release checklist and the note format. To run the whole process with an AI tool, invoke
+[`/release`](.agents/skills/release/SKILL.md) (`$release` in Codex).
 
 ## Checklist
 
@@ -99,6 +100,62 @@ Check it yourself rather than taking my word for it:
 - …
 
 **Full changelog:** https://github.com/ownkeep-app/ownkeep/compare/v<prev>...v<version>
+```
+
+## Ready to paste — v1.6
+
+```markdown
+## OwnKeep v1.6
+
+A new Files module for storing files of any type and size, encrypted, with built-in previews. Read the upgrade notes below: backups have a new format, and for the first time your data is more than one file.
+
+### Requirements
+- macOS 13 or later
+- Universal 2 — Apple Silicon and Intel
+
+### Install
+Download the `.dmg`, open it, drag OwnKeep to Applications. On first launch macOS asks for
+**Accessibility** permission so the `⌘⇧Space` global hotkey works system-wide; OwnKeep runs in the
+menu bar with no Dock icon.
+
+Upgrading from v1.5? Drag the new app over the old one. Your vault lives outside the app bundle and
+is untouched. No schema change, no migration, no Emergency Kit re-issue.
+
+**Before you upgrade, know that:**
+- **Back up with v1.5 first if you might go back.** Once v1.6 saves your vault, older versions refuse to open it.
+- **Backups are now a single `.okbak` file** holding your vault and all stored files. Versions before v1.6 can't restore one. Your existing `.dat` backups still restore in v1.6, but restoring one leaves Files empty.
+
+### Verify this download
+Signed with a Developer ID certificate, built with hardened runtime, notarized and stapled by Apple.
+Check it yourself rather than taking my word for it:
+
+    spctl -a -vvv -t open --context context:primary-signature OwnKeep_1.6.0_universal.dmg
+    # expect: accepted / source=Notarized Developer ID
+
+    shasum -a 256 OwnKeep_1.6.0_universal.dmg
+    # <sha256>
+
+### Changes
+- **Files module.** Store any file with a title, description, date and category. PDFs, images (zoom and pan), audio and video preview inside the app, and video seeks without loading the whole file. Set a maximum file size in Settings; the default is no limit. Mark an expired file **Invalid** to keep it as a record: it moves to a collapsed section with a dimmed, stamped preview.
+- **Your data is no longer one file — a deliberate change.** Everything else stays in `vault.dat`, but file contents are encrypted blobs in a `vault.files` folder beside it: XChaCha20-Poly1305 in 1 MiB chunks, under a key derived from your vault key, so changing your password re-encrypts nothing. Keeping them out of `vault.dat` means large files don't slow every save. Previews are served through a local `ownkeep-file://` scheme that refuses requests while the vault is locked and only serves displayable types; the content security policy allows that scheme for images, media and frames.
+- **Faster, fuller backups.** A backup copies already-encrypted files straight through, with progress and Cancel. Restore checks your password first, then authenticates every chunk before anything live changes, so a damaged backup can't replace your vault.
+- **Change your master password** in Settings → System → Security. It asks for your current password. Your recovery code and Touch ID keep working; **backups you already made still open with the password they were made with.**
+- **Drag to sort** Files, Event Tracker, Notes and Commands, or use the arrow keys on the handle. A list keeps its automatic order until your first drag, then remembers yours.
+- **Notes and Commands are now flat lists** with coloured category badges, no longer grouped by category or tag. Command tags show as chips under each title.
+- **Jump to any month and year** in every date picker, from 1900 to 30 years ahead.
+- **Pagination** for Files and Passwords.
+
+### Known issues
+- The number of stored files and their approximate sizes are visible to anyone with access to your disk; names, types and contents are not. Deleting a file removes its ciphertext but doesn't wipe the disk.
+- Automatic pre-restore and pre-migration snapshots keep files you've since deleted, using disk space until you remove those snapshots by hand. The app doesn't show this usage yet.
+- Images and PDFs over 512 MiB can be stored and saved, but not previewed. Audio and video have no such limit.
+- Dragging works within a page or section, not across them, and a sorted list can't yet go back to automatic order.
+- Event Tracker photos and PDFs still live inside `vault.dat`, so many of them still slow every save.
+- Some technical error messages are still in English.
+- No sync, no browser autofill, no TOTP generation — all deliberate non-goals.
+- macOS only.
+
+**Full changelog:** https://github.com/ownkeep-app/ownkeep/compare/v1.5...v1.6
 ```
 
 ## Ready to paste — v1.5
