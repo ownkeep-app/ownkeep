@@ -67,15 +67,7 @@ export function FileThumbnail({ file }: { file: FileEntry }) {
               {fileExtensionLabel(file.fileName)}
             </span>
           </div>
-        ) : !nearViewport ? null : kind === "image" ? (
-          <img
-            alt=""
-            className="h-full w-full object-cover"
-            decoding="async"
-            onError={markFailed}
-            src={src}
-          />
-        ) : kind === "video" ? (
+        ) : !nearViewport ? null : kind === "video" ? (
           <video
             aria-hidden="true"
             className="h-full w-full object-cover"
@@ -87,14 +79,17 @@ export function FileThumbnail({ file }: { file: FileEntry }) {
             tabIndex={-1}
           />
         ) : (
-          <iframe
-            aria-hidden="true"
-            // Oversized so the reader's scrollbars fall outside the tile and are clipped; a tile is a
-            // picture, so the reader must not react to the pointer either.
-            className="pointer-events-none absolute left-0 top-0 h-[calc(100%+1rem)] w-[calc(100%+1rem)] max-w-none bg-white"
+          // WebKit draws a PDF's first page as an image. Never use its reader in a tile: an <iframe> or
+          // <embed> brings native zoom and save controls that float above all page content, menus included.
+          <img
+            alt=""
+            className={cn(
+              "h-full w-full object-cover",
+              kind === "pdf" && "bg-white object-top",
+            )}
+            decoding="async"
+            onError={markFailed}
             src={src}
-            tabIndex={-1}
-            title={file.title}
           />
         )}
       </div>

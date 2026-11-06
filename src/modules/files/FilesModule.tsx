@@ -222,8 +222,7 @@ export function FilesListView({
       >
         <div className="relative aspect-[4/3] shrink-0 bg-muted/50">
           <FileThumbnail file={file} />
-          {/* Overlaid, not wrapping: a button can't contain the PDF preview's iframe, and
-                      this also keeps the preview itself from taking any clicks or scrolling. */}
+          {/* Overlaid, not wrapping, so the preview itself can't take any clicks. */}
           <button
             aria-label={t(
               previewKind(file) ? "files.previewNamed" : "files.detailsNamed",

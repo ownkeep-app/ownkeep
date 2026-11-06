@@ -69,12 +69,15 @@ describe("FileThumbnail", () => {
     expect(video.controls).toBe(false);
   });
 
-  it("shows a PDF's first page, out of the tab order", () => {
-    const frame = show("application/pdf").querySelector("iframe")!;
-    expect(frame.getAttribute("src")).toBe(
+  it("shows a PDF's first page as a picture, never through the reader", () => {
+    const container = show("application/pdf");
+    const page = container.querySelector("img")!;
+    expect(page.getAttribute("src")).toBe(
       "ownkeep-file://localhost/blob/application/pdf",
     );
-    expect(frame.tabIndex).toBe(-1);
+    expect(page).toHaveClass("object-top", "bg-white");
+    // WebKit's reader brings native controls that float above every menu.
+    expect(container.querySelector("iframe, embed, object")).toBeNull();
   });
 
   it("shows an icon and the extension for audio, opaque files and oversized images", () => {
@@ -85,12 +88,13 @@ describe("FileThumbnail", () => {
     ]) {
       expect(icon(container)).not.toBeNull();
       expect(container).toHaveTextContent("BIN");
-      expect(container.querySelector("img, video, iframe")).toBeNull();
+      expect(container.querySelector("img, video")).toBeNull();
     }
   });
 
   it.each([
     ["image/png", "img"],
+    ["application/pdf", "img"],
     ["video/mp4", "video"],
   ])("falls back to the icon when %s fails to load", (mime, tag) => {
     const container = show(mime);

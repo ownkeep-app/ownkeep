@@ -12,11 +12,27 @@ import { EllipsisVertical } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
+/** Space between the menu and its trigger, and the least it keeps from the window's edge. */
+const MENU_GAP_PX = 4;
+
 export interface RowAction {
   label: string;
   onSelect: () => void;
   icon?: ReactNode;
   destructive?: boolean;
+}
+
+type MenuPosition =
+  { top: number; right: number } | { bottom: number; right: number };
+
+/** Below the trigger when the menu fits there; otherwise on whichever side has more room. */
+function placeMenu(trigger: DOMRect, menuHeight: number): MenuPosition {
+  const right = window.innerWidth - trigger.right;
+  const roomBelow = window.innerHeight - trigger.bottom - 2 * MENU_GAP_PX;
+  const roomAbove = trigger.top - 2 * MENU_GAP_PX;
+  return menuHeight <= roomBelow || roomBelow >= roomAbove
+    ? { top: trigger.bottom + MENU_GAP_PX, right }
+    : { bottom: window.innerHeight - trigger.top + MENU_GAP_PX, right };
 }
 
 /**
@@ -33,9 +49,7 @@ export function RowActionsMenu({
   actions: RowAction[];
 }) {
   const [open, setOpen] = useState(false);
-  const [coords, setCoords] = useState<{ top: number; right: number } | null>(
-    null,
-  );
+  const [position, setPosition] = useState<MenuPosition | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLUListElement>(null);
@@ -43,18 +57,18 @@ export function RowActionsMenu({
 
   useLayoutEffect(() => {
     if (!open) {
-      setCoords(null);
+      setPosition(null);
       return;
     }
 
+    // Runs before paint, so the menu is measured and placed without ever showing unplaced.
     function updatePosition() {
       const trigger = triggerRef.current;
-      if (!trigger) return;
-      const rect = trigger.getBoundingClientRect();
-      setCoords({
-        top: rect.bottom + 4,
-        right: window.innerWidth - rect.right,
-      });
+      const menu = menuRef.current;
+      if (!trigger || !menu) return;
+      setPosition(
+        placeMenu(trigger.getBoundingClientRect(), menu.offsetHeight),
+      );
     }
 
     updatePosition();
@@ -110,14 +124,13 @@ export function RowActionsMenu({
         <EllipsisVertical className="h-4 w-4" />
       </Button>
       {open &&
-        coords &&
         createPortal(
           <ul
             className="fixed z-50 min-w-36 rounded-md border border-border bg-popover p-1 text-popover-foreground shadow-md"
             id={menuId}
             ref={menuRef}
             role="menu"
-            style={{ top: coords.top, right: coords.right }}
+            style={position ?? undefined}
           >
             {actions.map((action) => (
               <li key={action.label} role="none">

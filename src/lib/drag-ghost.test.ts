@@ -87,24 +87,21 @@ describe("createDragGhost", () => {
     expect(onLanded).not.toHaveBeenCalled();
   });
 
-  it("never loads a preview again: images copy, video and PDF don't", () => {
+  it("never loads a video again: it keeps the frame on screen", () => {
     const drawImage = vi.fn();
     vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue({
       drawImage,
     } as unknown as CanvasRenderingContext2D);
-    const item = makeItem(
-      '<video class="clip" src="x.mp4"></video><iframe class="page" src="x.pdf"></iframe>',
-    );
+    const item = makeItem('<video class="clip" src="x.mp4"></video>');
     const video = item.querySelector("video")!;
 
     createDragGhost(item);
     const copy = ghostElement();
 
-    expect(copy.querySelector("video, iframe")).toBeNull();
+    expect(copy.querySelector("video")).toBeNull();
     expect(copy.querySelector("canvas")).toHaveClass("clip");
     expect(drawImage).toHaveBeenCalledWith(video, 0, 0);
-    expect(copy.querySelector("div.page")).not.toBeNull();
-    // The originals are left alone.
-    expect(item.querySelector("video, iframe")).not.toBeNull();
+    // The original is left alone.
+    expect(item.querySelector("video")).not.toBeNull();
   });
 });

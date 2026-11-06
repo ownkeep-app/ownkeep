@@ -14,9 +14,9 @@ export interface DragGhost {
 
 /**
  * Previews must not load again just because they're being dragged: each load decrypts the file. A
- * video keeps the frame on screen, and a PDF (whose page can't be copied) becomes a blank page.
+ * video keeps the frame on screen.
  */
-function replaceHeavyMedia(original: HTMLElement, clone: HTMLElement) {
+function replaceVideos(original: HTMLElement, clone: HTMLElement) {
   const originals = original.querySelectorAll("video");
   clone.querySelectorAll("video").forEach((video, index) => {
     const frame = document.createElement("canvas");
@@ -26,18 +26,13 @@ function replaceHeavyMedia(original: HTMLElement, clone: HTMLElement) {
     frame.getContext("2d")?.drawImage(originals[index], 0, 0);
     video.replaceWith(frame);
   });
-  clone.querySelectorAll("iframe").forEach((frame) => {
-    const page = document.createElement("div");
-    page.className = frame.className;
-    frame.replaceWith(page);
-  });
 }
 
 /** A floating copy of `item` that follows the pointer during a drag and glides into place on drop. */
 export function createDragGhost(item: HTMLElement): DragGhost {
   const origin = item.getBoundingClientRect();
   const ghost = item.cloneNode(true) as HTMLElement;
-  replaceHeavyMedia(item, ghost);
+  replaceVideos(item, ghost);
 
   ghost.removeAttribute("data-sort-id");
   ghost.setAttribute("data-drag-ghost", "");
