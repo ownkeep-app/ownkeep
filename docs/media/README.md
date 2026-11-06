@@ -7,8 +7,12 @@ places.
 ```
 docs/media/
 ├── icon.png              app icon, 256×256
-└── shots/                compressed WebP (dark theme, default #5B6CFF accent, fictional data)
-    ├── command-bar.webp        README hero, animated: hotkey, filter, copy
+├── videos/
+│   └── ownkeep-vault.mp4     16.4-second narrated vault film, 1920×1080, 30 fps
+└── shots/                compressed screenshots and animation, fictional data
+    ├── ownkeep-vault.webp       README hero: 16.4-second silent vault film, 1152×648, 12 fps
+    ├── ownkeep-vault-poster.jpg static poster for the vault film
+    ├── command-bar.webp        original hotkey/filter/copy demo, retained for feature documentation
     ├── files.webp              Files module, identity and legal documents (specimens)
     ├── passwords.webp          Passwords module
     ├── commands.webp           Commands module
@@ -44,7 +48,28 @@ one set rather than a pile. `⌘⇧4` then `Space` captures a window with its sh
 the same way the website does (quality 78; the site uses 2200 wide for full-width shots and 1100 for
 half-column ones, and this folder keeps module shots at 1500) and copy the result here and to the site's `/shots/` directory.
 
-## The hero recording
+## The vault film
+
+`videos/ownkeep-vault.mp4` is the primary product film: private data enters a glowing 3D vault,
+the door and bolts lock, encrypted `.okbak` copies move to a user-chosen drive or cloud, and a
+master password unlocks the vault before the real Passwords and Files screens appear. Cloud
+storage is a destination the user chooses for a backup; the film does not depict automatic sync.
+
+English narration uses MiniMax `speech-2.8-hd` / `English_Trustworthy_Man`. Mechanical locks,
+whooshes, chimes and the quiet music bed are original synthesized audio. The MP4 is exactly
+16.4 seconds. `ownkeep-vault.webp` is a separate 16.4-second cut of the same story, with an ornate
+dark-gold cabinet and a Touch ID unlock, as a silent loop for the README; its source is
+`/Users/shaojiang/Projects/ai-videos/code-to-video/ownkeep-vault/`. The open vault
+has three shelves with six compartments; items settle visibly inside before the door closes.
+The open interior has no glow, and the narration uses a slightly brisker version of the original
+MiniMax delivery. The film uses the existing fictional-data screenshots from `ownkeep-web`.
+
+Editable source and the reproducible render scripts live in the requested video tool project:
+`/Users/shaojiang/Projects/ai-videos/code-to-video/ownkeep-vault-film/`.
+See that project's `README.md` for rebuild instructions. Matching deliverables are copied to
+`ownkeep-web/public/videos/` and `ownkeep-web/public/shots/`.
+
+## The original command-bar recording
 
 `command-bar.webp` is an animated WebP: the bar opening, a search being typed, and the copied toast.
 It's assembled from window captures rather than a screen recording, so it has no wallpaper to carry

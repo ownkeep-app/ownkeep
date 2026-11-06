@@ -7,7 +7,7 @@
 ### Your offline second brain for everything you can't afford to lose
 
 Passwords, IDs, certificates, contracts, finances and secret notes, locked in one encrypted vault on
-your own Mac. Commands, todos and events, one hotkey away. No cloud, no account, no telemetry.
+your own Mac. Offline. No account. No telemetry.
 
 [![Download](https://img.shields.io/github/v/release/ownkeep-app/ownkeep?label=Download%20for%20macOS&style=for-the-badge&color=4A5AE8)](https://github.com/ownkeep-app/ownkeep/releases/latest)
 
@@ -18,9 +18,11 @@ your own Mac. Commands, todos and events, one hotkey away. No cloud, no account,
 [![Coverage](https://img.shields.io/badge/coverage-%3E95%25-brightgreen)](#test--quality)
 [![Website](https://img.shields.io/badge/ownkeep.app-4A5AE8)](https://ownkeep.app)
 
-<img src="docs/media/shots/command-bar.webp" width="760" alt="OwnKeep in use: pressing Cmd-Shift-Space summons the command bar, a few letters filter the saved entries, and the password lands on the clipboard">
+<img src="docs/media/shots/ownkeep-vault.webp" width="760" alt="Passwords, IDs, legal documents, finances, contracts and secrets are placed into compartments inside OwnKeep's vault. The door seals, encrypted backup copies go to a chosen drive or cloud, and Touch ID reopens the vault to reveal the data in OwnKeep.">
 
-<sub><code>⌘⇧Space</code> from anywhere · type a few letters · <code>⌥⇧1</code> to copy</sub>
+<sub>Everything you can't afford to lose. One encrypted vault.</sub>
+
+[Watch the 16.4-second film with sound](docs/media/videos/ownkeep-vault.mp4)
 
 </div>
 
