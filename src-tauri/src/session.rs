@@ -1161,6 +1161,40 @@ mod tests {
     }
 
     #[test]
+    fn restore_works_on_a_new_mac_with_no_vault_or_data_folder() {
+        let dir = unique_temp_dir();
+        let backup_path = dir.join("backup.okbak");
+        let source_path = dir.join("source-vault.dat");
+        let active_path = dir.join("not-created-yet").join(VAULT_FILE);
+        let pre_restore = "ownkeep-pre-restore-20260707-1530.dat";
+
+        let mut source = session();
+        source
+            .create(&source_path, "backup pw", TEST_ARGON)
+            .unwrap();
+        source
+            .save_vault(&source_path, r#"{"settings":{"theme":"light"}}"#)
+            .unwrap();
+        archive::write_archive(&source_path, &backup_path, &mut blobs::no_progress()).unwrap();
+
+        let mut fresh = session();
+        fresh
+            .restore_password(&active_path, &backup_path, "backup pw", pre_restore)
+            .unwrap();
+
+        assert!(fresh.is_unlocked());
+        assert_eq!(
+            fresh.vault_json().unwrap(),
+            r#"{"settings":{"theme":"light"}}"#,
+        );
+        // Nothing existed to snapshot, and the vault survives a lock and unlock.
+        assert!(!active_path.with_file_name(pre_restore).exists());
+        fresh.lock();
+        fresh.unlock_password(&active_path, "backup pw").unwrap();
+        fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
     fn restore_with_password_snapshots_replaces_and_unlocks_backup() {
         let dir = unique_temp_dir();
         let active_path = dir.join(VAULT_FILE);

@@ -1,17 +1,18 @@
-import { type FormEvent, useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import {
-  AlertTriangle,
   Download,
   Fingerprint,
   KeyRound,
   Monitor,
   RotateCcw,
   SlidersHorizontal,
-  Upload,
 } from "lucide-react";
 
 import { ChangeMasterPassword } from "./ChangeMasterPassword";
+import { RestoreForm } from "@/components/RestoreForm";
+import { BACKUP_REMINDER_DAY_OPTIONS } from "@/lib/backup-reminder";
+import { formatDate } from "@/lib/date";
 import { Button } from "@/components/ui/button";
 import {
   ButtonGroup,
@@ -61,7 +62,6 @@ const LANGUAGE_OPTIONS: { value: LanguageSetting; labelKey: MessageKey }[] = [
 const CLIPBOARD_CLEAR_OPTIONS = [10, 30, 60, 120, 300];
 const RESULT_LIMIT_OPTIONS = [3, 5, 7, 9];
 
-type RestoreMode = "password" | "recovery";
 type SettingsMenu = "settings" | "system";
 
 const SETTINGS_MENUS: (Omit<ButtonGroupOption<SettingsMenu>, "label"> & {
@@ -91,12 +91,6 @@ export function SettingsPanel() {
   const setAutoLock = useVaultStore((s) => s.setAutoLock);
   const updateSettings = useVaultStore((s) => s.updateSettings);
   const backupVault = useVaultStore((s) => s.backupVault);
-  const restoreVaultWithPassword = useVaultStore(
-    (s) => s.restoreVaultWithPassword,
-  );
-  const restoreVaultWithRecovery = useVaultStore(
-    (s) => s.restoreVaultWithRecovery,
-  );
   const regenerateRecovery = useVaultStore((s) => s.regenerateRecovery);
   const dismissKit = useVaultStore((s) => s.dismissKit);
   const toggleModule = useVaultStore((s) => s.toggleModule);
@@ -107,8 +101,6 @@ export function SettingsPanel() {
   const reenrollBiometric = useVaultStore((s) => s.reenrollBiometric);
   const [globalHotkey, setGlobalHotkey] = useState("");
   const [dashboardHotkey, setDashboardHotkey] = useState("");
-  const [restoreMode, setRestoreMode] = useState<RestoreMode>("password");
-  const [restoreSecret, setRestoreSecret] = useState("");
   const [kitSaved, setKitSaved] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [categoryOptionsText, setCategoryOptionsText] = useState("");
@@ -184,21 +176,6 @@ export function SettingsPanel() {
       toastSuccess(t("settings.backupSaved", { path }));
     } else {
       setMessage(t("settings.backupCanceled"));
-    }
-  }
-
-  async function onRestore(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const secret = restoreSecret.trim();
-    if (!secret) return;
-    setMessage(null);
-    const restoredPath =
-      restoreMode === "password"
-        ? await restoreVaultWithPassword(secret)
-        : await restoreVaultWithRecovery(secret);
-    setRestoreSecret("");
-    if (restoredPath) {
-      toastSuccess(t("settings.restored", { path: restoredPath }));
     }
   }
 
@@ -600,53 +577,43 @@ export function SettingsPanel() {
                   <p className="text-xs text-muted-foreground">
                     {t("settings.backupIncludesFiles")}
                   </p>
+                  <p className="text-xs text-muted-foreground">
+                    {settings.lastBackupAt
+                      ? t("settings.lastBackup", {
+                          date: formatDate(settings.lastBackupAt),
+                        })
+                      : t("settings.lastBackupNever")}
+                  </p>
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="flex-1 text-sm">
+                      {t("settings.backupReminder")}
+                    </span>
+                    <Select
+                      aria-label={t("settings.backupReminder")}
+                      className="w-auto"
+                      onChange={(e) =>
+                        void updateSettings({
+                          backupReminderDays: Number(e.target.value),
+                        })
+                      }
+                      value={settings.backupReminderDays}
+                    >
+                      {BACKUP_REMINDER_DAY_OPTIONS.map((days) => (
+                        <option key={days} value={days}>
+                          {days === 0
+                            ? t("settings.backupReminderOff")
+                            : t("settings.backupReminderEvery", { days })}
+                        </option>
+                      ))}
+                    </Select>
+                  </div>
                   {biometric?.enrolled && (
                     <p className="flex items-start gap-2 text-xs text-muted-foreground">
                       <Fingerprint className="mt-0.5 h-3.5 w-3.5 shrink-0" />
                       <span>{t("settings.backupTouchIdNotice")}</span>
                     </p>
                   )}
-                  <form className="flex flex-col gap-2" onSubmit={onRestore}>
-                    <div className="flex gap-2">
-                      <Select
-                        aria-label={t("settings.restoreCredentialType")}
-                        className="w-auto"
-                        onChange={(e) =>
-                          setRestoreMode(e.target.value as RestoreMode)
-                        }
-                        value={restoreMode}
-                      >
-                        <option value="password">
-                          {t("auth.masterPassword")}
-                        </option>
-                        <option value="recovery">
-                          {t("lock.recoveryCode")}
-                        </option>
-                      </Select>
-                      <Input
-                        aria-label={t(
-                          restoreMode === "password"
-                            ? "settings.backupMasterPassword"
-                            : "settings.backupRecoveryCode",
-                        )}
-                        onChange={(e) => setRestoreSecret(e.target.value)}
-                        type={restoreMode === "password" ? "password" : "text"}
-                        value={restoreSecret}
-                      />
-                    </div>
-                    <p className="flex items-start gap-2 text-xs text-destructive">
-                      <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-                      <span>{t("settings.restoreWarning")}</span>
-                    </p>
-                    <Button
-                      disabled={busy || !restoreSecret.trim()}
-                      type="submit"
-                      variant="destructive"
-                    >
-                      <Upload className="h-4 w-4" />
-                      {t("settings.restore")}
-                    </Button>
-                  </form>
+                  <RestoreForm replacesVault />
                 </div>
               </section>
 

@@ -80,6 +80,22 @@ describe("SettingsPanel module panels", () => {
     expect(screen.queryByLabelText("Maximum file size (MB)")).toBeNull();
   });
 
+  it("shows when the last backup ran and sets the reminder interval", async () => {
+    const user = userEvent.setup();
+    render(<SettingsPanel />);
+    await user.click(screen.getByRole("tab", { name: /system/i }));
+
+    expect(screen.getByText(/no backup yet/i)).toBeVisible();
+    const reminder = screen.getByLabelText(/backup reminder/i);
+    expect(reminder).toHaveValue("30");
+
+    await user.selectOptions(reminder, "0");
+    expect(useVaultStore.getState().model?.settings.backupReminderDays).toBe(0);
+
+    await user.click(screen.getByRole("button", { name: /back up vault/i }));
+    expect(await screen.findByText(/last backup:/i)).toBeVisible();
+  });
+
   it("says backups include stored files", () => {
     render(<SettingsPanel />);
     fireEvent.click(screen.getByRole("tab", { name: "System" }));

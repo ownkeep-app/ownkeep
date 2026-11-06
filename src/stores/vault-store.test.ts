@@ -264,6 +264,77 @@ describe("vault store", () => {
     expect(useVaultStore.getState().busy).toBe(false);
   });
 
+  it("backupVault records when it ran and ends any snooze", async () => {
+    const model = createDefaultModel("2026-07-01T00:00:00.000Z");
+    useVaultStore.setState({
+      model: {
+        ...model,
+        settings: {
+          ...model.settings,
+          backupReminderSnoozedUntil: "2099-01-01T00:00:00.000Z",
+        },
+      },
+    });
+
+    await useVaultStore.getState().backupVault();
+
+    const { settings } = useVaultStore.getState().model!;
+    expect(settings.lastBackupAt).toBeTruthy();
+    expect(settings.backupReminderSnoozedUntil).toBeUndefined();
+    expect(api.saveVault).toHaveBeenCalled();
+  });
+
+  it("backupVault records nothing when the picker is canceled", async () => {
+    api.backupVaultToChosenLocation.mockResolvedValueOnce(null);
+    useVaultStore.setState({
+      model: createDefaultModel("2026-07-01T00:00:00.000Z"),
+    });
+
+    await expect(useVaultStore.getState().backupVault()).resolves.toBeNull();
+
+    expect(
+      useVaultStore.getState().model?.settings.lastBackupAt,
+    ).toBeUndefined();
+  });
+
+  it("backupVault still succeeds if recording the date fails", async () => {
+    api.saveVault.mockRejectedValueOnce(new Error("disk full"));
+    api.getVault.mockResolvedValueOnce(
+      JSON.stringify(createDefaultModel("2026-07-01T00:00:00.000Z")),
+    );
+    useVaultStore.setState({
+      model: createDefaultModel("2026-07-01T00:00:00.000Z"),
+    });
+
+    await expect(useVaultStore.getState().backupVault()).resolves.toBe(
+      "/tmp/chosen-backup.dat",
+    );
+  });
+
+  it("restoring records the restored vault as backed up", async () => {
+    api.getVault.mockResolvedValueOnce(
+      JSON.stringify(createDefaultModel("2026-07-01T00:00:00.000Z")),
+    );
+
+    await useVaultStore.getState().restoreVaultWithPassword("backup pw");
+
+    expect(useVaultStore.getState().status).toBe("unlocked");
+    expect(useVaultStore.getState().model?.settings.lastBackupAt).toBeTruthy();
+  });
+
+  it("a restore that needs a migration leaves the vault for it to write", async () => {
+    const old = createDefaultModel("2026-07-01T00:00:00.000Z");
+    api.saveVault.mockClear();
+    api.getVault.mockResolvedValueOnce(
+      JSON.stringify({ ...old, meta: { ...old.meta, schemaVersion: 1 } }),
+    );
+
+    await useVaultStore.getState().restoreVaultWithPassword("backup pw");
+
+    expect(useVaultStore.getState().status).toBe("migration");
+    expect(api.saveVault).not.toHaveBeenCalled();
+  });
+
   it("backupVault surfaces file-picker or copy failures", async () => {
     api.backupVaultToChosenLocation.mockRejectedValueOnce(
       new Error("no permission"),

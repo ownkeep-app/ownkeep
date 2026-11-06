@@ -19,6 +19,9 @@ import {
 export const SCHEMA_VERSION = 11;
 export const APP_VERSION = __OWNKEEP_APP_VERSION__;
 
+/** Days before an out-of-date backup earns a reminder; `0` turns reminders off. */
+export const DEFAULT_BACKUP_REMINDER_DAYS = 30;
+
 export type Theme = "system" | "light" | "dark";
 
 export interface VaultMeta {
@@ -51,6 +54,11 @@ export interface VaultSettings {
   /** UI language: `"system"` follows macOS; otherwise a pinned locale (spec §9). */
   language: LanguageSetting;
   resultLimit: number;
+  backupReminderDays: number;
+  /** When the last backup was taken or restored here. Absent until the first one. */
+  lastBackupAt?: string;
+  /** The reminder's "Later" hides it until this instant. */
+  backupReminderSnoozedUntil?: string;
   /** Configurable category labels for item edit forms (Settings). */
   categoryOptions: string[];
   /** Configurable tag labels for item edit forms (Settings). */
@@ -91,6 +99,7 @@ export function defaultSettings(): VaultSettings {
     accent: "#5B6CFF",
     language: DEFAULT_LANGUAGE,
     resultLimit: 9,
+    backupReminderDays: DEFAULT_BACKUP_REMINDER_DAYS,
     categoryOptions: defaultCategoryOptions(),
     tagOptions: defaultTagOptions(),
     modules: {},

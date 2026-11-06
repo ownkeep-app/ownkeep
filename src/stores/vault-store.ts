@@ -8,6 +8,7 @@
 
 import { create } from "zustand";
 
+import { snoozedUntil } from "@/lib/backup-reminder";
 import { MODULES } from "@/modules/registry";
 import { commandEntries } from "@/modules/commands/logic";
 import {
@@ -105,6 +106,8 @@ interface VaultState {
   updateSettings: (patch: SettingsPatch) => Promise<void>;
   acceptMigration: () => Promise<void>;
   backupVault: () => Promise<string | null>;
+  /** The reminder's "Later": hide it for a while (spec §11). */
+  snoozeBackupReminder: () => Promise<void>;
   backupMigrationAndQuit: () => Promise<void>;
   restoreVaultWithPassword: (password: string) => Promise<string | null>;
   restoreVaultWithRecovery: (code: string) => Promise<string | null>;
@@ -184,6 +187,70 @@ async function saveThenReloadProjection(
   await vaultApi.saveVault(JSON.stringify(stamped));
   const loaded = await loadModel();
   set({ model: loaded.model, migration: loaded.migration });
+}
+
+type SetState = (state: Partial<VaultState>) => void;
+type GetState = () => VaultState;
+
+/**
+ * Note that the vault on disk is now safely copied elsewhere, for the backup reminder (spec §11). A
+ * failure here must not fail the backup or restore that already succeeded: at worst, the reminder
+ * shows up once more than it should.
+ */
+async function recordBackup(get: GetState): Promise<void> {
+  const model = get().model;
+  if (!model) return;
+  const settings = {
+    ...model.settings,
+    lastBackupAt: now(),
+    backupReminderSnoozedUntil: undefined,
+  };
+  await get()
+    .save({ ...model, settings })
+    .catch(() => {});
+}
+
+/** Restore a chosen backup, then load it. Works from Settings and, with no vault yet, from first run. */
+async function runRestore(
+  set: SetState,
+  get: GetState,
+  restore: (preRestoreName: string) => Promise<string | null>,
+): Promise<string | null> {
+  set({ busy: true, error: null });
+  try {
+    const restoredPath = await restore(preRestoreBackupName(new Date()));
+    if (!restoredPath) return null;
+
+    const loaded = await loadModel();
+    syncRuntimeSettings(loaded.model);
+    set({
+      status: loaded.migration ? "migration" : "unlocked",
+      model: loaded.model,
+      migration: loaded.migration,
+      postMigrationStatus: "unlocked",
+      incompatibleMessage: null,
+      pendingKit: null,
+    });
+    // This vault now matches a backup the user holds. A migration writes its own version first.
+    if (!loaded.migration) await recordBackup(get);
+    return restoredPath;
+  } catch (e) {
+    if (e instanceof VaultCompatibilityError) {
+      await vaultApi.lock();
+      set({
+        status: "incompatible",
+        model: null,
+        migration: null,
+        incompatibleMessage: e.message,
+        error: null,
+      });
+      return null;
+    }
+    set({ error: String(e) });
+    throw e;
+  } finally {
+    set({ busy: false });
+  }
 }
 
 export const useVaultStore = create<VaultState>((set, get) => ({
@@ -468,15 +535,23 @@ export const useVaultStore = create<VaultState>((set, get) => ({
     }
   },
 
+  snoozeBackupReminder: async () => {
+    await get().updateSettings({
+      backupReminderSnoozedUntil: snoozedUntil(new Date()),
+    });
+  },
+
   backupVault: async () => {
     const model = get().model;
     if (!model) return null;
 
     set({ busy: true, error: null });
     try {
-      return await vaultApi.backupVaultToChosenLocation(
+      const path = await vaultApi.backupVaultToChosenLocation(
         vaultBackupName(model.meta.appVersion, new Date()),
       );
+      if (path) await recordBackup(get);
+      return path;
     } catch (e) {
       set({ error: String(e) });
       throw e;
@@ -505,85 +580,18 @@ export const useVaultStore = create<VaultState>((set, get) => ({
     }
   },
 
-  restoreVaultWithPassword: async (password) => {
-    set({ busy: true, error: null });
-    try {
-      const restoredPath =
-        await vaultApi.restoreVaultFromChosenLocationWithPassword(
-          password,
-          preRestoreBackupName(new Date()),
-        );
-      if (!restoredPath) return null;
+  restoreVaultWithPassword: (password) =>
+    runRestore(set, get, (preRestoreName) =>
+      vaultApi.restoreVaultFromChosenLocationWithPassword(
+        password,
+        preRestoreName,
+      ),
+    ),
 
-      const loaded = await loadModel();
-      syncRuntimeSettings(loaded.model);
-      set({
-        status: loaded.migration ? "migration" : "unlocked",
-        model: loaded.model,
-        migration: loaded.migration,
-        postMigrationStatus: "unlocked",
-        incompatibleMessage: null,
-        pendingKit: null,
-      });
-      return restoredPath;
-    } catch (e) {
-      if (e instanceof VaultCompatibilityError) {
-        await vaultApi.lock();
-        set({
-          status: "incompatible",
-          model: null,
-          migration: null,
-          incompatibleMessage: e.message,
-          error: null,
-        });
-        return null;
-      }
-      set({ error: String(e) });
-      throw e;
-    } finally {
-      set({ busy: false });
-    }
-  },
-
-  restoreVaultWithRecovery: async (code) => {
-    set({ busy: true, error: null });
-    try {
-      const restoredPath =
-        await vaultApi.restoreVaultFromChosenLocationWithRecovery(
-          code,
-          preRestoreBackupName(new Date()),
-        );
-      if (!restoredPath) return null;
-
-      const loaded = await loadModel();
-      syncRuntimeSettings(loaded.model);
-      set({
-        status: loaded.migration ? "migration" : "unlocked",
-        model: loaded.model,
-        migration: loaded.migration,
-        postMigrationStatus: "unlocked",
-        incompatibleMessage: null,
-        pendingKit: null,
-      });
-      return restoredPath;
-    } catch (e) {
-      if (e instanceof VaultCompatibilityError) {
-        await vaultApi.lock();
-        set({
-          status: "incompatible",
-          model: null,
-          migration: null,
-          incompatibleMessage: e.message,
-          error: null,
-        });
-        return null;
-      }
-      set({ error: String(e) });
-      throw e;
-    } finally {
-      set({ busy: false });
-    }
-  },
+  restoreVaultWithRecovery: (code) =>
+    runRestore(set, get, (preRestoreName) =>
+      vaultApi.restoreVaultFromChosenLocationWithRecovery(code, preRestoreName),
+    ),
 
   eraseVaultAndStartFresh: async () => {
     set({ busy: true, error: null });

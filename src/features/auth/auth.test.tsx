@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -36,6 +36,12 @@ vi.mock("@/vault/api", () => ({
     vaultPath: vi.fn(async () => "/tmp/vault.dat"),
     backupVault: vi.fn(async () => "/tmp/backup.dat"),
     backupVaultToChosenLocation: vi.fn(async () => "/tmp/chosen-backup.dat"),
+    restoreVaultFromChosenLocationWithPassword: vi.fn(
+      async () => "/tmp/backup.okbak",
+    ),
+    restoreVaultFromChosenLocationWithRecovery: vi.fn(
+      async () => "/tmp/backup.okbak",
+    ),
     eraseVault: vi.fn(async () => {}),
     quitApp: vi.fn(async () => {}),
     lock: vi.fn(async () => {}),
@@ -156,6 +162,123 @@ describe("OnboardingScreen", () => {
     await user.click(screen.getByRole("button", { name: /create vault/i }));
 
     expect(await screen.findByText(/no disk/i)).toBeVisible();
+  });
+});
+
+describe("OnboardingScreen restore", () => {
+  const api = vi.mocked(vaultApi);
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    useVaultStore.setState({
+      status: "onboarding",
+      model: null,
+      pendingKit: null,
+      busy: false,
+      error: null,
+    });
+  });
+
+  async function openRestore() {
+    const user = userEvent.setup();
+    render(<OnboardingScreen />);
+    await user.click(screen.getByRole("button", { name: /restore it/i }));
+    return user;
+  }
+
+  it("restores a backup with its password, skipping vault creation and the Emergency Kit", async () => {
+    const user = await openRestore();
+    // Nothing to erase on a new Mac, so no warning about it.
+    expect(screen.queryByText(/permanently erase/i)).not.toBeInTheDocument();
+
+    await user.type(
+      screen.getByLabelText(/backup master password/i),
+      "backup pw",
+    );
+    await user.click(screen.getByRole("button", { name: /restore vault/i }));
+
+    expect(api.restoreVaultFromChosenLocationWithPassword).toHaveBeenCalledWith(
+      "backup pw",
+      expect.stringMatching(/^ownkeep-pre-restore-/),
+    );
+    await waitFor(() =>
+      expect(useVaultStore.getState().status).toBe("unlocked"),
+    );
+    expect(api.createVault).not.toHaveBeenCalled();
+    expect(useVaultStore.getState().pendingKit).toBeNull();
+  });
+
+  it("restores with a recovery code", async () => {
+    const user = await openRestore();
+    await user.selectOptions(
+      screen.getByLabelText(/restore credential type/i),
+      "recovery",
+    );
+    await user.type(screen.getByLabelText(/backup recovery code/i), "a b c");
+    await user.click(screen.getByRole("button", { name: /restore vault/i }));
+
+    expect(api.restoreVaultFromChosenLocationWithRecovery).toHaveBeenCalledWith(
+      "a b c",
+      expect.stringMatching(/^ownkeep-pre-restore-/),
+    );
+  });
+
+  it("shows a rejected credential and stays on the screen", async () => {
+    api.restoreVaultFromChosenLocationWithPassword.mockRejectedValueOnce(
+      "wrong password",
+    );
+    const user = await openRestore();
+    await user.type(screen.getByLabelText(/backup master password/i), "nope");
+    await user.click(screen.getByRole("button", { name: /restore vault/i }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "wrong password",
+    );
+    expect(useVaultStore.getState().status).toBe("onboarding");
+    expect(screen.getByLabelText(/backup master password/i)).toHaveValue("");
+  });
+
+  it("explains a credential the backup rejects, in the UI's language", async () => {
+    api.restoreVaultFromChosenLocationWithPassword.mockRejectedValueOnce(
+      "authentication failed (wrong password/recovery code, or corrupted data)",
+    );
+    const user = await openRestore();
+    await user.type(screen.getByLabelText(/backup master password/i), "nope");
+    await user.click(screen.getByRole("button", { name: /restore vault/i }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      /doesn't open this backup/i,
+    );
+  });
+
+  it("stays on the screen when the file picker is canceled", async () => {
+    api.restoreVaultFromChosenLocationWithPassword.mockResolvedValueOnce(null);
+    const user = await openRestore();
+    await user.type(screen.getByLabelText(/backup master password/i), "pw");
+    await user.click(screen.getByRole("button", { name: /restore vault/i }));
+
+    await waitFor(() => expect(useVaultStore.getState().busy).toBe(false));
+    expect(useVaultStore.getState().status).toBe("onboarding");
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("does nothing with a blank credential, and can go back to creating a vault", async () => {
+    const user = await openRestore();
+    await user.type(screen.getByLabelText(/backup master password/i), "   ");
+    expect(
+      screen.getByRole("button", { name: /restore vault/i }),
+    ).toBeDisabled();
+    fireEvent.submit(
+      screen.getByRole("button", { name: /restore vault/i }).closest("form")!,
+    );
+    expect(
+      api.restoreVaultFromChosenLocationWithPassword,
+    ).not.toHaveBeenCalled();
+
+    await user.click(
+      screen.getByRole("button", { name: /create a new vault/i }),
+    );
+    expect(screen.getByRole("button", { name: /create vault/i })).toBeVisible();
   });
 });
 

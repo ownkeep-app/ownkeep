@@ -13,12 +13,14 @@ export const APP_RELEASE_DATE = "2026-09-13";
 
 export const APP_FEATURE_KEYS: MessageKey[] = [
   "about.feature.vault",
+  "about.feature.files",
+  "about.feature.backup",
   "about.feature.commandBar",
   "about.feature.commands",
+  "about.feature.events",
   "about.feature.dashboard",
-  "about.feature.touchId",
   "about.feature.notes",
-  "about.feature.backup",
+  "about.feature.touchId",
 ];
 
 export function formatReleaseDate(

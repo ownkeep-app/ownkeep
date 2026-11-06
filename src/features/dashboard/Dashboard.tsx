@@ -40,6 +40,7 @@ import {
 import { MODULES } from "@/modules/registry";
 import { useVaultStore } from "@/stores/vault-store";
 import { APP_VERSION } from "@/vault/model";
+import { BackupReminderBanner } from "./BackupReminderBanner";
 import { SettingsPanel } from "./SettingsPanel";
 
 const SETTINGS_KEY = "settings";
@@ -247,20 +248,23 @@ export function Dashboard() {
           </p>
         </div>
       </nav>
-      <section
-        className="relative flex min-h-0 flex-1 flex-col overflow-hidden"
-        data-dashboard-pane
-      >
-        {Pane ? (
-          <Pane
-            items={items}
-            focusItemId={focusItemId}
-            onFocusItemHandled={() => setItemTarget(null)}
-          />
-        ) : (
-          <SettingsPanel />
-        )}
-      </section>
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+        <BackupReminderBanner />
+        <section
+          className="relative flex min-h-0 flex-1 flex-col overflow-hidden"
+          data-dashboard-pane
+        >
+          {Pane ? (
+            <Pane
+              items={items}
+              focusItemId={focusItemId}
+              onFocusItemHandled={() => setItemTarget(null)}
+            />
+          ) : (
+            <SettingsPanel />
+          )}
+        </section>
+      </div>
       <KeyboardHelp
         groups={[DASHBOARD_SHORTCUTS, GLOBAL_SHORTCUTS]}
         onOpenChange={setHelpOpen}

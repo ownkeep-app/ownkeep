@@ -1,5 +1,6 @@
 import { type FormEvent, useEffect, useRef, useState } from "react";
 
+import { RestoreForm } from "@/components/RestoreForm";
 import { Screen } from "@/components/screen";
 import { VaultPathHint } from "@/components/VaultPathHint";
 import { Button } from "@/components/ui/button";
@@ -8,11 +9,19 @@ import { useT } from "@/i18n";
 import { whenMainWindowReady } from "@/lib/window";
 import { useVaultStore } from "@/stores/vault-store";
 
-/** First-run: create the master password. The Emergency Kit is shown next (see App routing). */
+/** Rust's message for a credential that doesn't open the backup. */
+const WRONG_CREDENTIAL_ERROR = "authentication failed";
+
+/**
+ * First-run: create the master password (the Emergency Kit is shown next; see App routing), or bring
+ * back an existing vault from a backup, which keeps that vault's password and recovery code.
+ */
 export function OnboardingScreen() {
   const { t } = useT();
   const create = useVaultStore((s) => s.create);
   const busy = useVaultStore((s) => s.busy);
+  const restoreError = useVaultStore((s) => s.error);
+  const [restoring, setRestoring] = useState(false);
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -38,6 +47,35 @@ export function OnboardingScreen() {
     } catch (err) {
       setError(String(err));
     }
+  }
+
+  if (restoring) {
+    return (
+      <Screen>
+        <h1 className="text-xl font-semibold">
+          {t("onboarding.restoreTitle")}
+        </h1>
+        <p className="text-sm text-muted-foreground">
+          {t("onboarding.restoreBody")}
+        </p>
+        <RestoreForm replacesVault={false} />
+        {restoreError && (
+          <p className="text-sm text-destructive" role="alert">
+            {restoreError.includes(WRONG_CREDENTIAL_ERROR)
+              ? t("onboarding.restoreWrongCredential")
+              : restoreError}
+          </p>
+        )}
+        <Button
+          disabled={busy}
+          onClick={() => setRestoring(false)}
+          type="button"
+          variant="link"
+        >
+          {t("onboarding.restoreBack")}
+        </Button>
+      </Screen>
+    );
   }
 
   return (
@@ -70,6 +108,14 @@ export function OnboardingScreen() {
           {busy ? t("onboarding.creating") : t("onboarding.create")}
         </Button>
       </form>
+      <Button
+        disabled={busy}
+        onClick={() => setRestoring(true)}
+        type="button"
+        variant="link"
+      >
+        {t("onboarding.restoreLink")}
+      </Button>
     </Screen>
   );
 }
