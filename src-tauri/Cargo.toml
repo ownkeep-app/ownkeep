@@ -1,7 +1,7 @@
 [package]
 name = "ownkeep"
 version = "1.7.0"
-description = "Offline-first macOS vault and command launcher"
+description = "Offline encrypted vault and toolbox for macOS"
 authors = ["Shaojiang"]
 edition = "2021"
 license = "GPL-3.0-or-later"

@@ -446,6 +446,13 @@ with a single-file backup archive. See `spec.md` §3.2, §4.8, §6 M6, §11.*
 
 ---
 
+### Phase 16.1 — 🛟 First-run restore + backup reminder · working release 1.7
+
+- [x] First-run screen offers **Restore it**, so a new Mac needs no throwaway vault (`components/RestoreForm.tsx`, shared with Settings).
+- [x] Offline backup reminder banner in the Dashboard (`lib/backup-reminder.ts`), with **Later** and a Settings interval that can turn it off.
+- **No schema change.** Reasoning in `spec.md` §11.2.
+- **Exit criteria:** `pnpm check` + `pnpm coverage` green (>95%); `pnpm coverage:rust` green (>95%); a fresh install restores a real `.okbak` from the first screen.
+
 ## Definition of Done — v1.0
 
 - Unlock via master password **and** recovery code; auto-lock + zeroize verified.

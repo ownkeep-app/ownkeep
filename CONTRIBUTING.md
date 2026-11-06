@@ -24,7 +24,7 @@ will be declined:
 
 - **Offline-only.** No network access at runtime, no telemetry, no analytics, no crash reporting, no auto-update pings.
 - **Secrets stay in the Rust core.** Secret values never enter the WebView.
-- **One encrypted file.** No database, no secondary on-disk store. (The single flagged exception is the device-local Touch ID key in the macOS Keychain — see `spec.md` §4.7.)
+- **One encrypted file.** No database, no secondary on-disk store. (Two flagged exceptions: the Files module's encrypted blobs in a folder beside the vault, `spec.md` §3.2, and the device-local Touch ID key in the macOS Keychain, §4.7.)
 - **The feature-module registry architecture.** Features are self-contained modules; the core stays small.
 - **Master password and recovery code are the only authoritative credentials.** No feature may create a fourth way in, or a way to be locked out.
 

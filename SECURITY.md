@@ -1,6 +1,6 @@
 # Security Policy
 
-OwnKeep holds passwords. This document states exactly what it does, what it does **not** do, and how
+OwnKeep holds passwords, identity and legal documents, financial records and private notes. This document states exactly what it does, what it does **not** do, and how
 to report a problem — so you can decide whether to trust it rather than take a claim on faith.
 
 ## Reporting a vulnerability
@@ -37,9 +37,11 @@ auto-update, so please check the [releases page](https://github.com/ownkeep-app/
 
 ## What OwnKeep actually does
 
-The whole vault is a single AEAD-encrypted file at
-`~/Library/Application Support/com.shaojiang.ownkeep/vault.dat`. There is no database, no server,
-and no network traffic at runtime.
+The vault is a single AEAD-encrypted file at
+`~/Library/Application Support/com.shaojiang.ownkeep/vault.dat`. Files stored by the Files module are
+encrypted separately, in 1 MiB XChaCha20-Poly1305 chunks under a key derived from the vault key, in a
+`vault.files` folder beside it. A backup is one `.okbak` archive of both, already encrypted. There is
+no database, no server, and no network traffic at runtime.
 
 **Envelope encryption.** One random 256-bit data encryption key (DEK) encrypts the vault. The DEK is
 never stored in the clear — it is wrapped separately by up to three key-encryption keys, so any one

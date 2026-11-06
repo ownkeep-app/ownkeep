@@ -4,10 +4,10 @@
 
 # OwnKeep
 
-### One hotkey for the things you shouldn't lose
+### Your offline second brain for everything you can't afford to lose
 
-Your shell incantations, your logins, your renewal dates — behind a single Spotlight-style bar,
-in one encrypted file on your own Mac. No cloud, no account, no telemetry.
+Passwords, IDs, certificates, contracts, finances and secret notes, locked in one encrypted vault on
+your own Mac. Commands, todos and events, one hotkey away. No cloud, no account, no telemetry.
 
 [![Download](https://img.shields.io/github/v/release/ownkeep-app/ownkeep?label=Download%20for%20macOS&style=for-the-badge&color=4A5AE8)](https://github.com/ownkeep-app/ownkeep/releases/latest)
 
@@ -18,10 +18,7 @@ in one encrypted file on your own Mac. No cloud, no account, no telemetry.
 [![Coverage](https://img.shields.io/badge/coverage-%3E95%25-brightgreen)](#test--quality)
 [![Website](https://img.shields.io/badge/ownkeep.app-4A5AE8)](https://ownkeep.app)
 
-<picture>
-<source srcset="docs/media/shots/command-bar.avif" type="image/avif">
-<img src="docs/media/shots/command-bar.gif" width="760" alt="OwnKeep in use: pressing Cmd-Shift-Space summons the command bar over the desktop, a few letters filter the saved entries, and the secret lands on the clipboard">
-</picture>
+<img src="docs/media/shots/command-bar.webp" width="760" alt="OwnKeep in use: pressing Cmd-Shift-Space summons the command bar, a few letters filter the saved entries, and the password lands on the clipboard">
 
 <sub><code>⌘⇧Space</code> from anywhere · type a few letters · <code>⌥⇧1</code> to copy</sub>
 
@@ -29,13 +26,60 @@ in one encrypted file on your own Mac. No cloud, no account, no telemetry.
 
 ---
 
+## Four promises
+
+| | |
+|---|---|
+| **Secure** | Argon2id and XChaCha20-Poly1305 from audited Rust crates. Your master password is never stored, and passwords never reach the UI layer. |
+| **Offline** | No cloud, no account, no telemetry. It works the same with the Wi-Fi off, and there's no company in the loop to lose your data or lock you out of it. |
+| **Movable** | One `.okbak` backup file holds your whole vault, already encrypted. Keep it on a hard drive or in your own cloud, and restore it on any Mac. |
+| **Handy** | `⌘⇧Space` from anywhere. Search, copy, done. Results rank by what you actually use. |
+
+## The problem
+
+Your digital life is scattered. A passport scan in an old chat. A contract somewhere in Downloads.
+The insurance policy in a cloud drive you haven't opened in years. Passwords in one app, finances in
+a spreadsheet, the `docker run` line you rewrite from memory in your shell history.
+
+And the day you need them tends to be a bad day: a dead laptop, a fresh install, no network, a
+service that has locked you out.
+
+**OwnKeep is the central repo for all of it.** One encrypted vault for everything you can't afford to
+lose, and one hotkey for everything you reach for daily. It's the second brain that keeps what you
+need to get through the digital world, on hardware you own.
+
+## Ready for a bad day
+
+OwnKeep never uploads anything. You take a backup when you choose (Settings → System): one
+`.okbak` file, encrypted before it's ever written, holding your vault and every stored file. Put it
+on a hard drive, or in iCloud, Dropbox or any cloud you already trust. Nobody can open it without
+your master password or recovery code. From v1.7, the Dashboard reminds you when your backup has
+fallen behind, and you can change or turn off that reminder in Settings.
+
+| When this happens | Here's what you do |
+|---|---|
+| **Your Mac dies or is replaced** | Install OwnKeep on the next one, choose **Restore it** on the first screen, and pick your backup. Everything comes back. (On v1.6, create a new vault first, then use Settings → System → **Restore vault**.) |
+| **You reinstall macOS** | Take a backup first and store it off the machine. Restore it the same way afterwards. |
+| **The network goes down** | Nothing. The vault is already on your disk, so it opens on a plane as it does at your desk. |
+| **You forget your master password** | Your 12-word Emergency Kit unlocks the vault and has you set a new password on the spot. |
+| **Your laptop is stolen** | A locked vault is unreadable without your master password or recovery code. Restore your backup on your next Mac. |
+
+Two limits worth knowing, because a promise like this should come with its edges:
+
+- **A restore brings back what your last backup holds.** OwnKeep reminds you, but it never backs up
+  by itself, so take a new one after adding something you can't replace.
+- **Nobody can rescue a lost password and recovery code.** If both are gone, the vault stays sealed,
+  and that includes me. Print the Emergency Kit and keep it away from the backup.
+
+<img src="docs/media/shots/backup.webp" width="480" alt="The Backup and restore panel in OwnKeep settings">
+
 ## The security model, up front
 
 A password manager should show its construction before it asks you for anything.
 
 | | |
 |---|---|
-| **Encryption** | The vault is one file sealed with **XChaCha20-Poly1305**, under a key derived from your master password by **Argon2id** (256 MiB, t=3, p=4). Fresh nonce on every write. |
+| **Encryption** | The vault is one file, `vault.dat`, sealed with **XChaCha20-Poly1305** under a key derived from your master password by **Argon2id** (256 MiB, t=3, p=4). Fresh nonce on every write. Stored files are encrypted the same way in a `vault.files` folder beside it, and a backup rolls both into one `.okbak` file. |
 | **No custom crypto** | The primitives come from the audited `argon2` and `chacha20poly1305` crates. Nothing here is hand-rolled. |
 | **Secrets never enter the WebView** | Decrypted values stay in the Rust core. A copy goes straight from Rust to the pasteboard as *concealed*, so clipboard-history tools skip it, and it auto-clears. |
 | **Signed and notarized** | Developer ID signature, hardened runtime, notarized and stapled by Apple — so Gatekeeper opens it without a warning. [Verify it yourself](#install) before you open the DMG. |
@@ -44,19 +88,6 @@ A password manager should show its construction before it asks you for anything.
 The exact construction, the limitations, and five commands that check these claims are in
 [**SECURITY.md**](SECURITY.md). The design rationale behind it is
 [`spec.md` §4](spec.md#4-security--cryptography-critical).
-
-## The problem
-
-You already have somewhere to put passwords. You probably don't have anywhere good to put
-`git rebase {{target-branch}}`, or the `docker run` invocation you rewrite from memory every few
-weeks, or the date your domain renews.
-
-So it ends up scattered: half in a notes app, half in shell history, half in a gist you can't find.
-Meanwhile your password manager — the one tool you actually trained yourself to open — refuses to
-hold anything that isn't a login.
-
-**OwnKeep is that tool, widened.** One bar, one hotkey, one encrypted file, for everything you'd hate
-to lose and can never quite remember.
 
 ## A command library that fills itself in
 
@@ -80,21 +111,20 @@ Nothing needs the mouse: `⌥⇧1`–`⌥⇧9` runs a result's primary action �
 command — and `Esc` makes the bar disappear. It hides on blur too, so it never becomes another window
 to manage.
 
-## Modules you can switch off
+## Everything in one vault
 
-Passwords and commands are the core. Todos, notes, subscriptions, and finance are modules — each
-toggles from Settings with its data preserved, and each shows up in the same bar and the same
-Dashboard sidebar. v1.3 added Notes at `⌥⇧4`, so Subscriptions is `⌥⇧5` and Finance is `⌥⇧6`.
+Each module lives in the same encrypted vault, the same bar and the same Dashboard sidebar. Any of
+them switches off from Settings with its data preserved, so you only see what you use.
 
 | | |
 |:--|:--|
 | <img src="docs/media/shots/passwords.webp" alt="The Passwords module: logins in a sortable table with categories, usernames, and concealed passwords"><br>**Passwords** — logins with categories, sortable columns, and one-click concealed copy for usernames and passwords. | <img src="docs/media/shots/todos.webp" alt="The Todos module showing open and done tasks with due dates, priorities, and categories"><br>**Todos** — due dates, priorities, recurrence, and notifications that fire once per window. |
 | <img src="docs/media/shots/notes.webp" alt="The Notes module showing Markdown notes grouped by category, sorted by last edited"><br>**Notes** — Markdown with a formatting toolbar, preview and full-screen mode, grouped by category and sorted by last edited. Code blocks copy a line at a time. Kept out of the command bar by default so long prose never buries a login. | <img src="docs/media/shots/subscriptions.webp" alt="The Subscriptions module showing monthly and yearly totals plus upcoming and overdue renewals"><br>**Subscriptions** — what renews, when, and what it costs, with lead-time reminders before you're charged. Auto-renewing services roll themselves forward on the invoice day. |
-| <img src="docs/media/shots/finance.webp" alt="The Finance module showing a net-worth trend chart and snapshot list"><br>**Finance** — periodic snapshots, per-category stats, a net-worth trend, and a manual FX table. | |
+| <img src="docs/media/shots/finance.webp" alt="The Finance module showing a net-worth trend chart and snapshot list"><br>**Finance** — periodic snapshots, per-category stats, a net-worth trend, and a manual FX table. | <img src="docs/media/shots/events.webp" alt="The Event Tracker: a training log on a monthly calendar, with tag values on each day"><br>**Event Tracker** — for anything that unfolds over days: a training plan, a recovery, a child's growth. Your own quick-entry tags, notes, photos and PDFs, read back as a calendar, a timeline or a trend chart. |
+| <img src="docs/media/shots/files.webp" alt="The Files module: a grid of encrypted passports, ID cards, certificates and contracts, each showing its first page"><br>**Files** — passports, ID cards, certificates, contracts, receipts: any file, encrypted on disk beside your vault. A grid shows each one's first page or frame, PDFs, images, audio and video preview in place, and expired documents move to an Invalid pile instead of being lost. | <img src="docs/media/shots/language.webp" alt="OwnKeep system settings shown in Simplified Chinese"><br>**Made for daily use** — English and 简体中文 throughout, drag anything into your own order, pagination for long lists, and a master password you can change whenever you need to. |
 
-Calendar, lists, and bookmarks are candidates for later — the module registry is what makes adding
-one a self-contained job rather than surgery on the core. Notes shipped in v1.3 as the first module
-added after v1.0: one folder and one line in the registry.
+Lists and bookmarks are candidates for later. The module registry is what makes adding one a
+self-contained job rather than surgery on the core: one folder and one line in the registry.
 
 ## One door in
 
@@ -143,10 +173,11 @@ Prefer to build it? See [Development](#development).
 
 Stated plainly, because it should save some people a download:
 
+- **Not a sync service.** Nothing leaves your Mac unless you put it somewhere yourself, and OwnKeep doesn't back up on its own schedule. Your backups are yours to take.
 - **Not a 1Password or KeePassXC replacement.** No sync, no browser autofill, no TOTP generation, no import from other managers. If those are what you need, use KeePassXC or Bitwarden — genuinely good tools that OwnKeep isn't competing with.
 - **Not audited.** No third-party review, as said above. [SECURITY.md](SECURITY.md) is blunt about this and about everything else OwnKeep doesn't do.
 - **Not cross-platform.** macOS 13+ only. Touch ID, the concealed clipboard, and the menu-bar behavior are macOS-native.
-- **Not a team tool.** One person, one Mac, one file.
+- **Not a team tool.** One person, one Mac, one vault.
 
 ## Security
 
@@ -164,11 +195,10 @@ Found a vulnerability? [Report it privately](https://github.com/ownkeep-app/ownk
 - **Signing & Touch ID on macOS:** [`code-signing.md`](code-signing.md)
 - **Rules for humans & AI agents:** [`AGENTS.md`](AGENTS.md), [`.cursor/rules/`](.cursor/rules/)
 
-> **Status:** v1.4 shipping — refreshed app icon and tray icon on top of the signed, notarized,
-> Touch ID-enabled v1.3 base (Notes module, auto-renewing subscriptions). The vault schema is
-> unchanged. The encrypted vault core, every feature module, the command bar, Dashboard,
-> backup/restore, scheduler, and migration framework are all in place (see
-> [`plan.md`](plan.md)).
+> **Status:** v1.6 shipping, with Files, drag to sort, pagination and change master password on top
+> of the signed, notarized, Touch ID-enabled base. The encrypted vault core, every feature module,
+> the command bar, Dashboard, backup/restore, scheduler and migration framework are all in place
+> (see [`plan.md`](plan.md)).
 
 ---
 
@@ -223,7 +253,7 @@ if you forget it, the only other way in is the **recovery code** shown once duri
   old code stops working).
 
 The vault lives at `~/Library/Application Support/com.shaojiang.ownkeep/vault.dat`
-(`vault-dev.dat` in dev builds), outside the app bundle — see `spec.md` §3.2 and §4.
+(`vault-dev.dat` in dev builds), with stored files in `vault.files` beside it, outside the app bundle — see `spec.md` §3.2 and §4.
 
 ### Keyboard shortcuts
 

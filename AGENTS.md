@@ -1,8 +1,9 @@
 # AGENTS.md — OwnKeep
 
-OwnKeep is an **offline-first, single-file, master-password-gated macOS app** (Tauri 2 + React +
-TypeScript + Rust) whose key features are a **password vault** and a **command-line library**, plus
-backup/restore and configuration. Full details: [`spec.md`](spec.md). Build order: [`plan.md`](plan.md).
+OwnKeep is an **offline-first, master-password-gated macOS app** (Tauri 2 + React + TypeScript + Rust):
+a **central encrypted vault** for sensitive information (passwords, IDs, legal documents, finances,
+secret notes) and a **handy toolbox** (command bar, commands, todos, events), with one-file
+backup/restore so it all moves with you. Full details: [`spec.md`](spec.md). Build order: [`plan.md`](plan.md).
 
 ## Read before writing code
 
