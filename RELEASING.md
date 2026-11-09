@@ -103,6 +103,61 @@ Check it yourself rather than taking my word for it:
 **Full changelog:** https://github.com/ownkeep-app/ownkeep/compare/v<prev>...v<version>
 ```
 
+## Ready to paste — v1.7
+
+```markdown
+## OwnKeep v1.7
+
+Restore a backup straight from the first screen on a new Mac, and a quiet reminder when your backups fall behind.
+
+### Requirements
+- macOS 13 or later
+- Universal 2 — Apple Silicon and Intel
+
+### Install
+Download the `.dmg`, open it, drag OwnKeep to Applications. On first launch macOS asks for
+**Accessibility** permission so the `⌘⇧Space` global hotkey works system-wide; OwnKeep runs in the
+menu bar with no Dock icon.
+
+Upgrading from v1.6? Drag the new app over the old one. Your vault lives outside the app bundle and
+is untouched. No schema change, no migration, no Emergency Kit re-issue. Backups keep the same
+`.okbak` format.
+
+**Before you upgrade, know that:**
+- **Back up with v1.6 first if you might go back.** Once v1.7 saves your vault, older versions refuse to open it, including a vault restored from a v1.7 backup.
+- **Expect a backup reminder right after upgrading.** v1.6 didn't record when you backed up, so v1.7 treats an existing vault as never backed up until you take one backup. Turn the reminder off in Settings → System if you'd rather not see it.
+
+### Verify this download
+Signed with a Developer ID certificate, built with hardened runtime, notarized and stapled by Apple.
+Check it yourself rather than taking my word for it:
+
+    spctl -a -vvv -t open --context context:primary-signature OwnKeep_1.7.0_universal.dmg
+    # expect: accepted / source=Notarized Developer ID
+
+    shasum -a 256 OwnKeep_1.7.0_universal.dmg
+    # <sha256>
+
+### Changes
+- **Restore from the first screen.** On a Mac with no vault, choose **Already have a backup? Restore it**, enter the master password or recovery code the backup was made with, then pick the `.okbak` file. There's no need to create a throwaway vault first. The restored vault keeps its own password and recovery code. Touch ID isn't in backups, so turn it on again in Settings afterwards.
+- **Backup reminder.** A banner above the Dashboard offers **Back up now** or **Later** (hides it for 7 days). It appears when a vault that's more than a day old has content and has never been backed up, when your last backup is older than the interval you set and something has changed since, or straight away once you add a file or change 10 items. Choose the interval in Settings → System: 7, 14, 30 (the default) or 90 days, or Off. Settings also shows the date of your last backup. Backups are still made only when you choose to make one, and nothing is uploaded.
+- **File tiles no longer cover menus.** A PDF tile now draws its first page as an image instead of loading the PDF reader, whose zoom and save controls floated above menus and dialogs. A damaged PDF shows the file icon.
+- **Row menus open upward** when there isn't room below them.
+- The About panel and the Settings hint about the vault file now describe what's actually there: the vault file plus a folder of stored files, which only a backup copies together.
+
+### Known issues
+- The reminder counts new and edited items, not deletions or renamed stored files. A restore that needs a migration doesn't record a backup date until you take your next backup.
+- The number of stored files and their approximate sizes are visible to anyone with access to your disk; names, types and contents are not. Deleting a file removes its ciphertext but doesn't wipe the disk.
+- Automatic pre-restore and pre-migration snapshots keep files you've since deleted, using disk space until you remove those snapshots by hand.
+- Images and PDFs over 512 MiB can be stored and saved, but not previewed.
+- Dragging works within a page or section, not across them, and a sorted list can't yet go back to automatic order.
+- Event Tracker photos and PDFs still live inside `vault.dat`, so many of them still slow every save.
+- Some technical error messages are still in English.
+- No sync, no browser autofill, no TOTP generation — all deliberate non-goals.
+- macOS only.
+
+**Full changelog:** https://github.com/ownkeep-app/ownkeep/compare/v1.6...v1.7
+```
+
 ## Ready to paste — v1.6
 
 ```markdown
